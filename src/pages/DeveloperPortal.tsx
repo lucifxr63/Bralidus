@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { KnowledgeGraph } from '@/components/KnowledgeGraph';
+import MacroIntelligence from '@/components/MacroIntelligence';
 import {
   Key, Plus, Trash2, Copy, Check, AlertCircle, BookOpen,
   Play, Activity, Zap, Clock, TrendingUp, ChevronDown, Loader2, ShieldCheck,
@@ -777,6 +778,9 @@ export function DeveloperPortal() {
             )}
           </div>
         </div>
+
+        {/* Financial Intelligence — BralidusPY */}
+        <MacroIntelligence />
 
         {/* Playground */}
         <div className="bg-white dark:bg-[#12121A] rounded-2xl border border-gray-100 dark:border-white/5 shadow-sm overflow-hidden">
