@@ -7,13 +7,14 @@ export function AuthCallback() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    supabase.auth.onAuthStateChange((event) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'SIGNED_IN') {
         navigate('/', { replace: true });
       } else if (event === 'SIGNED_OUT') {
         navigate('/login', { replace: true });
       }
     });
+    return () => subscription.unsubscribe();
   }, [navigate]);
 
   return (

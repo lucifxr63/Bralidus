@@ -1,10 +1,11 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { KnowledgeGraph } from '@/components/KnowledgeGraph';
 import {
   Key, Plus, Trash2, Copy, Check, AlertCircle, BookOpen,
   Play, Activity, Zap, Clock, TrendingUp, ChevronDown, Loader2, ShieldCheck,
   RefreshCw, Database, Brain, BarChart2, FileText, Globe, Server,
+  List, Search, ChevronRight, BarChart3, Webhook, Bell,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { generateApiKey, hashApiKey } from '@/utils/crypto';
@@ -69,6 +70,105 @@ interface ServiceInfo {
   message: string;
 }
 
+interface WebhookSub {
+  id: string;
+  endpoint_url: string;
+  events: string[];
+  is_active: boolean;
+  created_at: string;
+  secret?: string;
+}
+
+const WEBHOOK_EVENTS = [
+  { value: 'validation.complete', label: 'Validación completada' },
+  { value: 'analysis.ready',      label: 'Análisis IA listo' },
+  { value: 'profile.updated',     label: 'Perfil actualizado' },
+];
+
+interface EndpointDoc {
+  method: string;
+  path: string;
+  description: string;
+  color: string;
+  params: Array<{ name: string; type: string; required: boolean; description: string }>;
+  responseExample: string;
+  errorCodes: string[];
+}
+
+const API_DOCS: EndpointDoc[] = [
+  {
+    method: 'POST', path: '/api/v1/rag/query', color: '#0EB5C6',
+    description: 'Consulta semántica al corpus de conocimiento de ValidateAI. Devuelve los fragmentos más relevantes con scores de similitud coseno.',
+    params: [
+      { name: 'query', type: 'string', required: true, description: 'Pregunta o texto de búsqueda (máx. 2000 chars)' },
+      { name: 'filters', type: 'object', required: false, description: 'Filtros opcionales: { industry?, category?, date_from? }' },
+    ],
+    responseExample: '{\n  "results": [\n    { "content": "...", "score": 0.92, "source": "normativa_cmf" }\n  ],\n  "query_id": "q_abc123",\n  "latency_ms": 234\n}',
+    errorCodes: ['401 Unauthorized', '429 Rate limit exceeded', '500 RAG pipeline error'],
+  },
+  {
+    method: 'GET', path: '/api/v1/data/economy', color: '#2DD4BF',
+    description: 'Retorna indicadores económicos de Chile en tiempo real: UF, IPC, UTM, tipo de cambio USD/CLP y más. Sin body requerido.',
+    params: [],
+    responseExample: '{\n  "uf": { "value": 37842.15, "date": "2026-06-08" },\n  "ipc": { "value": 0.3, "period": "2026-05" },\n  "utm": { "value": 68264, "year": 2026 }\n}',
+    errorCodes: ['401 Unauthorized', '503 Data source unavailable'],
+  },
+  {
+    method: 'POST', path: '/api/v1/webhooks', color: '#F59E0B',
+    description: 'Registra una URL HTTPS para recibir notificaciones cuando eventos de ValidateAI ocurran (validación completada, análisis listo, etc.).',
+    params: [
+      { name: 'url', type: 'string', required: true, description: 'URL HTTPS que recibirá el POST' },
+      { name: 'event', type: 'string', required: true, description: 'validation.complete | analysis.ready | profile.updated' },
+    ],
+    responseExample: '{\n  "id": "wh_xyz789",\n  "url": "https://mi-sistema.cl/webhook",\n  "event": "validation.complete",\n  "created_at": "2026-06-08T14:00:00Z"\n}',
+    errorCodes: ['400 Invalid URL', '401 Unauthorized'],
+  },
+  {
+    method: 'GET', path: '/api/v1/webhooks', color: '#F59E0B',
+    description: 'Lista todos los webhooks registrados para tu cuenta con su estado de última entrega.',
+    params: [],
+    responseExample: '{\n  "webhooks": [\n    { "id": "wh_xyz789", "url": "https://...", "event": "validation.complete", "last_delivery": "ok" }\n  ]\n}',
+    errorCodes: ['401 Unauthorized'],
+  },
+  {
+    method: 'POST', path: '/api/v1/rag/ingest/text', color: '#EC4899',
+    description: 'Vectoriza e ingesta texto plano al knowledge base. El contenido queda disponible para consultas RAG de forma inmediata.',
+    params: [
+      { name: 'text', type: 'string', required: true, description: 'Texto a vectorizar (máx. 50.000 caracteres)' },
+      { name: 'metadata', type: 'object', required: false, description: 'Metadatos: { source?, industry?, category? }' },
+    ],
+    responseExample: '{\n  "chunks_created": 4,\n  "doc_id": "doc_abc456",\n  "latency_ms": 1200\n}',
+    errorCodes: ['400 Text too long', '401 Unauthorized', '429 Rate limit exceeded'],
+  },
+  {
+    method: 'POST', path: '/functions/v1/assemble-mega-prompt', color: '#0EB5C6',
+    description: 'Genera un análisis de due diligence completo usando IA para una validación. Integra RAG, datos económicos y el perfil del founder.',
+    params: [
+      { name: 'validation_id', type: 'string (UUID)', required: true, description: 'ID de la validación a analizar' },
+    ],
+    responseExample: '{\n  "analysis": {\n    "market": "...",\n    "team": "...",\n    "risks": "..."\n  },\n  "score": 0.78,\n  "generated_at": "2026-06-08T14:00:00Z"\n}',
+    errorCodes: ['400 Invalid validation_id', '401 Unauthorized', '404 Validation not found'],
+  },
+  {
+    method: 'GET', path: '/api/v1/data/macro', color: '#2DD4BF',
+    description: 'Indicadores macroeconómicos USA sincronizados desde FRED: tipo de cambio USD/CLP, precio cobre, Fed Funds Rate, CPI y precio petróleo WTI.',
+    params: [],
+    responseExample: '{\n  "indicators": {\n    "DEXCLUS": { "value": 930.5, "date": "2026-06-06", "_updated_at": "..." },\n    "PCOPPUSDM": { "value": 4.62, "date": "2026-05", "_updated_at": "..." }\n  },\n  "count": 5\n}',
+    errorCodes: ['401 Unauthorized', '503 Sin datos — ejecutar cron fred-sync'],
+  },
+  {
+    method: 'GET', path: '/api/v1/data/chilecompra/metricas', color: '#F59E0B',
+    description: 'Métricas M1-M10 de inteligencia Mercado Público para un proveedor. Lee el cálculo más reciente desde BD. Para datos frescos, llamar a chilecompra-calcular.',
+    params: [
+      { name: 'rut', type: 'string', required: true, description: 'RUT de la empresa (ej: 76543210-K)' },
+    ],
+    responseExample: '{\n  "rut": "765432109",\n  "calculado_al": "2026-06-08",\n  "ingreso_fiscal_12m": 450000000,\n  "tendencia_pct": -12.5,\n  "trato_directo_pct": 34.2,\n  "win_rate_pct": 28.0,\n  "top_organismo_nombre": "Hospital Regional"\n}',
+    errorCodes: ['400 RUT inválido', '401 Unauthorized', '404 Sin métricas calculadas'],
+  },
+];
+
+const LOGS_PER_PAGE = 20;
+
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 const BASE = `${SUPABASE_URL}/functions/v1/api-v1`;
 
@@ -115,6 +215,20 @@ const ENDPOINTS = [
     color: '#0EB5C6',
     defaultBody: JSON.stringify({ validation_id: '<uuid-de-validacion>' }, null, 2),
   },
+  {
+    method: 'GET',
+    path: '/api/v1/data/macro',
+    label: 'Macro — FRED USD/CLP, cobre, petróleo',
+    color: '#2DD4BF',
+    defaultBody: '',
+  },
+  {
+    method: 'GET',
+    path: '/api/v1/data/chilecompra/metricas',
+    label: 'ChileCompra — Métricas M1-M10',
+    color: '#F59E0B',
+    defaultBody: '',
+  },
 ] as const;
 
 const METHOD_COLORS: Record<string, string> = {
@@ -138,7 +252,6 @@ export function DeveloperPortal() {
   const [logs, setLogs] = useState<ApiUsageLog[]>([]);
   const [auditSummaries, setAuditSummaries] = useState<AuditSummary[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
-  const [_selectedRunId, setSelectedRunId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
 
@@ -159,8 +272,23 @@ export function DeveloperPortal() {
   const [newKeySecret, setNewKeySecret] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [copied, setCopied] = useState(false);
+  const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => { fetchData(); fetchServices(); }, []);
+  const [logsSearch, setLogsSearch] = useState('');
+  const [logsEndpointFilter, setLogsEndpointFilter] = useState('all');
+  const [logsPage, setLogsPage] = useState(0);
+  const [expandedDocIdx, setExpandedDocIdx] = useState<number | null>(null);
+
+  const [webhooks, setWebhooks] = useState<WebhookSub[]>([]);
+  const [webhooksLoading, setWebhooksLoading] = useState(false);
+  const [showWebhookForm, setShowWebhookForm] = useState(false);
+  const [webhookUrl, setWebhookUrl] = useState('');
+  const [webhookEvents, setWebhookEvents] = useState<string[]>([]);
+  const [webhookCreating, setWebhookCreating] = useState(false);
+  const [newWebhookSecret, setNewWebhookSecret] = useState<string | null>(null);
+  const [webhookSecretCopied, setWebhookSecretCopied] = useState(false);
+
+  useEffect(() => { fetchData(); fetchServices(); fetchWebhooks(); }, []);
 
   const fetchData = async () => {
     setLoading(true);
@@ -177,7 +305,6 @@ export function DeveloperPortal() {
     if (auditSummaryRes.data && auditSummaryRes.data.length > 0) {
       setAuditSummaries(auditSummaryRes.data as AuditSummary[]);
       const latestRunId = auditSummaryRes.data[0].run_id as string;
-      setSelectedRunId(latestRunId);
       const logsRes2 = await supabase
         .from('rag_audit_logs')
         .select('id, run_id, query, category, expected_keyword, has_sources, keyword_found, precision_score, latency_ms, chunks_retrieved, error, created_at')
@@ -202,6 +329,7 @@ export function DeveloperPortal() {
       setServicesCheckedAt(data.checked_at ?? null);
     } catch (err) {
       console.error('Health check failed:', err);
+      toast.error('No se pudo verificar el estado de los servicios');
     } finally {
       setServicesLoading(false);
     }
@@ -237,7 +365,10 @@ export function DeveloperPortal() {
     } catch { toast.error('Error al revocar'); }
   };
 
-  const closeModal = () => { setShowModal(false); setKeyName(''); setNewKeySecret(null); };
+  const closeModal = () => {
+    if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+    setShowModal(false); setKeyName(''); setNewKeySecret(null); setCopied(false);
+  };
 
   const selectEndpoint = (idx: number) => {
     setSelectedEndpointIdx(idx);
@@ -270,6 +401,71 @@ export function DeveloperPortal() {
       setPlaygroundResult(JSON.stringify({ error: String(err) }, null, 2));
     } finally {
       setPlaygroundLoading(false);
+    }
+  };
+
+  const fetchWebhooks = async () => {
+    setWebhooksLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token ?? import.meta.env.VITE_SUPABASE_ANON_KEY;
+      const res = await fetch(`${BASE}/api/v1/webhooks`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (!res.ok) return;
+      const data = await res.json() as { webhooks?: WebhookSub[] };
+      setWebhooks(data.webhooks ?? []);
+    } catch { /* silent */ }
+    finally { setWebhooksLoading(false); }
+  };
+
+  const handleCreateWebhook = async () => {
+    if (!webhookUrl.trim() || !webhookUrl.startsWith('http')) {
+      toast.error('URL inválida — debe empezar con http(s)://');
+      return;
+    }
+    if (webhookEvents.length === 0) {
+      toast.error('Selecciona al menos un evento');
+      return;
+    }
+    setWebhookCreating(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token ?? import.meta.env.VITE_SUPABASE_ANON_KEY;
+      const res = await fetch(`${BASE}/api/v1/webhooks`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ endpoint_url: webhookUrl.trim(), events: webhookEvents }),
+      });
+      const data = await res.json() as { webhook?: WebhookSub; error?: string };
+      if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
+      setNewWebhookSecret(data.webhook!.secret ?? null);
+      setWebhooks(prev => [data.webhook!, ...prev]);
+      setWebhookUrl('');
+      setWebhookEvents([]);
+      setShowWebhookForm(false);
+      toast.success('Webhook registrado');
+    } catch (err: unknown) {
+      toast.error(`Error: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setWebhookCreating(false);
+    }
+  };
+
+  const handleDeleteWebhook = async (id: string) => {
+    if (!confirm('¿Eliminar este webhook? Dejará de recibir notificaciones.')) return;
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token ?? import.meta.env.VITE_SUPABASE_ANON_KEY;
+      const res = await fetch(`${BASE}/api/v1/webhooks/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setWebhooks(prev => prev.filter(w => w.id !== id));
+      toast.success('Webhook eliminado');
+    } catch {
+      toast.error('Error al eliminar el webhook');
     }
   };
 
@@ -320,6 +516,36 @@ export function DeveloperPortal() {
 
   const hasData = logs.length > 0;
 
+  const uniqueEndpoints = useMemo(() => [...new Set(logs.map(l => l.endpoint).filter(Boolean))], [logs]);
+
+  const filteredLogs = useMemo(() => {
+    let result = [...logs].reverse();
+    if (logsEndpointFilter !== 'all') result = result.filter(l => l.endpoint === logsEndpointFilter);
+    if (logsSearch) result = result.filter(l => l.endpoint?.toLowerCase().includes(logsSearch.toLowerCase()));
+    return result;
+  }, [logs, logsEndpointFilter, logsSearch]);
+
+  const paginatedLogs = useMemo(
+    () => filteredLogs.slice(logsPage * LOGS_PER_PAGE, (logsPage + 1) * LOGS_PER_PAGE),
+    [filteredLogs, logsPage],
+  );
+
+  const monthlyStats = useMemo(() => {
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
+    const monthStr = startOfMonth.toISOString();
+    const monthLogs = logs.filter(l => l.created_at >= monthStr);
+    return {
+      requests: monthLogs.reduce((s, l) => s + (l.requests_count || 1), 0),
+      tokens: monthLogs.reduce((s, l) => s + (l.tokens_used || 0), 0),
+      limit_requests: 1000,
+      limit_tokens: 500_000,
+      resetDate: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1)
+        .toLocaleDateString('es-CL', { day: 'numeric', month: 'long' }),
+    };
+  }, [logs]);
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-[#0A0A0F] flex flex-col">
       <main className="flex-1 max-w-5xl mx-auto w-full px-4 sm:px-6 py-8 md:py-12 space-y-8">
@@ -332,7 +558,7 @@ export function DeveloperPortal() {
           </div>
           <div className="flex items-center gap-3">
             <a
-              href="/api-docs.html"
+              href="https://validus.scouttech.lat/developers"
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-[#12121A] border border-gray-200 dark:border-white/10 rounded-xl text-sm font-semibold text-gray-700 dark:text-gray-300 hover:border-violet-400 transition shadow-sm"
@@ -366,6 +592,42 @@ export function DeveloperPortal() {
               <p className="text-xs text-gray-400 mt-0.5">{label}</p>
             </div>
           ))}
+        </div>
+
+        {/* Rate Limits */}
+        <div className="bg-white dark:bg-[#12121A] rounded-2xl border border-gray-100 dark:border-white/5 shadow-sm p-5">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <BarChart3 className="w-4 h-4 text-teal-500" />
+              <span className="font-bold text-gray-900 dark:text-white text-sm">Cuotas del Mes</span>
+            </div>
+            <span className="text-xs bg-violet-500/10 text-violet-400 px-2.5 py-1 rounded-full font-semibold">Free Plan</span>
+          </div>
+          <div className="space-y-4">
+            {[
+              { label: 'Requests', value: monthlyStats.requests, limit: monthlyStats.limit_requests, color: '#0EB5C6' },
+              { label: 'Tokens', value: monthlyStats.tokens, limit: monthlyStats.limit_tokens, color: '#2DD4BF' },
+            ].map(({ label, value, limit, color }) => {
+              const pct = Math.min(100, (value / limit) * 100);
+              const barColor = pct > 90 ? '#EF4444' : pct > 70 ? '#F59E0B' : color;
+              return (
+                <div key={label}>
+                  <div className="flex justify-between text-xs mb-1.5">
+                    <span className="text-gray-500">{label}</span>
+                    <span className="font-mono font-semibold text-gray-700 dark:text-gray-300">
+                      {value.toLocaleString()} / {limit >= 1000 ? `${(limit / 1000).toFixed(0)}k` : limit.toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="h-2 bg-gray-100 dark:bg-white/5 rounded-full overflow-hidden">
+                    <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: barColor }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <p className="text-[11px] text-gray-400 mt-4">
+            Resetea el {monthlyStats.resetDate}.
+          </p>
         </div>
 
         {/* Service Status */}
@@ -523,7 +785,7 @@ export function DeveloperPortal() {
               <Play className="w-4 h-4 text-violet-500" />
               <span className="font-bold text-gray-900 dark:text-white text-sm">Playground</span>
             </div>
-            <a href="/api-docs.html" target="_blank" rel="noopener noreferrer"
+            <a href="https://validus.scouttech.lat/developers" target="_blank" rel="noopener noreferrer"
               className="text-xs text-violet-400 hover:text-violet-300 transition">
               Ver documentación completa →
             </a>
@@ -659,6 +921,89 @@ export function DeveloperPortal() {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+
+        {/* API Docs */}
+        <div className="bg-white dark:bg-[#12121A] rounded-2xl border border-gray-100 dark:border-white/5 shadow-sm overflow-hidden">
+          <div className="px-5 py-4 border-b border-gray-100 dark:border-white/5">
+            <div className="flex items-center gap-2">
+              <BookOpen className="w-4 h-4 text-violet-500" />
+              <span className="font-bold text-gray-900 dark:text-white text-sm">Referencia de API</span>
+              <span className="text-[11px] text-gray-400 ml-1">— haz click en un endpoint para ver detalles</span>
+            </div>
+          </div>
+          <div className="divide-y divide-gray-50 dark:divide-white/5">
+            {API_DOCS.map((doc, i) => (
+              <div key={i}>
+                <button
+                  onClick={() => setExpandedDocIdx(expandedDocIdx === i ? null : i)}
+                  className="w-full flex items-center gap-3 px-5 py-3.5 hover:bg-gray-50 dark:hover:bg-white/[0.02] transition text-left"
+                >
+                  <span
+                    className="text-[10px] font-bold px-2 py-0.5 rounded-md shrink-0"
+                    style={{ backgroundColor: `${METHOD_COLORS[doc.method] ?? '#888'}22`, color: METHOD_COLORS[doc.method] ?? '#888' }}
+                  >
+                    {doc.method}
+                  </span>
+                  <code className="text-xs text-gray-700 dark:text-gray-300 font-mono">{doc.path}</code>
+                  <span className="text-xs text-gray-400 ml-2 hidden sm:inline truncate flex-1">{doc.description.slice(0, 64)}…</span>
+                  <ChevronRight className={`w-4 h-4 text-gray-400 ml-auto shrink-0 transition-transform duration-200 ${expandedDocIdx === i ? 'rotate-90' : ''}`} />
+                </button>
+                {expandedDocIdx === i && (
+                  <div className="px-5 pb-5 space-y-4 bg-gray-50/50 dark:bg-white/[0.01] border-t border-gray-100 dark:border-white/5">
+                    <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed pt-3">{doc.description}</p>
+
+                    <div>
+                      <p className="text-[10px] font-semibold text-gray-400 mb-2 uppercase tracking-wider">Autenticación</p>
+                      <code className="text-xs bg-gray-100 dark:bg-black/30 text-gray-700 dark:text-gray-300 px-3 py-2 rounded-lg block font-mono">
+                        {'Authorization: Bearer <TU_API_KEY>'}
+                      </code>
+                    </div>
+
+                    {doc.params.length > 0 && (
+                      <div>
+                        <p className="text-[10px] font-semibold text-gray-400 mb-2 uppercase tracking-wider">Parámetros del Body</p>
+                        <table className="w-full text-xs">
+                          <thead>
+                            <tr className="text-left">
+                              <th className="pb-2 pr-4 font-semibold text-gray-400">Campo</th>
+                              <th className="pb-2 pr-4 font-semibold text-gray-400">Tipo</th>
+                              <th className="pb-2 pr-4 font-semibold text-gray-400">Req.</th>
+                              <th className="pb-2 font-semibold text-gray-400">Descripción</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {doc.params.map((p, j) => (
+                              <tr key={j} className="border-t border-gray-100 dark:border-white/5">
+                                <td className="py-1.5 pr-4 font-mono text-teal-600 dark:text-teal-400">{p.name}</td>
+                                <td className="py-1.5 pr-4 text-violet-500">{p.type}</td>
+                                <td className="py-1.5 pr-4">{p.required ? <span className="text-red-400 font-bold">✓</span> : <span className="text-gray-500">—</span>}</td>
+                                <td className="py-1.5 text-gray-500">{p.description}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+
+                    <div>
+                      <p className="text-[10px] font-semibold text-gray-400 mb-2 uppercase tracking-wider">Respuesta ejemplo</p>
+                      <pre className="bg-gray-950 dark:bg-black/40 text-green-400 text-xs rounded-xl p-3.5 overflow-x-auto font-mono leading-relaxed">{doc.responseExample}</pre>
+                    </div>
+
+                    <div>
+                      <p className="text-[10px] font-semibold text-gray-400 mb-2 uppercase tracking-wider">Códigos de error</p>
+                      <div className="flex flex-wrap gap-2">
+                        {doc.errorCodes.map((code, j) => (
+                          <span key={j} className="text-[11px] bg-red-500/10 text-red-400 px-2 py-0.5 rounded-md font-mono">{code}</span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
         </div>
 
@@ -834,6 +1179,252 @@ export function DeveloperPortal() {
             </div>
           )}
         </div>
+        {/* Logs Explorer */}
+        <div className="bg-white dark:bg-[#12121A] rounded-2xl border border-gray-100 dark:border-white/5 shadow-sm overflow-hidden">
+          <div className="px-5 py-4 border-b border-gray-100 dark:border-white/5 flex items-center justify-between gap-3 flex-wrap">
+            <div className="flex items-center gap-2">
+              <List className="w-4 h-4 text-teal-500" />
+              <span className="font-bold text-gray-900 dark:text-white text-sm">Request Logs</span>
+              {!loading && <span className="text-xs text-gray-400">({filteredLogs.length} entradas)</span>}
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+                <input
+                  value={logsSearch}
+                  onChange={e => { setLogsSearch(e.target.value); setLogsPage(0); }}
+                  placeholder="Buscar endpoint..."
+                  className="pl-8 pr-3 py-1.5 text-xs bg-gray-50 dark:bg-[#0A0A0F] border border-gray-200 dark:border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500/40 text-gray-700 dark:text-gray-300 w-40"
+                />
+              </div>
+              <select
+                value={logsEndpointFilter}
+                onChange={e => { setLogsEndpointFilter(e.target.value); setLogsPage(0); }}
+                className="text-xs bg-gray-50 dark:bg-[#0A0A0F] border border-gray-200 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-violet-500/40"
+              >
+                <option value="all">Todos los endpoints</option>
+                {uniqueEndpoints.map(ep => (
+                  <option key={ep} value={ep}>{ep.split('/').slice(-2).join('/')}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {loading ? (
+            <div className="p-5 space-y-2">
+              {[1, 2, 3].map(i => <div key={i} className="h-10 bg-gray-100 dark:bg-white/5 rounded-lg animate-pulse" />)}
+            </div>
+          ) : filteredLogs.length === 0 ? (
+            <div className="py-12 flex flex-col items-center justify-center text-gray-400">
+              <List className="w-8 h-8 mb-3 opacity-25" />
+              <p className="text-sm">{logs.length === 0 ? 'Sin requests registrados aún.' : 'No hay logs que coincidan con el filtro.'}</p>
+            </div>
+          ) : (
+            <>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b border-gray-50 dark:border-white/5">
+                      {['Timestamp', 'Endpoint', 'Requests', 'Tokens'].map(h => (
+                        <th key={h} className="px-4 py-2.5 text-left font-semibold text-gray-400">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paginatedLogs.map(log => (
+                      <tr key={log.id} className="border-b border-gray-50 dark:border-white/5 hover:bg-gray-50 dark:hover:bg-white/[0.02] transition">
+                        <td className="px-4 py-2.5 font-mono text-gray-400 whitespace-nowrap">
+                          {new Date(log.created_at).toLocaleDateString('es-CL', { day: '2-digit', month: 'short' })}
+                          {' '}
+                          <span className="text-gray-500">{new Date(log.created_at).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}</span>
+                        </td>
+                        <td className="px-4 py-2.5 max-w-xs">
+                          <code className="text-teal-600 dark:text-teal-400 font-mono truncate block">{log.endpoint}</code>
+                        </td>
+                        <td className="px-4 py-2.5 font-mono text-gray-700 dark:text-gray-300">{(log.requests_count || 1).toLocaleString()}</td>
+                        <td className="px-4 py-2.5 font-mono text-gray-400">
+                          {(log.tokens_used || 0) > 0 ? (log.tokens_used).toLocaleString() : <span className="text-gray-600">—</span>}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {filteredLogs.length > LOGS_PER_PAGE && (
+                <div className="flex items-center justify-between px-5 py-3 border-t border-gray-50 dark:border-white/5">
+                  <button
+                    onClick={() => setLogsPage(p => Math.max(0, p - 1))}
+                    disabled={logsPage === 0}
+                    className="text-xs text-gray-400 hover:text-violet-400 disabled:opacity-30 disabled:cursor-not-allowed transition"
+                  >
+                    ← Anterior
+                  </button>
+                  <span className="text-xs text-gray-400">
+                    Pág {logsPage + 1} de {Math.ceil(filteredLogs.length / LOGS_PER_PAGE)}
+                  </span>
+                  <button
+                    onClick={() => setLogsPage(p => Math.min(Math.ceil(filteredLogs.length / LOGS_PER_PAGE) - 1, p + 1))}
+                    disabled={logsPage >= Math.ceil(filteredLogs.length / LOGS_PER_PAGE) - 1}
+                    className="text-xs text-gray-400 hover:text-violet-400 disabled:opacity-30 disabled:cursor-not-allowed transition"
+                  >
+                    Siguiente →
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* Webhooks */}
+        <div className="bg-white dark:bg-[#12121A] rounded-2xl border border-gray-100 dark:border-white/5 shadow-sm overflow-hidden">
+          <div className="px-5 py-4 border-b border-gray-100 dark:border-white/5 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Webhook className="w-4 h-4 text-amber-500" />
+              <span className="font-bold text-gray-900 dark:text-white text-sm">Webhooks</span>
+              {!webhooksLoading && (
+                <span className="text-xs text-gray-400">({webhooks.length} activos)</span>
+              )}
+            </div>
+            <button
+              onClick={() => { setShowWebhookForm(v => !v); setNewWebhookSecret(null); }}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold rounded-lg transition"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              Nuevo webhook
+            </button>
+          </div>
+
+          {/* Create form */}
+          {showWebhookForm && (
+            <div className="px-5 py-4 bg-amber-500/5 border-b border-amber-500/10 space-y-3">
+              <p className="text-xs font-semibold text-gray-500 dark:text-gray-400">Registrar nuevo endpoint</p>
+              <input
+                type="url"
+                value={webhookUrl}
+                onChange={e => setWebhookUrl(e.target.value)}
+                placeholder="https://mi-sistema.cl/webhook"
+                className="w-full bg-white dark:bg-[#0A0A0F] border border-gray-200 dark:border-white/10 rounded-xl px-3 py-2.5 text-sm font-mono text-gray-800 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-amber-500/50 transition"
+              />
+              <div>
+                <p className="text-xs text-gray-400 mb-2">Eventos a notificar:</p>
+                <div className="flex flex-wrap gap-2">
+                  {WEBHOOK_EVENTS.map(ev => {
+                    const active = webhookEvents.includes(ev.value);
+                    return (
+                      <button
+                        key={ev.value}
+                        onClick={() => setWebhookEvents(prev =>
+                          active ? prev.filter(e => e !== ev.value) : [...prev, ev.value]
+                        )}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition ${
+                          active
+                            ? 'bg-amber-500/15 border-amber-500/40 text-amber-500'
+                            : 'bg-transparent border-gray-200 dark:border-white/10 text-gray-500 hover:border-amber-400'
+                        }`}
+                      >
+                        <Bell className="w-3 h-3 inline mr-1.5" />
+                        {ev.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="flex gap-2 pt-1">
+                <button
+                  onClick={() => { setShowWebhookForm(false); setWebhookUrl(''); setWebhookEvents([]); }}
+                  className="flex-1 py-2 text-xs font-semibold text-gray-500 hover:bg-gray-100 dark:hover:bg-white/5 rounded-lg transition"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleCreateWebhook}
+                  disabled={webhookCreating}
+                  className="flex-1 py-2 text-xs font-semibold bg-amber-500 hover:bg-amber-600 text-white rounded-lg transition disabled:opacity-50"
+                >
+                  {webhookCreating ? 'Registrando...' : 'Registrar webhook'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Secret shown once after creation */}
+          {newWebhookSecret && (
+            <div className="px-5 py-4 bg-amber-500/5 border-b border-amber-500/10">
+              <div className="flex items-start gap-2 mb-3">
+                <AlertCircle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                <p className="text-xs text-amber-700 dark:text-amber-300">
+                  <strong>Secret generado — solo se muestra ahora.</strong> Úsalo para verificar la firma HMAC-SHA256 de los eventos entrantes.
+                </p>
+              </div>
+              <div className="flex items-center gap-2 bg-white dark:bg-[#0A0A0F] border border-amber-200 dark:border-amber-500/20 p-2 rounded-xl">
+                <code className="text-xs flex-1 overflow-x-auto text-gray-800 dark:text-gray-300 px-2 font-mono whitespace-nowrap">
+                  {newWebhookSecret}
+                </code>
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(newWebhookSecret);
+                    setWebhookSecretCopied(true);
+                    setTimeout(() => setWebhookSecretCopied(false), 2000);
+                  }}
+                  className="shrink-0 p-2 bg-amber-500/10 hover:bg-amber-500/20 rounded-lg transition text-amber-600"
+                >
+                  {webhookSecretCopied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                </button>
+              </div>
+              <button
+                onClick={() => setNewWebhookSecret(null)}
+                className="mt-2 text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition"
+              >
+                Ya lo guardé — ocultar
+              </button>
+            </div>
+          )}
+
+          {webhooksLoading ? (
+            <div className="p-5 space-y-2">
+              {[1, 2].map(i => <div key={i} className="h-14 bg-gray-100 dark:bg-white/5 rounded-lg animate-pulse" />)}
+            </div>
+          ) : webhooks.length === 0 ? (
+            <div className="py-10 flex flex-col items-center justify-center text-gray-400">
+              <Webhook className="w-8 h-8 mb-3 opacity-20" />
+              <p className="text-sm">Sin webhooks registrados.</p>
+              <p className="text-xs text-gray-500 mt-1">Regístralos para recibir notificaciones en tiempo real.</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-gray-50 dark:divide-white/5">
+              {webhooks.map(wh => (
+                <div key={wh.id} className="px-5 py-3.5 flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <code className="text-xs font-mono text-teal-600 dark:text-teal-400 block truncate">{wh.endpoint_url}</code>
+                    <div className="flex flex-wrap gap-1.5 mt-1.5">
+                      {wh.events.map(ev => (
+                        <span key={ev} className="text-[10px] bg-amber-500/10 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded-full font-semibold">
+                          {ev}
+                        </span>
+                      ))}
+                    </div>
+                    <p className="text-[11px] text-gray-400 mt-1">
+                      Creado {new Date(wh.created_at).toLocaleDateString('es-CL')}
+                      {' · '}
+                      <span className={wh.is_active ? 'text-green-500' : 'text-red-400'}>
+                        {wh.is_active ? 'Activo' : 'Inactivo'}
+                      </span>
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => handleDeleteWebhook(wh.id)}
+                    className="shrink-0 p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition"
+                    title="Eliminar webhook"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
       </main>
 
       {/* Modal Crear Llave */}
@@ -874,7 +1465,7 @@ export function DeveloperPortal() {
                 </div>
                 <div className="flex items-center gap-2 bg-gray-100 dark:bg-[#0A0A0F] border border-gray-200 dark:border-white/10 p-2 rounded-xl mb-6">
                   <code className="text-sm flex-1 overflow-x-auto text-gray-800 dark:text-gray-300 px-2 font-mono whitespace-nowrap">{newKeySecret}</code>
-                  <button onClick={() => { navigator.clipboard.writeText(newKeySecret!); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
+                  <button onClick={() => { navigator.clipboard.writeText(newKeySecret!); setCopied(true); if (copyTimerRef.current) clearTimeout(copyTimerRef.current); copyTimerRef.current = setTimeout(() => setCopied(false), 2000); }}
                     className="shrink-0 p-2 bg-white dark:bg-[#12121A] hover:bg-gray-50 dark:hover:bg-white/5 rounded-lg border border-gray-200 dark:border-white/10 transition shadow-sm text-gray-700 dark:text-gray-300">
                     {copied ? <Check className="w-4 h-4 text-teal-500" /> : <Copy className="w-4 h-4" />}
                   </button>

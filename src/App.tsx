@@ -9,7 +9,7 @@ import { AuthCallback } from '@/pages/AuthCallback';
 import type { Session } from '@supabase/supabase-js';
 
 function ProtectedRoute({ session, children }: { session: Session | null; children: React.ReactNode }) {
-  if (session === undefined as unknown as null) return null; // still loading
+  if (session === undefined) return null;
   if (!session) return <Navigate to="/login" replace />;
   return <>{children}</>;
 }
