@@ -286,10 +286,11 @@ export default function MacroIntelligence() {
                       contentStyle={tooltipStyle}
                       itemStyle={{ color: '#F0EFF8' }}
                       labelStyle={{ color: '#8B8AA0', marginBottom: 4 }}
-                      formatter={(v: number) => [
-                        `${v.toLocaleString('en-US', { maximumFractionDigits: 2 })} ${cfg.unit}`,
-                        cfg.shortLabel,
-                      ]}
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                      formatter={(v: any) => {
+                        const num = typeof v === 'number' ? v : parseFloat(String(v ?? 0));
+                        return [`${num.toLocaleString('en-US', { maximumFractionDigits: 2 })} ${cfg.unit}`, cfg.shortLabel] as [string, string];
+                      }}
                     />
                     <Area
                       type="monotone"

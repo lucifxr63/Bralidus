@@ -212,9 +212,12 @@ export default function CorrelationChart({
               contentStyle={tooltipStyle}
               itemStyle={{ color: '#F0EFF8' }}
               labelStyle={{ color: '#8B8AA0', marginBottom: 4 }}
-              formatter={(value: number, name: string) => {
-                const unit = name === 'macro' ? macroUnit : pymeUnit;
-                return [`${value.toFixed(1)} (norm.)`, name === 'macro' ? macroLabel : pymeLabel];
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              formatter={(value: any, name: any) => {
+                const isMacro = name === 'macro';
+                const num = typeof value === 'number' ? value : parseFloat(String(value ?? 0));
+                const unit = isMacro ? macroUnit : pymeUnit;
+                return [`${num.toFixed(1)} ${unit} (norm.)`, isMacro ? macroLabel : pymeLabel] as [string, string];
               }}
             />
 
