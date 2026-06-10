@@ -143,12 +143,24 @@ const API_DOCS: EndpointDoc[] = [
   },
   {
     method: 'POST', path: '/functions/v1/assemble-mega-prompt', color: '#0EB5C6',
-    description: 'Genera un análisis de due diligence completo usando IA para una validación. Integra RAG, datos económicos y el perfil del founder.',
+    description: 'Genera un análisis de due diligence completo con 16 dimensiones RAG usando IA. Sprint 7: incluye Riesgo Regulatorio (Ley 21.719 Datos, Ley 21.521 Fintech, Ley Marco Ciberseguridad), Eficiencia de Capital (Burn Rate, Runway, Burn Multiple), Retención (NRR, Gross Churn) y Riesgo Conductual (sesgos del fundador). El resultado alimenta el Investment Dossier PDF — Página 05 · Alertas Críticas.',
     params: [
       { name: 'validation_id', type: 'string (UUID)', required: true, description: 'ID de la validación a analizar' },
+      { name: 'capital_efficiency', type: 'object', required: false, description: '{ monthly_burn_usd?, runway_months?, nrr_pct?, gross_churn_pct?, burn_multiple? } — activa la página Alertas Críticas con datos reales' },
     ],
-    responseExample: '{\n  "analysis": {\n    "market": "...",\n    "team": "...",\n    "risks": "..."\n  },\n  "score": 0.78,\n  "generated_at": "2026-06-08T14:00:00Z"\n}',
+    responseExample: '{\n  "analysis": {\n    "market": "...", "team": "...", "risks": "...",\n    "capital_efficiency": {\n      "monthly_burn_usd": 8500,\n      "runway_months": 14,\n      "nrr_pct": 112,\n      "gross_churn_pct": 2.1,\n      "burn_multiple": 1.4\n    },\n    "regulatory_risk": "medium",\n    "founder_bias_warning": "Sesgo de confirmación detectado en las proyecciones de market share."\n  },\n  "score": 0.78,\n  "pdf_pages": 6,\n  "rag_dimensions": 16,\n  "generated_at": "2026-06-10T14:00:00Z"\n}',
     errorCodes: ['400 Invalid validation_id', '401 Unauthorized', '404 Validation not found'],
+  },
+  {
+    method: 'POST', path: '/functions/v1/ai-validate', color: '#2DD4BF',
+    description: 'Motor de validación IA multi-propósito (18 prompt types). Con prompt_type: "market_signals" activa el Data Storytelling Engine: consume métricas macro de Chile (TPM, UF, IPC, USD/CLP vía mindicador.cl) y genera un insight estructurado listo para LinkedIn. El copy siempre incluye el gancho: "¿Tu startup sobrevive a este escenario? Descúbrelo en Validus."',
+    params: [
+      { name: 'validation_id', type: 'string', required: true, description: 'Identificador de sesión (ej: "admin-content-engine")' },
+      { name: 'prompt_type', type: 'string', required: true, description: '"market_signals" | "summary" | "competitive_analysis" | "risk_analysis" | "unit_economics" | "founder_fit" | "fundraising_roadmap" | "governance_assessment" | + 10 más' },
+      { name: 'context', type: 'object', required: true, description: '{ idea_name, idea_description, idea_industry, target_country, business_model, business_stage }. Para market_signals: incluir métricas macro en idea_description (TPM, UF, etc.)' },
+    ],
+    responseExample: '// prompt_type: "market_signals"\n{\n  "tag_sistema": "/SYS/MACRO/2026",\n  "titulo": "TPM en 5.5%: el costo invisible del capital",\n  "subtitulo": "La tasa define cuánto cuesta financiar tu crecimiento.",\n  "metrica": "Tasa Política Monetaria (%)",\n  "benchmark": "5.5%",\n  "saludable": "< 4% → deuda a costo razonable",\n  "peligro": "> 5% → equity más barato que deuda",\n  "insight": "Con TPM en 5.5%, el crédito en Chile sigue caro...",\n  "copyLinkedIn": "¿Tu startup sobrevive a este escenario? Descúbrelo en Validus."\n}',
+    errorCodes: ['401 Unauthorized', '429 Rate limit exceeded', '400 Bad prompt_type'],
   },
   {
     method: 'GET', path: '/api/v1/data/macro', color: '#2DD4BF',
@@ -212,9 +224,38 @@ const ENDPOINTS = [
   {
     method: 'POST',
     path: '/functions/v1/assemble-mega-prompt',
-    label: 'Due Diligence — Generar análisis IA',
+    label: 'Due Diligence — 16 dimensiones RAG',
     color: '#0EB5C6',
-    defaultBody: JSON.stringify({ validation_id: '<uuid-de-validacion>' }, null, 2),
+    defaultBody: JSON.stringify({
+      validation_id: '<uuid-de-validacion>',
+      capital_efficiency: {
+        monthly_burn_usd: 8500,
+        runway_months: 14,
+        nrr_pct: 112,
+        gross_churn_pct: 2.1,
+        burn_multiple: 1.4,
+      },
+    }, null, 2),
+  },
+  {
+    method: 'POST',
+    path: '/functions/v1/ai-validate',
+    label: 'Data Storytelling — Market Insight LinkedIn',
+    color: '#2DD4BF',
+    defaultBody: JSON.stringify({
+      validation_id: 'admin-content-engine',
+      step: 0,
+      prompt_type: 'market_signals',
+      context: {
+        idea_name: 'Validus Market Insight Engine',
+        idea_description: 'Genera un Data Story para LinkedIn con métricas macro de Chile (TPM: 5.5%, UF: $38.500). Termina con: "¿Tu startup sobrevive a este escenario? Descúbrelo en Validus."',
+        idea_industry: 'SaaS / Venture Capital',
+        target_country: 'Chile',
+        target_region: 'LatAm',
+        business_model: 'B2B SaaS',
+        business_stage: 'growth',
+      },
+    }, null, 2),
   },
   {
     method: 'GET',
@@ -555,7 +596,10 @@ export function DeveloperPortal() {
         <div className="flex items-start justify-between">
           <div>
             <h1 className="text-2xl font-black text-gray-900 dark:text-[#F0EFF8]">API & Developers</h1>
-            <p className="text-sm text-gray-400 mt-1">Gestiona llaves y monitorea el consumo de tu RaaS.</p>
+            <p className="text-sm text-gray-400 mt-1">
+              Gestiona llaves y monitorea el consumo de tu RaaS.
+              <span className="ml-2 text-[11px] text-teal-400 font-semibold">10 endpoints · 16 dimensiones RAG · Sprint 7</span>
+            </p>
           </div>
           <div className="flex items-center gap-3">
             <a
@@ -593,6 +637,60 @@ export function DeveloperPortal() {
               <p className="text-xs text-gray-400 mt-0.5">{label}</p>
             </div>
           ))}
+        </div>
+
+        {/* Sprint 7 Changelog */}
+        <div className="rounded-2xl border border-teal-500/25 bg-teal-500/5 p-5">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-teal-500/15 text-teal-400 uppercase tracking-wider">Sprint 7 · 2026-06-10</span>
+            <span className="text-sm font-bold text-gray-900 dark:text-white">Distribución & Investment Dossier</span>
+          </div>
+          <div className="grid sm:grid-cols-2 gap-3">
+            {[
+              {
+                tag: 'Nuevo endpoint',
+                color: '#2DD4BF',
+                title: 'Data Storytelling Engine',
+                desc: 'ai-validate con prompt_type: "market_signals" consume TPM/UF en tiempo real desde mindicador.cl y genera copy LinkedIn con el gancho "¿Tu startup sobrevive a este escenario?"',
+                path: 'POST /functions/v1/ai-validate',
+              },
+              {
+                tag: 'PDF actualizado',
+                color: '#7C3AED',
+                title: 'Investment Dossier — 16 dimensiones',
+                desc: 'Nueva página 05 · Alertas Críticas: Riesgo Regulatorio (Ley 21.719 / 21.521 / Ciberseguridad), Capital Efficiency (Burn Rate, Runway, Burn Multiple), Retención (NRR, Gross Churn) y Riesgo Conductual (sesgos del fundador).',
+                path: 'POST /functions/v1/assemble-mega-prompt',
+              },
+              {
+                tag: 'Nuevo tipo',
+                color: '#F59E0B',
+                title: 'CapitalEfficiency',
+                desc: 'Nuevo campo capital_efficiency en PDFData: { monthly_burn_usd, runway_months, nrr_pct, gross_churn_pct, burn_multiple }. Alimenta la página Alertas Críticas del dossier VC.',
+                path: 'TypeScript · @/types/validation',
+              },
+              {
+                tag: 'UI actualizada',
+                color: '#EC4899',
+                title: 'DataStoryEngine Panel',
+                desc: 'Botón "📊 Generar Insight de Mercado" en el Admin: consulta live a mindicador.cl → prompt estructurado → preview + copy LinkedIn en un clic.',
+                path: '/admin → Data Story Factory',
+              },
+            ].map(item => (
+              <div key={item.title} className="bg-white/50 dark:bg-white/[0.03] rounded-xl border border-white/10 p-4">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span
+                    className="text-[9px] font-bold px-1.5 py-0.5 rounded"
+                    style={{ backgroundColor: item.color + '22', color: item.color }}
+                  >
+                    {item.tag.toUpperCase()}
+                  </span>
+                  <span className="text-xs font-bold text-gray-900 dark:text-white">{item.title}</span>
+                </div>
+                <p className="text-[11px] text-gray-500 dark:text-gray-400 leading-relaxed mb-2">{item.desc}</p>
+                <code className="text-[10px] text-teal-500 font-mono bg-teal-500/10 px-2 py-0.5 rounded">{item.path}</code>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Rate Limits */}
