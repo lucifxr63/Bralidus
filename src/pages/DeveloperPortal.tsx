@@ -5,6 +5,7 @@ import MacroIntelligence from '@/components/MacroIntelligence';
 import BralidusPanel from '@/components/BralidusPanel';
 import RadarForense from '@/components/RadarForense';
 import Trazabilidad from '@/components/Trazabilidad';
+import ServiceModal from '@/components/ServiceModal';
 import {
   Key, Plus, Trash2, Copy, Check, AlertCircle, BookOpen,
   Play, Activity, Zap, Clock, TrendingUp, ChevronDown, Loader2, ShieldCheck,
@@ -303,6 +304,7 @@ export function DeveloperPortal() {
   const [services, setServices] = useState<ServiceInfo[]>([]);
   const [servicesLoading, setServicesLoading] = useState(false);
   const [servicesCheckedAt, setServicesCheckedAt] = useState<string | null>(null);
+  const [selectedService, setSelectedService] = useState<ServiceInfo | null>(null);
 
   const [selectedEndpointIdx, setSelectedEndpointIdx] = useState(0);
   const [playgroundBody, setPlaygroundBody] = useState(ENDPOINTS[0].defaultBody);
@@ -817,7 +819,7 @@ export function DeveloperPortal() {
                               data: Globe, gov: ShieldCheck, macro: TrendingDown, scraper: Newspaper,
                             }[svc.category] ?? Server;
                             return (
-                              <div key={svc.id} className={`relative rounded-xl border p-3.5 ${sc.bg} ${sc.border}`}>
+                              <div key={svc.id} onClick={() => setSelectedService(svc)} className={`relative rounded-xl border p-3.5 ${sc.bg} ${sc.border} cursor-pointer hover:ring-1 hover:ring-white/20 transition-all`}>
                                 <div className="flex items-start justify-between mb-2">
                                   <SvcIcon className={`w-4 h-4 ${svc.status === 'unused' ? 'text-gray-400' : sc.text}`} />
                                   <span className="flex items-center gap-1">
@@ -1634,6 +1636,11 @@ export function DeveloperPortal() {
             )}
           </div>
         </div>
+      )}
+
+      {/* Service detail modal */}
+      {selectedService && (
+        <ServiceModal service={selectedService} onClose={() => setSelectedService(null)} />
       )}
     </div>
   );
