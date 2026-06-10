@@ -9,7 +9,7 @@ import {
   Key, Plus, Trash2, Copy, Check, AlertCircle, BookOpen,
   Play, Activity, Zap, Clock, TrendingUp, ChevronDown, Loader2, ShieldCheck,
   RefreshCw, Database, Brain, BarChart2, FileText, Globe, Server,
-  List, Search, ChevronRight, BarChart3, Webhook, Bell,
+  List, Search, ChevronRight, BarChart3, Webhook, Bell, TrendingDown, Radio, Newspaper,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { generateApiKey, hashApiKey } from '@/utils/crypto';
@@ -756,53 +756,90 @@ export function DeveloperPortal() {
 
           <div className="p-5">
             {servicesLoading && services.length === 0 ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                {Array.from({ length: 7 }).map((_, i) => (
-                  <div key={i} className="h-20 bg-gray-100 dark:bg-white/5 rounded-xl animate-pulse" />
+              <div className="space-y-4">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i}>
+                    <div className="h-4 w-32 bg-gray-100 dark:bg-white/5 rounded mb-3 animate-pulse" />
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                      {Array.from({ length: 3 }).map((_, j) => (
+                        <div key={j} className="h-20 bg-gray-100 dark:bg-white/5 rounded-xl animate-pulse" />
+                      ))}
+                    </div>
+                  </div>
                 ))}
               </div>
-            ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                {services.map(svc => {
-                  const statusConfig = {
-                    ok:       { dot: 'bg-emerald-500', text: 'text-emerald-500', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20', label: 'Activo' },
-                    degraded: { dot: 'bg-amber-400',   text: 'text-amber-400',   bg: 'bg-amber-400/10',   border: 'border-amber-400/20',   label: 'Degradado' },
-                    error:    { dot: 'bg-red-500',     text: 'text-red-500',     bg: 'bg-red-500/10',     border: 'border-red-500/20',     label: 'Error' },
-                    unused:   { dot: 'bg-gray-400',    text: 'text-gray-400',    bg: 'bg-white/5',        border: 'border-gray-200 dark:border-white/5', label: 'Sin uso' },
-                  }[svc.status];
+            ) : (() => {
+              const STATUS_CFG = {
+                ok:       { dot: 'bg-emerald-500', text: 'text-emerald-500', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20', label: 'Activo' },
+                degraded: { dot: 'bg-amber-400',   text: 'text-amber-400',   bg: 'bg-amber-400/10',   border: 'border-amber-400/20',   label: 'Degradado' },
+                error:    { dot: 'bg-red-500',     text: 'text-red-500',     bg: 'bg-red-500/10',     border: 'border-red-500/20',     label: 'Error' },
+                unused:   { dot: 'bg-gray-400',    text: 'text-gray-400',    bg: 'bg-white/5',        border: 'border-gray-200 dark:border-white/5', label: 'Sin uso' },
+              } as const;
 
-                  const categoryIcon = {
-                    database:  Database,
-                    ai:        Brain,
-                    analytics: BarChart2,
-                    parsing:   FileText,
-                    data:      Globe,
-                    gov:       ShieldCheck,
-                  }[svc.category] ?? Server;
-                  const CategoryIcon = categoryIcon;
+              const CAT_META: Record<string, { label: string; icon: React.ElementType; color: string }> = {
+                database:  { label: 'Infraestructura',      icon: Database,     color: 'text-teal-500' },
+                ai:        { label: 'IA / LLM',             icon: Brain,        color: 'text-violet-500' },
+                parsing:   { label: 'Parsing',              icon: FileText,     color: 'text-blue-400' },
+                macro:     { label: 'Inteligencia Macro',   icon: TrendingDown, color: 'text-amber-400' },
+                scraper:   { label: 'Scrapers Bralidus',    icon: Radio,        color: 'text-red-400' },
+                gov:       { label: 'APIs Gobierno Chile',  icon: ShieldCheck,  color: 'text-emerald-500' },
+                analytics: { label: 'Analytics & Growth',   icon: BarChart2,    color: 'text-pink-400' },
+                data:      { label: 'Fuentes Externas',     icon: Globe,        color: 'text-cyan-400' },
+              };
 
-                  return (
-                    <div
-                      key={svc.id}
-                      className={`relative rounded-xl border p-3.5 ${statusConfig.bg} ${statusConfig.border}`}
-                    >
-                      <div className="flex items-start justify-between mb-2">
-                        <CategoryIcon className={`w-4 h-4 ${svc.status === 'unused' ? 'text-gray-400' : statusConfig.text}`} />
-                        <span className="flex items-center gap-1">
-                          <span className={`w-2 h-2 rounded-full ${statusConfig.dot} ${svc.status === 'ok' ? 'shadow-[0_0_6px_currentColor]' : ''}`} />
-                          <span className={`text-[10px] font-bold ${statusConfig.text}`}>{statusConfig.label}</span>
-                        </span>
+              const CAT_ORDER = ['database', 'ai', 'parsing', 'macro', 'scraper', 'gov', 'analytics', 'data'];
+
+              const grouped = CAT_ORDER.reduce<Record<string, ServiceInfo[]>>((acc, cat) => {
+                const items = services.filter(s => s.category === cat);
+                if (items.length > 0) acc[cat] = items;
+                return acc;
+              }, {});
+              const ungrouped = services.filter(s => !CAT_ORDER.includes(s.category));
+              if (ungrouped.length > 0) grouped['other'] = ungrouped;
+
+              return (
+                <div className="space-y-5">
+                  {Object.entries(grouped).map(([cat, items]) => {
+                    const meta = CAT_META[cat] ?? { label: cat, icon: Server, color: 'text-gray-400' };
+                    const CatIcon = meta.icon;
+                    return (
+                      <div key={cat}>
+                        <div className="flex items-center gap-2 mb-3">
+                          <CatIcon className={`w-3.5 h-3.5 ${meta.color}`} />
+                          <span className={`text-[11px] font-bold uppercase tracking-widest ${meta.color}`}>{meta.label}</span>
+                          <span className="text-[10px] text-gray-500 ml-1">({items.length})</span>
+                        </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                          {items.map(svc => {
+                            const sc = STATUS_CFG[svc.status];
+                            const SvcIcon = {
+                              database: Database, ai: Brain, analytics: BarChart2, parsing: FileText,
+                              data: Globe, gov: ShieldCheck, macro: TrendingDown, scraper: Newspaper,
+                            }[svc.category] ?? Server;
+                            return (
+                              <div key={svc.id} className={`relative rounded-xl border p-3.5 ${sc.bg} ${sc.border}`}>
+                                <div className="flex items-start justify-between mb-2">
+                                  <SvcIcon className={`w-4 h-4 ${svc.status === 'unused' ? 'text-gray-400' : sc.text}`} />
+                                  <span className="flex items-center gap-1">
+                                    <span className={`w-2 h-2 rounded-full ${sc.dot} ${svc.status === 'ok' ? 'shadow-[0_0_6px_currentColor]' : ''}`} />
+                                    <span className={`text-[10px] font-bold ${sc.text}`}>{sc.label}</span>
+                                  </span>
+                                </div>
+                                <p className="text-xs font-semibold text-gray-800 dark:text-gray-100 leading-tight mb-1">{svc.name}</p>
+                                <p className="text-[11px] text-gray-400 leading-tight truncate" title={svc.message}>{svc.message}</p>
+                                {svc.latency_ms !== undefined && (
+                                  <span className="absolute bottom-2.5 right-3 text-[10px] font-mono text-gray-400">{svc.latency_ms}ms</span>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
-                      <p className="text-xs font-semibold text-gray-800 dark:text-gray-100 leading-tight mb-1">{svc.name}</p>
-                      <p className="text-[11px] text-gray-400 leading-tight truncate" title={svc.message}>{svc.message}</p>
-                      {svc.latency_ms !== undefined && (
-                        <span className="absolute bottom-2.5 right-3 text-[10px] font-mono text-gray-400">{svc.latency_ms}ms</span>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+                    );
+                  })}
+                </div>
+              );
+            })()}
           </div>
         </div>
 
