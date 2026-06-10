@@ -4,9 +4,8 @@ import {
   Background,
   Controls,
   MiniMap,
-  Handle,
-  Position,
   BackgroundVariant,
+  ConnectionMode,
   type Node,
   type Edge,
   type NodeTypes,
@@ -33,34 +32,33 @@ const CAT: Record<string, { color: string; label: string }> = {
   mercado:     { color: '#F59E0B', label: 'Mercado' },
 };
 
-// Cluster origins (well separated)
 const CLUSTER_ORIGIN: Record<string, [number, number]> = {
-  normativa:   [-780, 0],
-  metodologia: [  80, 0],
-  mercado:     [ 900, 0],
+  normativa:   [-1200, 0],
+  metodologia: [   80, 0],
+  mercado:     [ 1600, 0],
 };
 
-// Multi-ring radii and max nodes per ring
+// Ring sizes and radii — generous spacing so nodes don't overlap
 const RINGS = [
-  { r: 100, max: 6  },
-  { r: 200, max: 12 },
-  { r: 310, max: 18 },
-  { r: 430, max: 26 },
-  { r: 570, max: 36 },
-  { r: 730, max: 50 },
+  { r: 140, max: 6  },
+  { r: 290, max: 12 },
+  { r: 460, max: 20 },
+  { r: 650, max: 28 },
+  { r: 860, max: 38 },
+  { r: 1090, max: 50 },
 ];
 
 function placeInRings(nodes: Array<{ title: string; degree: number }>, cx: number, cy: number) {
-  // Sort descending by degree → hubs in inner rings
   const sorted = [...nodes].sort((a, b) => b.degree - a.degree);
   const positions: Record<string, [number, number]> = {};
-
   let idx = 0;
   for (const ring of RINGS) {
     if (idx >= sorted.length) break;
     const count = Math.min(ring.max, sorted.length - idx);
+    // Offset odd rings by half-step to stagger and reduce visual overlap
+    const offset = (idx % 2 === 1) ? Math.PI / count : 0;
     for (let i = 0; i < count; i++) {
-      const angle = (i / count) * 2 * Math.PI - Math.PI / 2 + (idx % 2 === 0 ? 0 : Math.PI / count);
+      const angle = (i / count) * 2 * Math.PI - Math.PI / 2 + offset;
       positions[sorted[idx].title] = [
         cx + Math.cos(angle) * ring.r,
         cy + Math.sin(angle) * ring.r,
@@ -68,27 +66,25 @@ function placeInRings(nodes: Array<{ title: string; degree: number }>, cx: numbe
       idx++;
     }
   }
-  // Overflow: grid fallback
-  if (idx < sorted.length) {
-    const cols = 8;
-    for (; idx < sorted.length; idx++) {
-      const r = Math.floor((idx - sorted.length) / cols);
-      const c = (idx - sorted.length) % cols;
-      positions[sorted[idx].title] = [cx + c * 90, cy + 780 + r * 80];
-    }
+  // Grid overflow for very large clusters
+  for (; idx < sorted.length; idx++) {
+    const cols = 10;
+    const row = Math.floor(idx / cols);
+    const col = idx % cols;
+    positions[sorted[idx].title] = [cx - 450 + col * 100, cy + 1150 + row * 90];
   }
   return positions;
 }
 
 function buildGraph(rawNodes: RawKnNode[], rawEdges: RawKnEdge[], filterCat: string | null) {
-  // Deduplicate
+  // Deduplicate by document_title
   const seen = new Set<string>();
   const unique: RawKnNode[] = [];
   rawNodes.forEach(n => {
     if (!seen.has(n.document_title)) { seen.add(n.document_title); unique.push(n); }
   });
 
-  // Degree map
+  // Degree (count both inbound and outbound)
   const degree = new Map<string, number>();
   unique.forEach(n => degree.set(n.document_title, 0));
   rawEdges.forEach(e => {
@@ -96,89 +92,95 @@ function buildGraph(rawNodes: RawKnNode[], rawEdges: RawKnEdge[], filterCat: str
     degree.set(e.target_title, (degree.get(e.target_title) ?? 0) + 1);
   });
 
-  // Filter by category if requested
   const visibleNodes = filterCat ? unique.filter(n => n.category === filterCat) : unique;
-  const visibleIds = new Set(visibleNodes.map(n => n.document_title));
+  const visibleIds   = new Set(visibleNodes.map(n => n.document_title));
 
-  // Group by category and place
+  // Group by category
   const byCategory = new Map<string, RawKnNode[]>();
   visibleNodes.forEach(n => {
     const cat = n.category || 'metodologia';
     byCategory.set(cat, [...(byCategory.get(cat) ?? []), n]);
   });
 
+  // Place nodes in rings
   const positions: Record<string, [number, number]> = {};
   byCategory.forEach((group, cat) => {
     const [cx, cy] = filterCat ? [0, 0] : (CLUSTER_ORIGIN[cat] ?? [0, 0]);
-    const placed = placeInRings(
+    Object.assign(positions, placeInRings(
       group.map(n => ({ title: n.document_title, degree: degree.get(n.document_title) ?? 0 })),
       cx, cy,
-    );
-    Object.assign(positions, placed);
+    ));
   });
 
-  const maxDegree = Math.max(1, ...Array.from(degree.values()));
+  const maxDeg = Math.max(1, ...Array.from(degree.values()));
 
   const nodes: Node[] = visibleNodes.map(n => {
-    const deg = degree.get(n.document_title) ?? 0;
-    const cat = n.category || 'metodologia';
+    const deg  = degree.get(n.document_title) ?? 0;
+    const cat  = n.category || 'metodologia';
     const color = CAT[cat]?.color ?? '#0EB5C6';
     const isHub = deg >= 4;
-    const r = Math.max(9, Math.min(20, 9 + (deg / maxDegree) * 11));
+    const r = Math.max(10, Math.min(22, 10 + (deg / maxDeg) * 12));
     const [x, y] = positions[n.document_title] ?? [0, 0];
     return {
-      id: n.document_title, type: 'doc',
-      position: { x: x - 40, y: y - r },
+      id: n.document_title,
+      type: 'doc',
+      // Centre the node precisely at its position
+      position: { x: x - 40, y: y - r - 12 },
       data: { label: n.document_title, category: cat, degree: deg, color, isHub } satisfies DocNodeData,
       style: { background: 'transparent', border: 'none', boxShadow: 'none', padding: 0, width: 80 },
     };
   });
 
-  // Limit edges: only show cross-cluster OR both ends visible; max 300 for perf
-  const validEdges = rawEdges.filter(e => visibleIds.has(e.source_title) && visibleIds.has(e.target_title));
-  // Prioritize edges where both ends are hubs
-  const sorted = [...validEdges].sort((a, b) => {
-    const da = (degree.get(a.source_title) ?? 0) + (degree.get(a.target_title) ?? 0);
-    const db = (degree.get(b.source_title) ?? 0) + (degree.get(b.target_title) ?? 0);
-    return db - da;
-  });
+  // Edges: keep only pairs where both endpoints are visible
+  // Sort by combined degree (strongest relationships first) and cap at 200
+  const validEdges = rawEdges
+    .filter(e => visibleIds.has(e.source_title) && visibleIds.has(e.target_title))
+    .sort((a, b) => {
+      const da = (degree.get(a.source_title) ?? 0) + (degree.get(a.target_title) ?? 0);
+      const db = (degree.get(b.source_title) ?? 0) + (degree.get(b.target_title) ?? 0);
+      return db - da;
+    })
+    .slice(0, 200);
 
-  const edges: Edge[] = sorted.slice(0, 320).map((e, i) => {
+  const edges: Edge[] = validEdges.map((e, i) => {
     const srcDeg = degree.get(e.source_title) ?? 0;
-    const opacity = Math.max(0.06, Math.min(0.28, 0.06 + (srcDeg / maxDegree) * 0.22));
+    const opacity = (0.05 + (srcDeg / maxDeg) * 0.18).toFixed(2);
     return {
-      id: `ke${i}`, source: e.source_title, target: e.target_title,
+      id: `ke${i}`,
+      source: e.source_title,
+      target: e.target_title,
+      // 'straight' draws a direct line between node centres — no bezier curves
+      // converging at handle points, which was causing the bright spike
+      type: 'straight',
       style: { stroke: `rgba(255,255,255,${opacity})`, strokeWidth: 1 },
-      animated: false,
     };
   });
 
   return { nodes, edges };
 }
 
+// No Handle components — ReactFlow will connect from the node bounding box centre.
+// This eliminates the "all edges converge at Position.Top" spike.
 function DocNode({ data }: { data: DocNodeData }) {
-  const r = Math.max(9, Math.min(20, 9 + (data.degree / 12) * 11));
-  const glow = data.isHub ? `0 0 ${r + 6}px ${data.color}44` : 'none';
-
+  const r = Math.max(10, Math.min(22, 10 + (data.degree / 12) * 12));
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-      <Handle type="target" position={Position.Top}    style={{ opacity: 0, width: 1, height: 1 }} />
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, pointerEvents: 'none' }}>
       <div style={{
         width: r * 2, height: r * 2, borderRadius: '50%',
-        background: data.color + (data.isHub ? '33' : '18'),
-        border: `${data.isHub ? 2 : 1.5}px solid ${data.color}`,
-        boxShadow: glow, flexShrink: 0,
-        transition: 'box-shadow 0.2s',
+        background: data.color + (data.isHub ? '30' : '15'),
+        border: `${data.isHub ? 2 : 1.5}px solid ${data.color + (data.isHub ? 'CC' : '88')}`,
+        boxShadow: data.isHub ? `0 0 ${r + 4}px ${data.color}33` : 'none',
+        flexShrink: 0,
       }} />
       <span style={{
-        fontSize: 8.5, color: data.isHub ? '#D1D5DB' : '#6B7280',
+        fontSize: 8.5,
+        color: data.isHub ? '#C4C9D4' : '#5A6070',
         fontWeight: data.isHub ? 600 : 400,
         textAlign: 'center', maxWidth: 76, lineHeight: 1.25,
         display: 'block', wordBreak: 'break-word',
       }}>
         {data.label.length > 26 ? data.label.slice(0, 24) + '…' : data.label}
       </span>
-      <Handle type="source" position={Position.Bottom} style={{ opacity: 0, width: 1, height: 1 }} />
     </div>
   );
 }
@@ -187,10 +189,7 @@ const NODE_TYPES: NodeTypes = { doc: DocNode };
 
 function parseMdFile(filename: string, raw: string, category: string): { nodes: VaultNode[]; edges: VaultEdge[] } {
   const sourceFile = filename.replace(/\.md$/i, '');
-  let titulo = sourceFile;
-  let tags: string[] = [];
-  let body = raw;
-
+  let titulo = sourceFile, tags: string[] = [], body = raw;
   const fmMatch = raw.match(/^---\n([\s\S]*?)\n---\n?/);
   if (fmMatch) {
     const fm = fmMatch[1];
@@ -200,42 +199,32 @@ function parseMdFile(filename: string, raw: string, category: string): { nodes: 
     if (tagsMatch) tags = tagsMatch[1].split(',').map(t => t.trim().replace(/^['"]|['"]$/g, '')).filter(Boolean);
     body = raw.slice(fmMatch[0].length);
   }
-
   const nodes: VaultNode[] = [];
   const edges: VaultEdge[] = [];
   const seenEdges = new Set<string>();
   const sections = body.split(/\n(?=#{2,}\s)/);
   let isFirst = true;
-
   for (const section of sections) {
     const headerMatch = section.match(/^#{2,}\s+(.+)/);
     const header = headerMatch ? headerMatch[1].trim() : (isFirst ? 'Introduccion' : 'Contenido');
     const sectionRaw = headerMatch ? section.slice(headerMatch[0].length) : section;
-
     const wikilinkRe = /\[\[([^\]|]+)(?:\|[^\]]+)?\]\]/g;
     let m;
     while ((m = wikilinkRe.exec(sectionRaw)) !== null) {
       const target = m[1].trim();
       const key = `${titulo}::${target}`;
       if (target && target !== titulo && !seenEdges.has(key)) {
-        seenEdges.add(key)
+        seenEdges.add(key);
         edges.push({ source_title: titulo, target_title: target, relation_type: 'MENTIONS' });
       }
     }
-
     const content = sectionRaw
-      .replace(/\[\[([^\]|]+)\|([^\]]+)\]\]/g, '$2')
-      .replace(/\[\[([^\]]+)\]\]/g, '$1')
-      .replace(/[#*_`]/g, '')
-      .replace(/\n+/g, ' ')
-      .trim();
-
-    if (content.length > 20) {
+      .replace(/\[\[([^\]|]+)\|([^\]]+)\]\]/g, '$2').replace(/\[\[([^\]]+)\]\]/g, '$1')
+      .replace(/[#*_`]/g, '').replace(/\n+/g, ' ').trim();
+    if (content.length > 20)
       nodes.push({ document_title: titulo, header_path: header, content, category, tags });
-    }
     isFirst = false;
   }
-
   return { nodes, edges };
 }
 
@@ -269,13 +258,10 @@ export function KnowledgeGraph() {
       const allNodes: VaultNode[] = [];
       const allEdges: VaultEdge[] = [];
       for (const file of files) {
-        const text = await file.text();
-        const { nodes, edges } = parseMdFile(file.name, text, uploadCat);
-        allNodes.push(...nodes);
-        allEdges.push(...edges);
+        const { nodes, edges } = parseMdFile(file.name, await file.text(), uploadCat);
+        allNodes.push(...nodes); allEdges.push(...edges);
       }
       if (allNodes.length === 0) { toast.error('No se encontró contenido válido'); return; }
-
       const { data: { session } } = await supabase.auth.getSession();
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
       const res = await fetch(`${supabaseUrl}/functions/v1/api-v1/vault/ingest`, {
@@ -286,11 +272,11 @@ export function KnowledgeGraph() {
       const raw2 = await res.text();
       let result: Record<string, unknown>;
       try { result = JSON.parse(raw2) as Record<string, unknown>; } catch { result = { raw: raw2 }; }
-      if (!res.ok) throw new Error((result.error as string) ?? 'Error desconocido');
-      toast.success(`${result.nodes_upserted} nodos sincronizados desde ${files.length} archivo${files.length > 1 ? 's' : ''}`);
+      if (!res.ok) throw new Error((result.error as string) ?? 'Error');
+      toast.success(`${result.nodes_upserted} nodos sincronizados`);
       await load();
     } catch (err: unknown) {
-      toast.error(`Error al subir: ${err instanceof Error ? err.message : String(err)}`);
+      toast.error(`Error: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -303,20 +289,20 @@ export function KnowledgeGraph() {
   );
 
   const stats = useMemo(() => {
-    const seenTitles = new Set<string>();
+    const seen = new Set<string>();
     const catCount: Record<string, number> = {};
     rawNodes.forEach(n => {
-      if (!seenTitles.has(n.document_title)) {
-        seenTitles.add(n.document_title);
+      if (!seen.has(n.document_title)) {
+        seen.add(n.document_title);
         catCount[n.category || 'metodologia'] = (catCount[n.category || 'metodologia'] ?? 0) + 1;
       }
     });
-    return { totalDocs: seenTitles.size, catCount };
+    return { totalDocs: seen.size, catCount };
   }, [rawNodes]);
 
   return (
     <div className="bg-white dark:bg-[#12121A] rounded-2xl border border-gray-100 dark:border-white/5 shadow-sm overflow-hidden">
-      {/* Header */}
+      {/* ── Header ── */}
       <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b border-gray-100 dark:border-white/5">
         <div className="flex items-center gap-2 flex-wrap">
           <Network className="w-4 h-4 text-teal-400 shrink-0" />
@@ -326,35 +312,32 @@ export function KnowledgeGraph() {
               {stats.totalDocs} docs · {rawEdges.length} links
             </span>
           )}
-
-          {/* Category filter pills */}
-          <div className="flex items-center gap-1 ml-2">
-            <button
-              onClick={() => setFilterCat(null)}
-              className={`text-xs px-2.5 py-1 rounded-full transition-colors ${
-                filterCat === null
-                  ? 'bg-white/10 text-white font-medium'
-                  : 'text-gray-500 hover:text-gray-300'
-              }`}
-            >
-              Todos
-            </button>
-            {Object.entries(CAT).map(([key, val]) => (
-              <button
-                key={key}
-                onClick={() => setFilterCat(filterCat === key ? null : key)}
-                className={`text-xs px-2.5 py-1 rounded-full transition-colors flex items-center gap-1.5 ${
-                  filterCat === key
-                    ? 'font-medium text-white'
-                    : 'text-gray-500 hover:text-gray-300'
-                }`}
-                style={filterCat === key ? { background: val.color + '33', border: `1px solid ${val.color}55` } : {}}
-              >
-                <span style={{ width: 6, height: 6, borderRadius: '50%', background: val.color, display: 'inline-block', flexShrink: 0 }} />
-                {val.label}
-                {!loading && <span className="opacity-60">({stats.catCount[key] ?? 0})</span>}
-              </button>
-            ))}
+          {/* Category filter */}
+          <div className="flex items-center gap-1 ml-1">
+            {(['all', 'normativa', 'metodologia', 'mercado'] as const).map(key => {
+              const isAll   = key === 'all';
+              const active  = isAll ? filterCat === null : filterCat === key;
+              const color   = isAll ? '#6B7280' : CAT[key].color;
+              const label   = isAll ? 'Todos' : CAT[key].label;
+              const count   = isAll ? stats.totalDocs : (stats.catCount[key] ?? 0);
+              return (
+                <button
+                  key={key}
+                  onClick={() => setFilterCat(isAll ? null : (filterCat === key ? null : key))}
+                  className="text-xs px-2.5 py-0.5 rounded-full transition-all flex items-center gap-1 cursor-pointer"
+                  style={{
+                    background: active ? color + '22' : 'transparent',
+                    border: `1px solid ${active ? color + '66' : 'transparent'}`,
+                    color: active ? '#E5E7EB' : '#6B7280',
+                    fontWeight: active ? 600 : 400,
+                  }}
+                >
+                  {!isAll && <span style={{ width: 6, height: 6, borderRadius: '50%', background: color, display: 'inline-block' }} />}
+                  {label}
+                  {!loading && <span style={{ opacity: 0.55 }}>({count})</span>}
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -373,7 +356,7 @@ export function KnowledgeGraph() {
           <button
             onClick={() => fileInputRef.current?.click()}
             disabled={uploading || loading}
-            className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg bg-teal-500/10 text-teal-400 hover:bg-teal-500/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg bg-teal-500/10 text-teal-400 hover:bg-teal-500/20 transition-colors disabled:opacity-50"
           >
             {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
             {uploading ? 'Subiendo…' : 'Subir .md'}
@@ -381,35 +364,37 @@ export function KnowledgeGraph() {
         </div>
       </div>
 
-      {/* Graph */}
+      {/* ── Graph canvas ── */}
       {loading ? (
-        <div className="h-[620px] flex items-center justify-center gap-2 text-sm text-gray-400">
-          <Loader2 className="w-4 h-4 animate-spin" />
-          Cargando grafo…
+        <div className="h-[640px] flex items-center justify-center gap-2 text-sm text-gray-400">
+          <Loader2 className="w-4 h-4 animate-spin" /> Cargando grafo…
         </div>
       ) : nodes.length === 0 ? (
-        <div className="h-[620px] flex flex-col items-center justify-center gap-2 text-gray-400">
+        <div className="h-[640px] flex flex-col items-center justify-center gap-2 text-gray-400">
           <Network className="w-10 h-10 text-gray-300" />
           <p className="text-sm">Knowledge base vacío</p>
           <code className="text-xs bg-gray-100 dark:bg-white/5 px-3 py-1 rounded-lg font-mono mt-1">npm run sync</code>
         </div>
       ) : (
-        <div style={{ height: 620 }}>
+        <div style={{ height: 640 }}>
           <ReactFlow
             nodes={nodes}
             edges={edges}
             nodeTypes={NODE_TYPES}
+            // Loose mode: edges connect to node bounding box, not a specific Handle point.
+            // This prevents all edges converging at Position.Top causing the bright spike.
+            connectionMode={ConnectionMode.Loose}
             fitView
-            fitViewOptions={{ padding: 0.12 }}
+            fitViewOptions={{ padding: 0.08 }}
             nodesDraggable={false}
             nodesConnectable={false}
             elementsSelectable={false}
             panOnScroll
-            minZoom={0.15}
+            minZoom={0.08}
             maxZoom={4}
             style={{ background: '#07070D' }}
           >
-            <Background variant={BackgroundVariant.Dots} gap={32} size={1} color="rgba(255,255,255,0.025)" />
+            <Background variant={BackgroundVariant.Dots} gap={36} size={1} color="rgba(255,255,255,0.02)" />
             <Controls
               showInteractive={false}
               style={{ background: '#12121A', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8 }}
@@ -417,7 +402,7 @@ export function KnowledgeGraph() {
             <MiniMap
               nodeColor={(n) => (n.data as DocNodeData).color ?? '#0EB5C6'}
               style={{ background: '#07070D', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8 }}
-              maskColor="rgba(7,7,13,0.75)"
+              maskColor="rgba(7,7,13,0.8)"
             />
           </ReactFlow>
         </div>
