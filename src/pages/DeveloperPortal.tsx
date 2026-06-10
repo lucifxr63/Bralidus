@@ -2,6 +2,9 @@ import { useEffect, useRef, useState, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { KnowledgeGraph } from '@/components/KnowledgeGraph';
 import MacroIntelligence from '@/components/MacroIntelligence';
+import BralidusPanel from '@/components/BralidusPanel';
+import RadarForense from '@/components/RadarForense';
+import Trazabilidad from '@/components/Trazabilidad';
 import {
   Key, Plus, Trash2, Copy, Check, AlertCircle, BookOpen,
   Play, Activity, Zap, Clock, TrendingUp, ChevronDown, Loader2, ShieldCheck,
@@ -597,8 +600,8 @@ export function DeveloperPortal() {
           <div>
             <h1 className="text-2xl font-black text-gray-900 dark:text-[#F0EFF8]">API & Developers</h1>
             <p className="text-sm text-gray-400 mt-1">
-              Gestiona llaves y monitorea el consumo de tu RaaS.
-              <span className="ml-2 text-[11px] text-teal-400 font-semibold">10 endpoints · 16 dimensiones RAG · Sprint 7</span>
+              Gestiona llaves, monitorea el Radar Forense y audita el Knowledge Graph.
+              <span className="ml-2 text-[11px] text-violet-400 font-semibold">687 nodos · 9 jobs · Radar Forense · Sprint 8</span>
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -642,38 +645,38 @@ export function DeveloperPortal() {
         {/* Sprint 7 Changelog */}
         <div className="rounded-2xl border border-teal-500/25 bg-teal-500/5 p-5">
           <div className="flex items-center gap-2 mb-3">
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-teal-500/15 text-teal-400 uppercase tracking-wider">Sprint 7 · 2026-06-10</span>
-            <span className="text-sm font-bold text-gray-900 dark:text-white">Distribución & Investment Dossier</span>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-violet-500/15 text-violet-400 uppercase tracking-wider">Sprint 8 · 2026-06-10</span>
+            <span className="text-sm font-bold text-gray-900 dark:text-white">BralidusPY Beta — Motor de Inteligencia Macro en Producción</span>
           </div>
           <div className="grid sm:grid-cols-2 gap-3">
             {[
               {
-                tag: 'Nuevo endpoint',
-                color: '#2DD4BF',
-                title: 'Data Storytelling Engine',
-                desc: 'ai-validate con prompt_type: "market_signals" consume TPM/UF en tiempo real desde mindicador.cl y genera copy LinkedIn con el gancho "¿Tu startup sobrevive a este escenario?"',
-                path: 'POST /functions/v1/ai-validate',
+                tag: 'Producción',
+                color: '#10B981',
+                title: 'BralidusPY Beta — 10/10 tests PASS',
+                desc: '687 nodos · 34 categorías · 96% embedding coverage. FastAPI + pgvector HNSW + APScheduler 9 jobs. GraphRAG: 5/5 hits via GRAPH path en queries fintech/seed con 43 entidades activadas.',
+                path: 'GET /health → status=ok',
               },
               {
-                tag: 'PDF actualizado',
+                tag: 'Nueva infraestructura',
                 color: '#7C3AED',
-                title: 'Investment Dossier — 16 dimensiones',
-                desc: 'Nueva página 05 · Alertas Críticas: Riesgo Regulatorio (Ley 21.719 / 21.521 / Ciberseguridad), Capital Efficiency (Burn Rate, Runway, Burn Multiple), Retención (NRR, Gross Churn) y Riesgo Conductual (sesgos del fundador).',
-                path: 'POST /functions/v1/assemble-mega-prompt',
+                title: 'Radar Forense + 6 extractores',
+                desc: 'CMF Hechos Esenciales · BCCH Comunicados/Minutas · SEIA Proyectos · Boletín Concursal SUPERIR · Señal Empleo Computrabajo · RSS 10 fuentes (ES+PT). Señales con TTL, severidad y clasificación keyword/Haiku.',
+                path: 'GET /radar/signals',
               },
               {
-                tag: 'Nuevo tipo',
+                tag: 'Calidad',
                 color: '#F59E0B',
-                title: 'CapitalEfficiency',
-                desc: 'Nuevo campo capital_efficiency en PDFData: { monthly_burn_usd, runway_months, nrr_pct, gross_churn_pct, burn_multiple }. Alimenta la página Alertas Críticas del dossier VC.',
-                path: 'TypeScript · @/types/validation',
+                title: 'Analyst Rating + Trazabilidad',
+                desc: 'PATCH /radar/signals/{id}/rate: rating 1-5, is_false_positive, notas por analista. moe_routing_log: audit trail completo de routing_method, experts_activated, graph/vector hits por query.',
+                path: 'PATCH /radar/signals/{id}/rate',
               },
               {
-                tag: 'UI actualizada',
-                color: '#EC4899',
-                title: 'DataStoryEngine Panel',
-                desc: 'Botón "📊 Generar Insight de Mercado" en el Admin: consulta live a mindicador.cl → prompt estructurado → preview + copy LinkedIn en un clic.',
-                path: '/admin → Data Story Factory',
+                tag: 'Escalabilidad',
+                color: '#0EB5C6',
+                title: 'vector_search_direct RPC + health monitor',
+                desc: 'Migración pgvector nativa O(log n) con HNSW eliminó scan en memoria. JobHealthMonitor: alerta en radar_signals tras 3 corridas vacías consecutivas. Anti-spam 6h por job.',
+                path: 'SQL function vector_search_direct()',
               },
             ].map(item => (
               <div key={item.title} className="bg-white/50 dark:bg-white/[0.03] rounded-xl border border-white/10 p-4">
@@ -879,6 +882,21 @@ export function DeveloperPortal() {
 
         {/* Financial Intelligence — BralidusPY */}
         <MacroIntelligence />
+
+        {/* BralidusPY — Motor Macro */}
+        <div className="bg-white dark:bg-[#12121A] rounded-2xl border border-gray-100 dark:border-white/5 shadow-sm p-5">
+          <BralidusPanel />
+        </div>
+
+        {/* Radar Forense */}
+        <div className="bg-white dark:bg-[#12121A] rounded-2xl border border-gray-100 dark:border-white/5 shadow-sm p-5">
+          <RadarForense />
+        </div>
+
+        {/* Trazabilidad GraphRAG */}
+        <div className="bg-white dark:bg-[#12121A] rounded-2xl border border-gray-100 dark:border-white/5 shadow-sm p-5">
+          <Trazabilidad />
+        </div>
 
         {/* Playground */}
         <div className="bg-white dark:bg-[#12121A] rounded-2xl border border-gray-100 dark:border-white/5 shadow-sm overflow-hidden">

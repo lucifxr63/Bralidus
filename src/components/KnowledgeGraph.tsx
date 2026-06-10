@@ -178,7 +178,7 @@ function GraphSVG({ nodes, edges }: { nodes: PlacedNode[]; edges: PlacedEdge[] }
             <circle cx="1" cy="1" r="0.8" fill="rgba(255,255,255,0.025)" />
           </pattern>
           {/* Per-category glow filters */}
-          {Object.entries(CAT).map(([k, v]) => (
+          {Object.entries(CAT).map(([k]) => (
             <filter key={k} id={`glow-${k}`} x="-60%" y="-60%" width="220%" height="220%">
               <feGaussianBlur stdDeviation="4" result="blur" />
               <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
