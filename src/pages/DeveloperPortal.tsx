@@ -103,7 +103,7 @@ interface EndpointDoc {
 const API_DOCS: EndpointDoc[] = [
   {
     method: 'POST', path: '/api/v1/rag/query', color: '#0EB5C6',
-    description: 'Consulta semántica al corpus de conocimiento de ValidateAI. Devuelve los fragmentos más relevantes con scores de similitud coseno.',
+    description: 'Consulta semántica al corpus de conocimiento de Validus. Devuelve los fragmentos más relevantes con scores de similitud coseno.',
     params: [
       { name: 'query', type: 'string', required: true, description: 'Pregunta o texto de búsqueda (máx. 2000 chars)' },
       { name: 'filters', type: 'object', required: false, description: 'Filtros opcionales: { industry?, category?, date_from? }' },
@@ -120,7 +120,7 @@ const API_DOCS: EndpointDoc[] = [
   },
   {
     method: 'POST', path: '/api/v1/webhooks', color: '#F59E0B',
-    description: 'Registra una URL HTTPS para recibir notificaciones cuando eventos de ValidateAI ocurran (validación completada, análisis listo, etc.).',
+    description: 'Registra una URL HTTPS para recibir notificaciones cuando eventos de Validus ocurran (validación completada, análisis listo, etc.).',
     params: [
       { name: 'url', type: 'string', required: true, description: 'URL HTTPS que recibirá el POST' },
       { name: 'event', type: 'string', required: true, description: 'validation.complete | analysis.ready | profile.updated' },

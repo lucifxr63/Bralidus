@@ -1,8 +1,8 @@
-# ValidateAI Developer Portal — CLAUDE.md
+# Validus Developer Portal — CLAUDE.md
 
 ## What is this project
 
-Developer portal for the ValidateAI RAG/RaaS API. Lets developers manage API keys, monitor usage, test endpoints in a playground, manage webhooks, and visualize the knowledge base graph. It is a standalone Vite React SPA that connects to the same Supabase backend as the main ValidateAI app.
+Developer portal for the Validus RAG/RaaS API. Lets developers manage API keys, monitor usage, test endpoints in a playground, manage webhooks, and visualize the knowledge base graph. It is a standalone Vite React SPA that connects to the same Supabase backend as the main Validus app.
 
 ## Stack
 
@@ -136,7 +136,7 @@ node scripts/sync-knowledge-graph.js ./docs/normativa normativa
 
 The `KnowledgeGraph.tsx` component also lets admins upload `.md` files directly from the browser UI.
 
-## Relation to the main ValidateAI app
+## Relation to the main Validus app
 
 This is a **separate Vite project** in `validateai-developer-portal/`. It shares the same Supabase project and Edge Functions as the main app in `validateai/`. Do not run `npm run dev` from the wrong directory. Port 5173 is this portal; the main app uses a different port.
 

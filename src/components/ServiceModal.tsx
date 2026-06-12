@@ -42,7 +42,7 @@ function buildMeta(svc: ServiceInfo): ServiceMeta {
 
   const map: Record<string, ServiceMeta> = {
     supabase_db: {
-      description: 'Base de datos PostgreSQL con extensión pgvector (1536 dims). Almacena el Knowledge Graph (knowledge_nodes + knowledge_edges), radar_signals, moe_routing_log y todas las tablas de ValidateAI.',
+      description: 'Base de datos PostgreSQL con extensión pgvector (1536 dims). Almacena el Knowledge Graph (knowledge_nodes + knowledge_edges), radar_signals, moe_routing_log y todas las tablas de Validus.',
       schema: 'knowledge_nodes(id, title, content, category, embedding vector(1536), metadata jsonb, created_at)\nknowledge_edges(id, source_title, target_title, relation_type, weight, metadata)\nradar_signals(id, sector, signal_type, severity float, headline_preview, source, classified_by, analyst_rating, expires_at)\nmoe_routing_log(id, query_preview, routing_method, experts_activated text[], graph_hits, vector_hits)',
       test_label: 'Ping DB + conteo de tablas',
       run_test: async () => {
@@ -57,7 +57,7 @@ function buildMeta(svc: ServiceInfo): ServiceMeta {
     },
 
     anthropic: {
-      description: 'Anthropic Claude — proveedor primario de LLM para ValidateAI. Usado en los 18+ prompt types de ai-validate, assemble-mega-prompt y el clasificador haiku del Radar Forense.',
+      description: 'Anthropic Claude — proveedor primario de LLM para Validus. Usado en los 18+ prompt types de ai-validate, assemble-mega-prompt y el clasificador haiku del Radar Forense.',
       schema: 'ai_interactions(id, profile_id, prompt_type, model, tokens_input, tokens_output, latency_ms, error_type, created_at)',
       test_label: 'Última interacción registrada',
       run_test: async () => {
@@ -351,7 +351,7 @@ function buildMeta(svc: ServiceInfo): ServiceMeta {
     },
 
     posthog: {
-      description: 'PostHog Analytics — telemetría de producto de ValidateAI. Trackea eventos: wizard_step_completed, ai_prompt_called, validation_completed, deliverable_viewed, paywall_hit. Reverse proxy activo.',
+      description: 'PostHog Analytics — telemetría de producto de Validus. Trackea eventos: wizard_step_completed, ai_prompt_called, validation_completed, deliverable_viewed, paywall_hit. Reverse proxy activo.',
       schema: 'Eventos trackeados:\n  wizard_step_completed: { step, validation_id }\n  ai_prompt_called: { prompt_type, tier }\n  deliverable_viewed: { deliverable_type }\n  paywall_hit: { feature, tier }\n  exit_intent: { page, time_on_page }',
       test_label: 'Estado del proxy',
       run_test: async () => ({ status: 'reverse_proxy_active', endpoint: 'https://validus.scouttech.lat/ingest', note: 'Datos visibles en app.posthog.com' }),

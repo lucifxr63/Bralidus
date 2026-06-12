@@ -1,6 +1,6 @@
-# ValidateAI — Developer Portal
+# Validus — Developer Portal
 
-Dashboard de gestión para la API de ValidateAI. Permite a desarrolladores administrar API keys, monitorear uso, testear endpoints en tiempo real, gestionar webhooks y visualizar el knowledge graph del sistema.
+Dashboard de gestión para la API de Validus. Permite a desarrolladores administrar API keys, monitorear uso, testear endpoints en tiempo real, gestionar webhooks y visualizar el knowledge graph del sistema.
 
 **URL en producción:** `https://validus.scouttech.lat/developers`
 
@@ -164,7 +164,7 @@ El script parsea frontmatter YAML (`titulo`, `tags`), split por secciones `##`, 
 
 ---
 
-## Relación con ValidateAI
+## Relación con Validus
 
 Este portal es una **SPA independiente** que comparte el mismo proyecto Supabase y Edge Functions que la app principal (`validateai/`). No hay dependencias de código entre ambos — se comunican exclusivamente a través de la API.
 
