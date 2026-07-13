@@ -212,11 +212,11 @@ export function Landing() {
 
   const getExpertStyles = (id: string) => {
     switch (id) {
-      case 'macro': return { text: 'text-purple-650', border: 'border-purple-200', bg: 'bg-purple-50' };
-      case 'mercados': return { text: 'text-emerald-650', border: 'border-emerald-200', bg: 'bg-emerald-50' };
-      case 'unit_economics': return { text: 'text-amber-650', border: 'border-amber-200', bg: 'bg-amber-50' };
-      case 'legal': return { text: 'text-rose-650', border: 'border-rose-200', bg: 'bg-rose-50' };
-      default: return { text: 'text-sky-650', border: 'border-sky-200', bg: 'bg-sky-50' };
+      case 'macro': return { text: 'text-purple-600', border: 'border-purple-200', bg: 'bg-purple-50' };
+      case 'mercados': return { text: 'text-emerald-600', border: 'border-emerald-200', bg: 'bg-emerald-50' };
+      case 'unit_economics': return { text: 'text-amber-600', border: 'border-amber-200', bg: 'bg-amber-50' };
+      case 'legal': return { text: 'text-rose-600', border: 'border-rose-200', bg: 'bg-rose-50' };
+      default: return { text: 'text-sky-600', border: 'border-sky-200', bg: 'bg-sky-50' };
     }
   };
 
@@ -233,7 +233,7 @@ export function Landing() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50/50 text-slate-900 font-sans selection:bg-rose-600 selection:text-white overflow-x-hidden relative">
+    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans selection:bg-rose-600 selection:text-white overflow-x-hidden relative">
       
       {/* Decorative background gradients */}
       <div className="absolute top-0 inset-x-0 h-[600px] bg-gradient-to-b from-rose-50/60 to-transparent pointer-events-none" />
@@ -241,7 +241,7 @@ export function Landing() {
       <div className="absolute bottom-[20%] left-[-10%] w-[35vw] h-[35vw] rounded-full bg-amber-50/40 blur-[100px] pointer-events-none" />
 
       {/* ── Nav ─────────────────────────────────────────────────────────── */}
-      <nav className="sticky top-0 z-50 border-b border-slate-200/80 bg-white/90 backdrop-blur-md px-6 h-16 flex items-center justify-between">
+      <nav className="sticky top-0 z-50 border-b border-slate-200 bg-white/90 backdrop-blur-md px-6 h-16 flex items-center justify-between">
         {/* Logo */}
         <div className="flex items-center gap-2.5">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-rose-600 shadow-md shadow-rose-600/20">
@@ -264,13 +264,13 @@ export function Landing() {
 
         {/* Nav links */}
         <div className="flex items-center gap-6">
-          <a href="#how-it-works" className="text-sm font-medium text-slate-600 transition-colors hover:text-rose-600">
+          <a href="#how-it-works" className="text-sm font-medium text-slate-650 transition-colors hover:text-rose-600">
             Cómo funciona
           </a>
-          <a href="#experts" className="text-sm font-medium text-slate-600 transition-colors hover:text-rose-600">
+          <a href="#experts" className="text-sm font-medium text-slate-650 transition-colors hover:text-rose-600">
             Experts
           </a>
-          <a href="#api" className="text-sm font-medium text-slate-600 transition-colors hover:text-rose-600">
+          <a href="#api" className="text-sm font-medium text-slate-655 transition-colors hover:text-rose-600">
             API Reference
           </a>
           <button
@@ -299,7 +299,7 @@ export function Landing() {
 
           {/* Headline */}
           <h1 className="font-heading text-4xl font-extrabold tracking-tight sm:text-6xl text-slate-900 leading-[1.1] md:leading-none">
-            <span className="bg-gradient-to-r from-red-600 via-rose-500 to-rose-650 bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-red-600 via-rose-500 to-rose-600 bg-clip-text text-transparent">
               Inteligencia macro.
             </span>
             <br />
@@ -307,7 +307,7 @@ export function Landing() {
           </h1>
 
           {/* Subheadline */}
-          <p className="text-base sm:text-lg text-slate-650 leading-relaxed max-w-2xl mx-auto">
+          <p className="text-base sm:text-lg text-slate-600 leading-relaxed max-w-2xl mx-auto">
             Bralidus convierte el contexto de tu startup en <strong className="text-rose-600 font-semibold">GraphRAG dinámico</strong> — macro, mercados, regulatorio y unit economics — listo para inyectar en tu LLM.
           </p>
 
@@ -393,7 +393,7 @@ export function Landing() {
             {EXPERTS.map(expert => {
               const styles = getExpertStyles(expert.id);
               return (
-                <div key={expert.id} className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm hover:border-rose-350 hover:-translate-y-1 hover:shadow-md transition-all">
+                <div key={expert.id} className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm hover:border-rose-300 hover:-translate-y-1 hover:shadow-md transition-all">
                   <div className="flex items-center gap-3.5 mb-4">
                     <div className={`h-10 w-10 rounded-lg flex items-center justify-center border shrink-0 ${styles.bg} ${styles.border} ${styles.text}`}>
                       {expert.icon}
@@ -511,7 +511,7 @@ export function Landing() {
             <h2 className="font-heading text-3xl font-extrabold text-slate-900">
               Empieza ahora
             </h2>
-            <p className="text-sm text-slate-550 max-w-md mx-auto leading-relaxed">
+            <p className="text-sm text-slate-500 max-w-md mx-auto leading-relaxed">
               Accede con tu email institucional, genera una API Key y haz tu primer request en menos de 5 minutos.
             </p>
             <button
@@ -529,7 +529,7 @@ export function Landing() {
       <footer className="bg-slate-900 text-slate-400 py-12 px-6 border-t border-slate-800 mt-20">
         <div className="max-w-4xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-rose-600/10 border border-rose-550/30">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-rose-600/10 border border-rose-500/30">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
                 <circle cx="12" cy="12" r="3" fill="#F43F5E"/>
                 <circle cx="4" cy="6" r="2" fill="rgba(244,63,94,0.7)"/>
