@@ -5,6 +5,7 @@ import { Toaster } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { DeveloperPortal } from '@/pages/DeveloperPortal';
 import { Login } from '@/pages/Login';
+import { Landing } from '@/pages/Landing';
 import { AuthCallback } from '@/pages/AuthCallback';
 import type { Session } from '@supabase/supabase-js';
 
@@ -27,26 +28,38 @@ export default function App() {
 
   if (session === undefined) {
     return (
-      <div className="min-h-screen bg-[#0A0A0F] flex items-center justify-center">
-        <div className="w-6 h-6 border-2 border-teal-500 border-t-transparent rounded-full animate-spin" />
+      <div style={{ minHeight: '100svh', background: '#05050D', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{
+          width: 32, height: 32, border: '2px solid #6C3CE1',
+          borderTopColor: 'transparent', borderRadius: '50%',
+          animation: 'spin 0.8s linear infinite',
+        }} />
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
     );
   }
 
   return (
-    <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
+    <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
       <BrowserRouter>
         <Routes>
-          <Route path="/login" element={session ? <Navigate to="/" replace /> : <Login />} />
+          {/* Public routes */}
+          <Route path="/" element={<Landing />} />
+          <Route path="/login" element={session ? <Navigate to="/dashboard" replace /> : <Login />} />
           <Route path="/auth/callback" element={<AuthCallback />} />
+
+          {/* Protected routes */}
           <Route
-            path="/"
+            path="/dashboard"
             element={
               <ProtectedRoute session={session}>
                 <DeveloperPortal />
               </ProtectedRoute>
             }
           />
+
+          {/* Fallback */}
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
       <Toaster richColors position="top-right" />

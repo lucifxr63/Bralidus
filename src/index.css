@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,700;1,9..40,400&family=Space+Grotesk:wght@400;500;600;700;800&display=swap');
 @import "tailwindcss";
 
 @custom-variant dark (&:is(.dark *));
@@ -16,6 +16,7 @@ body {
   font-family: 'DM Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background-color: #05050D;
 }
 
 #root {
@@ -25,28 +26,145 @@ body {
 
 @theme inline {
   --font-sans: 'DM Sans', system-ui, sans-serif;
+  --font-heading: 'Space Grotesk', system-ui, sans-serif;
 
-  /* Brand palette */
-  --color-brand: #0EB5C6;
+  /* ── Bralidus brand palette ────────────────────────────── */
+  --color-brand:       #6C3CE1;   /* violet profundo */
+  --color-brand-light: #8B5CF6;   /* violet medio */
+  --color-brand-teal:  #0EB5C6;   /* teal herencia Validus */
+  --color-brand-glow:  rgba(108, 60, 225, 0.30);
 
-  /* Surfaces */
-  --color-bg: #0A0A0F;
-  --color-surface: #12121A;
-  --color-border: rgba(255, 255, 255, 0.06);
+  /* ── Surfaces ───────────────────────────────────────────── */
+  --color-bg:        #05050D;
+  --color-surface:   #0E0E1A;
+  --color-surface-2: #161625;
+  --color-border:    rgba(108, 60, 225, 0.14);
+  --color-border-sm: rgba(255, 255, 255, 0.06);
 
-  /* Text */
-  --color-text: #F0EFF8;
-  --color-text-muted: #8B8AA0;
+  /* ── Text ───────────────────────────────────────────────── */
+  --color-text:      #E8E7F5;
+  --color-text-muted:#7674A0;
 }
 
-/* Scrollbar */
+/* ── Scrollbar ─────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.18); }
+::-webkit-scrollbar-thumb { background: rgba(108,60,225,0.25); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(108,60,225,0.45); }
 
-/* Focus */
+/* ── Focus ──────────────────────────────────────────────────── */
 :focus-visible {
-  outline: 2px solid #0EB5C6;
+  outline: 2px solid #6C3CE1;
   outline-offset: 2px;
 }
+
+/* ── Keyframes ──────────────────────────────────────────────── */
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-8px); }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(108,60,225,0); }
+  50%       { box-shadow: 0 0 24px 4px rgba(108,60,225,0.35); }
+}
+
+@keyframes shimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position:  200% center; }
+}
+
+@keyframes grid-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slide-in {
+  from { opacity: 0; transform: translateX(-12px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
+
+/* ── Utility classes ────────────────────────────────────────── */
+.gradient-text {
+  background: linear-gradient(135deg, #8B5CF6 0%, #6C3CE1 40%, #0EB5C6 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.gradient-text-subtle {
+  background: linear-gradient(135deg, #C4B5FD 0%, #A78BFA 50%, #5EEAD4 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.bralidus-card {
+  background: #0E0E1A;
+  border: 1px solid rgba(108, 60, 225, 0.14);
+  border-radius: 16px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.bralidus-card:hover {
+  border-color: rgba(108, 60, 225, 0.35);
+  box-shadow: 0 0 24px 0 rgba(108, 60, 225, 0.10);
+}
+
+.bralidus-btn {
+  background: linear-gradient(135deg, #6C3CE1, #5B30C4);
+  color: #fff;
+  font-weight: 700;
+  border-radius: 12px;
+  border: 1px solid rgba(139, 92, 246, 0.4);
+  transition: opacity 0.2s, transform 0.15s, box-shadow 0.2s;
+  box-shadow: 0 4px 20px rgba(108,60,225,0.25);
+}
+
+.bralidus-btn:hover {
+  opacity: 0.92;
+  transform: translateY(-1px);
+  box-shadow: 0 8px 28px rgba(108,60,225,0.40);
+}
+
+.bralidus-btn:active {
+  transform: translateY(0);
+}
+
+.bg-grid-pattern {
+  background-image:
+    linear-gradient(rgba(108,60,225,0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(108,60,225,0.06) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+
+.animate-float       { animation: float 4s ease-in-out infinite; }
+.animate-pulse-glow  { animation: pulse-glow 2.5s ease-in-out infinite; }
+.animate-fade-up     { animation: fade-up 0.6s ease-out forwards; }
+.animate-slide-in    { animation: slide-in 0.4s ease-out forwards; }
+.animate-blink       { animation: blink 1s step-end infinite; }
+
+.shimmer-text {
+  background: linear-gradient(90deg, #7C3AED 0%, #C4B5FD 40%, #0EB5C6 60%, #7C3AED 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: shimmer 3s linear infinite;
+}
+
+.font-heading { font-family: 'Space Grotesk', system-ui, sans-serif; }
+
+/* Ensure DeveloperPortal dark mode works */
+.dark { color-scheme: dark; }
+

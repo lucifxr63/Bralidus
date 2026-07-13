@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { KnowledgeGraph } from '@/components/KnowledgeGraph';
 import MacroIntelligence from '@/components/MacroIntelligence';
@@ -370,16 +371,13 @@ export function DeveloperPortal() {
       const res = await fetch(`${SUPABASE_URL}/functions/v1/api-v1/health/services`, {
         headers: { 'Authorization': `Bearer ${token}` },
       });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      // Si la Edge Function no está desplegada (401/404/503), fallback silencioso
+      if (!res.ok) { setServicesLoading(false); return; }
       const data = await res.json() as { services?: ServiceInfo[]; checked_at?: string };
       setServices(data.services ?? []);
       setServicesCheckedAt(data.checked_at ?? null);
-    } catch (err) {
-      console.error('Health check failed:', err);
-      toast.error('No se pudo verificar el estado de los servicios');
-    } finally {
-      setServicesLoading(false);
-    }
+    } catch { /* Edge Function no disponible — estado vacío */ }
+    finally { setServicesLoading(false); }
   };
 
   const handleCreateKey = async () => {
@@ -459,10 +457,11 @@ export function DeveloperPortal() {
       const res = await fetch(`${BASE}/api/v1/webhooks`, {
         headers: { 'Authorization': `Bearer ${token}` },
       });
-      if (!res.ok) return;
+      // 401/404 → Edge Function no disponible, estado vacío silencioso
+      if (!res.ok) { setWebhooksLoading(false); return; }
       const data = await res.json() as { webhooks?: WebhookSub[] };
       setWebhooks(data.webhooks ?? []);
-    } catch { /* silent */ }
+    } catch { /* Edge Function no disponible */ }
     finally { setWebhooksLoading(false); }
   };
 
@@ -593,8 +592,82 @@ export function DeveloperPortal() {
     };
   }, [logs]);
 
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    navigate('/');
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-[#0A0A0F] flex flex-col">
+    <div className="min-h-screen bg-gray-50 dark:bg-[#05050D] flex flex-col">
+
+      {/* ── Bralidus Top Navbar ──────────────────────────────────────── */}
+      <nav style={{
+        position: 'sticky', top: 0, zIndex: 50,
+        background: 'rgba(5,5,13,0.90)', backdropFilter: 'blur(16px)',
+        borderBottom: '1px solid rgba(108,60,225,0.14)',
+        padding: '0 24px', height: 60,
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      }}>
+        {/* Logo */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }} onClick={() => navigate('/')}>
+          <div style={{
+            width: 32, height: 32, borderRadius: 9,
+            background: 'linear-gradient(135deg, #6C3CE1, #0EB5C6)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 0 12px rgba(108,60,225,0.4)',
+          }}>
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="12" r="3" fill="white"/>
+              <circle cx="4" cy="6" r="2" fill="rgba(255,255,255,0.7)"/>
+              <circle cx="20" cy="6" r="2" fill="rgba(255,255,255,0.7)"/>
+              <circle cx="4" cy="18" r="2" fill="rgba(255,255,255,0.7)"/>
+              <circle cx="20" cy="18" r="2" fill="rgba(255,255,255,0.7)"/>
+              <line x1="6" y1="7" x2="10" y2="11" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5"/>
+              <line x1="18" y1="7" x2="14" y2="11" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5"/>
+              <line x1="6" y1="17" x2="10" y2="13" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5"/>
+              <line x1="18" y1="17" x2="14" y2="13" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5"/>
+            </svg>
+          </div>
+          <div>
+            <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 16, color: '#E8E7F5', letterSpacing: '-0.3px' }}>Bralidus</span>
+            <span style={{ fontSize: 11, color: '#5A5A7A', marginLeft: 6 }}>Developer Portal</span>
+          </div>
+        </div>
+
+        {/* Right side: badge + logout */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <span style={{
+            fontSize: 11, fontWeight: 600, padding: '4px 10px',
+            background: 'rgba(108,60,225,0.12)', border: '1px solid rgba(108,60,225,0.25)',
+            borderRadius: 100, color: '#A78BFA',
+          }}>
+            Sprint 8 · 2026
+          </span>
+          <button
+            onClick={handleLogout}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              padding: '7px 14px',
+              background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
+              borderRadius: 9, cursor: 'pointer', color: '#7674A0', fontSize: 13, fontWeight: 500,
+              fontFamily: "'DM Sans', system-ui, sans-serif",
+              transition: 'border-color 0.2s, color 0.2s',
+            }}
+            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(239,68,68,0.35)'; (e.currentTarget as HTMLButtonElement).style.color = '#FCA5A5'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(255,255,255,0.08)'; (e.currentTarget as HTMLButtonElement).style.color = '#7674A0'; }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+              <polyline points="16 17 21 12 16 7"/>
+              <line x1="21" y1="12" x2="9" y2="12"/>
+            </svg>
+            Salir
+          </button>
+        </div>
+      </nav>
+
       <main className="flex-1 max-w-5xl mx-auto w-full px-4 sm:px-6 py-8 md:py-12 space-y-8">
 
         {/* Header */}
