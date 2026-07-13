@@ -131,23 +131,23 @@ const DATA_SOURCES: DataSource[] = [
 ];
 
 const CODE_LINES = [
-  { indent: 0, text: 'POST /query/moe',       color: '#A78BFA', bold: true },
-  { indent: 0, text: '{',                      color: '#E8E7F5' },
-  { indent: 1, text: '"query":',               color: '#0EB5C6', suffix: ' "¿Cómo afecta la Fed a una fintech seed?",', suffixColor: '#86EFAC' },
-  { indent: 1, text: '"startup_context":',     color: '#0EB5C6', suffix: ' {', suffixColor: '#E8E7F5' },
-  { indent: 2, text: '"industry":',            color: '#FCA5A5', suffix: ' "fintech",', suffixColor: '#86EFAC' },
-  { indent: 2, text: '"stage":',               color: '#FCA5A5', suffix: ' "seed",', suffixColor: '#86EFAC' },
-  { indent: 2, text: '"geography":',           color: '#FCA5A5', suffix: ' "chile"', suffixColor: '#86EFAC' },
-  { indent: 1, text: '}',                      color: '#E8E7F5' },
-  { indent: 0, text: '}',                      color: '#E8E7F5' },
-  { indent: 0, text: '',                       color: '#E8E7F5' },
-  { indent: 0, text: '// Response',            color: '#7674A0', bold: false },
-  { indent: 0, text: '{',                      color: '#E8E7F5' },
-  { indent: 1, text: '"experts_activated":',   color: '#0EB5C6', suffix: ' ["macro","unit_economics"],', suffixColor: '#FCD34D' },
-  { indent: 1, text: '"graph_hits":',          color: '#0EB5C6', suffix: ' 4,', suffixColor: '#86EFAC' },
-  { indent: 1, text: '"vector_hits":',         color: '#0EB5C6', suffix: ' 2,', suffixColor: '#86EFAC' },
-  { indent: 1, text: '"context_for_llm":',     color: '#0EB5C6', suffix: ' "## Contexto Macro..."', suffixColor: '#86EFAC' },
-  { indent: 0, text: '}',                      color: '#E8E7F5' },
+  { indent: 0, text: 'POST /query/moe',       color: '#FB7185', bold: true },
+  { indent: 0, text: '{',                      color: '#E2E8F0' },
+  { indent: 1, text: '"query":',               color: '#FDA4AF', suffix: ' "¿Cómo afecta la Fed a una fintech seed?",', suffixColor: '#FCA5A5' },
+  { indent: 1, text: '"startup_context":',     color: '#FDA4AF', suffix: ' {', suffixColor: '#E2E8F0' },
+  { indent: 2, text: '"industry":',            color: '#FECDD3', suffix: ' "fintech",', suffixColor: '#FCA5A5' },
+  { indent: 2, text: '"stage":',               color: '#FECDD3', suffix: ' "seed",', suffixColor: '#FCA5A5' },
+  { indent: 2, text: '"geography":',           color: '#FECDD3', suffix: ' "chile"', suffixColor: '#FCA5A5' },
+  { indent: 1, text: '}',                      color: '#E2E8F0' },
+  { indent: 0, text: '}',                      color: '#E2E8F0' },
+  { indent: 0, text: '',                       color: '#E2E8F0' },
+  { indent: 0, text: '// Response',            color: '#94A3B8', bold: false },
+  { indent: 0, text: '{',                      color: '#E2E8F0' },
+  { indent: 1, text: '"experts_activated":',   color: '#FDA4AF', suffix: ' ["macro","unit_economics"],', suffixColor: '#FECDD3' },
+  { indent: 1, text: '"graph_hits":',          color: '#FDA4AF', suffix: ' 4,', suffixColor: '#FCA5A5' },
+  { indent: 1, text: '"vector_hits":',         color: '#FDA4AF', suffix: ' 2,', suffixColor: '#FCA5A5' },
+  { indent: 1, text: '"context_for_llm":',     color: '#FDA4AF', suffix: ' "## Contexto Macro..."', suffixColor: '#FCA5A5' },
+  { indent: 0, text: '}',                      color: '#E2E8F0' },
 ];
 
 const STATS = [
@@ -163,21 +163,21 @@ const HOW_IT_WORKS = [
     title: 'Envías el contexto',
     desc: 'POST /query/moe con startup_context: industria, etapa y geografía. Bralidus entiende tu startup.',
     icon: <IconCode />,
-    color: '#A78BFA',
+    color: '#F43F5E',
   },
   {
     step: '02',
     title: 'GatingNetwork activa Experts',
     desc: 'El router de 2 etapas (keyword scan + fallback semántico) selecciona los Experts relevantes y traversa el knowledge graph.',
     icon: <IconBrain />,
-    color: '#6C3CE1',
+    color: '#E11D48',
   },
   {
     step: '03',
     title: 'Contexto listo para tu LLM',
     desc: 'Recibes Markdown estructurado con nodos GRAPH + VECTOR rankeados por relevancia, listo para inyectar en tu prompt.',
     icon: <IconZap />,
-    color: '#0EB5C6',
+    color: '#BE123C',
   },
 ];
 
@@ -210,25 +210,41 @@ export function Landing() {
     return () => clearInterval(timer);
   }, [inView]);
 
+  const getExpertStyles = (id: string) => {
+    switch (id) {
+      case 'macro': return { text: 'text-purple-650', border: 'border-purple-200', bg: 'bg-purple-50' };
+      case 'mercados': return { text: 'text-emerald-650', border: 'border-emerald-200', bg: 'bg-emerald-50' };
+      case 'unit_economics': return { text: 'text-amber-650', border: 'border-amber-200', bg: 'bg-amber-50' };
+      case 'legal': return { text: 'text-rose-650', border: 'border-rose-200', bg: 'bg-rose-50' };
+      default: return { text: 'text-sky-650', border: 'border-sky-200', bg: 'bg-sky-50' };
+    }
+  };
+
+  const getSourceStyles = (type: string) => {
+    switch (type) {
+      case 'Macro USA': return { text: 'text-purple-700 font-bold bg-purple-50 border-purple-200' };
+      case 'Mercados': return { text: 'text-emerald-700 font-bold bg-emerald-50 border-emerald-200' };
+      case 'Macro Chile': return { text: 'text-sky-700 font-bold bg-sky-50 border-sky-200' };
+      case 'Regulatorio': return { text: 'text-rose-700 font-bold bg-rose-50 border-rose-200' };
+      case 'Alternativas': return { text: 'text-amber-700 font-bold bg-amber-50 border-amber-200' };
+      case 'B2G': return { text: 'text-blue-700 font-bold bg-blue-50 border-blue-200' };
+      default: return { text: 'text-violet-700 font-bold bg-violet-50 border-violet-200' };
+    }
+  };
+
   return (
-    <div style={{ background: '#05050D', color: '#E8E7F5', minHeight: '100svh', fontFamily: "'DM Sans', system-ui, sans-serif" }}>
+    <div className="min-h-screen bg-slate-50/50 text-slate-900 font-sans selection:bg-rose-600 selection:text-white overflow-x-hidden relative">
+      
+      {/* Decorative background gradients */}
+      <div className="absolute top-0 inset-x-0 h-[600px] bg-gradient-to-b from-rose-50/60 to-transparent pointer-events-none" />
+      <div className="absolute top-[20%] right-[-10%] w-[30vw] h-[30vw] rounded-full bg-rose-50/40 blur-[100px] pointer-events-none" />
+      <div className="absolute bottom-[20%] left-[-10%] w-[35vw] h-[35vw] rounded-full bg-amber-50/40 blur-[100px] pointer-events-none" />
 
       {/* ── Nav ─────────────────────────────────────────────────────────── */}
-      <nav style={{
-        position: 'sticky', top: 0, zIndex: 50,
-        background: 'rgba(5,5,13,0.85)', backdropFilter: 'blur(16px)',
-        borderBottom: '1px solid rgba(108,60,225,0.12)',
-        padding: '0 24px', height: 64,
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-      }}>
+      <nav className="sticky top-0 z-50 border-b border-slate-200/80 bg-white/90 backdrop-blur-md px-6 h-16 flex items-center justify-between">
         {/* Logo */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{
-            width: 36, height: 36, borderRadius: 10,
-            background: 'linear-gradient(135deg, #6C3CE1, #0EB5C6)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 0 16px rgba(108,60,225,0.4)',
-          }}>
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-rose-600 shadow-md shadow-rose-600/20">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
               <circle cx="12" cy="12" r="3" fill="white"/>
               <circle cx="4" cy="6" r="2" fill="rgba(255,255,255,0.7)"/>
@@ -241,42 +257,25 @@ export function Landing() {
               <line x1="18" y1="17" x2="14" y2="13" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5"/>
             </svg>
           </div>
-          <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 20, letterSpacing: '-0.3px', color: '#E8E7F5' }}>
+          <span className="font-heading font-extrabold text-lg text-slate-900 tracking-tight">
             Bralidus
           </span>
         </div>
 
         {/* Nav links */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <a href="#how-it-works" style={{ color: '#7674A0', fontSize: 14, fontWeight: 500, textDecoration: 'none', padding: '6px 12px', borderRadius: 8, transition: 'color 0.2s' }}
-            onMouseEnter={e => (e.currentTarget.style.color = '#E8E7F5')}
-            onMouseLeave={e => (e.currentTarget.style.color = '#7674A0')}>
+        <div className="flex items-center gap-6">
+          <a href="#how-it-works" className="text-sm font-medium text-slate-600 transition-colors hover:text-rose-600">
             Cómo funciona
           </a>
-          <a href="#experts" style={{ color: '#7674A0', fontSize: 14, fontWeight: 500, textDecoration: 'none', padding: '6px 12px', borderRadius: 8, transition: 'color 0.2s' }}
-            onMouseEnter={e => (e.currentTarget.style.color = '#E8E7F5')}
-            onMouseLeave={e => (e.currentTarget.style.color = '#7674A0')}>
+          <a href="#experts" className="text-sm font-medium text-slate-600 transition-colors hover:text-rose-600">
             Experts
           </a>
-          <a href="#api" style={{ color: '#7674A0', fontSize: 14, fontWeight: 500, textDecoration: 'none', padding: '6px 12px', borderRadius: 8, transition: 'color 0.2s' }}
-            onMouseEnter={e => (e.currentTarget.style.color = '#E8E7F5')}
-            onMouseLeave={e => (e.currentTarget.style.color = '#7674A0')}>
-            API
+          <a href="#api" className="text-sm font-medium text-slate-600 transition-colors hover:text-rose-600">
+            API Reference
           </a>
           <button
             onClick={() => navigate('/login')}
-            style={{
-              marginLeft: 8,
-              padding: '8px 18px',
-              background: 'linear-gradient(135deg, #6C3CE1, #5B30C4)',
-              color: '#fff', fontWeight: 700, fontSize: 14,
-              border: '1px solid rgba(139,92,246,0.4)',
-              borderRadius: 10, cursor: 'pointer',
-              boxShadow: '0 4px 16px rgba(108,60,225,0.3)',
-              transition: 'opacity 0.2s, transform 0.15s',
-            }}
-            onMouseEnter={e => { e.currentTarget.style.opacity = '0.88'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
-            onMouseLeave={e => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.transform = 'translateY(0)'; }}
+            className="ml-2 inline-flex items-center justify-center rounded-xl bg-rose-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-rose-500 hover:scale-[1.02] active:scale-[0.98] transition-all"
           >
             Acceder
           </button>
@@ -284,91 +283,49 @@ export function Landing() {
       </nav>
 
       {/* ── Hero ────────────────────────────────────────────────────────── */}
-      <section style={{ position: 'relative', overflow: 'hidden', padding: '100px 24px 80px', textAlign: 'center' }}>
+      <section className="relative overflow-hidden pt-16 pb-20 md:pt-24 md:pb-28 px-6 text-center">
         {/* Grid background */}
-        <div style={{
-          position: 'absolute', inset: 0, pointerEvents: 'none',
-          backgroundImage: 'linear-gradient(rgba(108,60,225,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(108,60,225,0.06) 1px, transparent 1px)',
+        <div className="absolute inset-0 pointer-events-none opacity-20" style={{
+          backgroundImage: 'linear-gradient(#f43f5e 1px, transparent 1px), linear-gradient(90deg, #f43f5e 1px, transparent 1px)',
           backgroundSize: '48px 48px',
         }} />
-        {/* Glow orb */}
-        <div style={{
-          position: 'absolute', top: -80, left: '50%', transform: 'translateX(-50%)',
-          width: 600, height: 400, borderRadius: '50%',
-          background: 'radial-gradient(ellipse at center, rgba(108,60,225,0.18) 0%, rgba(14,181,198,0.06) 50%, transparent 70%)',
-          filter: 'blur(40px)', pointerEvents: 'none',
-        }} />
 
-        <div style={{ position: 'relative', maxWidth: 860, margin: '0 auto' }}>
-          {/* Badge */}
-          <div style={{
-            display: 'inline-flex', alignItems: 'center', gap: 8,
-            background: 'rgba(108,60,225,0.12)', border: '1px solid rgba(108,60,225,0.25)',
-            borderRadius: 100, padding: '6px 16px', marginBottom: 32,
-          }}>
-            <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#6C3CE1', boxShadow: '0 0 8px #6C3CE1', display: 'inline-block' }} />
-            <span style={{ fontSize: 12, fontWeight: 600, color: '#A78BFA', letterSpacing: '0.04em' }}>
-              GraphRAG · Mixture of Experts · pgvector · FRED + yfinance
-            </span>
+        <div className="relative max-w-4xl mx-auto space-y-6">
+          {/* Tagline */}
+          <div className="inline-flex items-center gap-2 rounded-full border border-rose-100 bg-rose-50 px-3.5 py-1 text-xs font-semibold text-rose-700 shadow-sm">
+            <span className="h-1.5 w-1.5 rounded-full bg-rose-600 animate-ping" />
+            <span>GraphRAG · Mixture of Experts · FRED + yfinance + BCCH</span>
           </div>
 
           {/* Headline */}
-          <h1 style={{
-            fontFamily: "'Space Grotesk', sans-serif",
-            fontSize: 'clamp(36px, 6vw, 72px)',
-            fontWeight: 800, lineHeight: 1.08, letterSpacing: '-2px',
-            margin: '0 0 24px',
-          }}>
-            <span style={{
-              background: 'linear-gradient(135deg, #C4B5FD 0%, #A78BFA 30%, #6C3CE1 60%, #0EB5C6 100%)',
-              WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
-            }}>
+          <h1 className="font-heading text-4xl font-extrabold tracking-tight sm:text-6xl text-slate-900 leading-[1.1] md:leading-none">
+            <span className="bg-gradient-to-r from-red-600 via-rose-500 to-rose-650 bg-clip-text text-transparent">
               Inteligencia macro.
             </span>
             <br />
-            <span style={{ color: '#E8E7F5' }}>A un API call de distancia.</span>
+            A un API call de distancia.
           </h1>
 
           {/* Subheadline */}
-          <p style={{ fontSize: 18, lineHeight: 1.65, color: '#9998B8', maxWidth: 620, margin: '0 auto 40px', fontWeight: 400 }}>
-            Bralidus convierte el contexto de tu startup en{' '}
-            <span style={{ color: '#C4B5FD', fontWeight: 600 }}>GraphRAG dinámico</span>
-            {' '}— macro, mercados, regulatorio y unit economics — listo para inyectar en tu LLM.
+          <p className="text-base sm:text-lg text-slate-650 leading-relaxed max-w-2xl mx-auto">
+            Bralidus convierte el contexto de tu startup en <strong className="text-rose-600 font-semibold">GraphRAG dinámico</strong> — macro, mercados, regulatorio y unit economics — listo para inyectar en tu LLM.
           </p>
 
           {/* CTAs */}
-          <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
             <button
               onClick={() => navigate('/login')}
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: 8,
-                padding: '14px 28px',
-                background: 'linear-gradient(135deg, #6C3CE1, #5B30C4)',
-                color: '#fff', fontWeight: 700, fontSize: 15,
-                border: '1px solid rgba(139,92,246,0.5)',
-                borderRadius: 14, cursor: 'pointer',
-                boxShadow: '0 8px 32px rgba(108,60,225,0.35)',
-                transition: 'all 0.2s',
-              }}
-              onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 12px 40px rgba(108,60,225,0.5)'; }}
-              onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 8px 32px rgba(108,60,225,0.35)'; }}
+              className="w-full sm:w-auto inline-flex items-center justify-center rounded-xl bg-rose-600 px-6 py-3.5 text-base font-semibold text-white shadow-md shadow-rose-600/10 hover:bg-rose-500 hover:shadow-rose-600/20 hover:-translate-y-0.5 transition-all group"
             >
               Acceder al Dashboard
-              <IconArrow />
+              <span className="ml-2 transition-transform group-hover:translate-x-1">
+                <IconArrow />
+              </span>
             </button>
             <a
               href="#api"
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: 8,
-                padding: '14px 28px',
-                background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.10)',
-                color: '#C4B5FD', fontWeight: 600, fontSize: 15, borderRadius: 14,
-                textDecoration: 'none', transition: 'border-color 0.2s',
-              }}
-              onMouseEnter={e => (e.currentTarget.style.borderColor = 'rgba(108,60,225,0.4)')}
-              onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.10)')}
+              className="w-full sm:w-auto inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-6 py-3.5 text-base font-semibold text-slate-700 hover:bg-slate-50 transition-all hover:-translate-y-0.5"
             >
-              <IconCode />
               Ver la API
             </a>
           </div>
@@ -376,78 +333,43 @@ export function Landing() {
       </section>
 
       {/* ── Stats bar ───────────────────────────────────────────────────── */}
-      <section style={{ padding: '0 24px 80px' }}>
-        <div style={{
-          maxWidth: 900, margin: '0 auto',
-          display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
-          gap: 1, background: 'rgba(108,60,225,0.12)', borderRadius: 20, overflow: 'hidden',
-          border: '1px solid rgba(108,60,225,0.18)',
-        }}>
+      <section className="px-6 pb-20 max-w-4xl mx-auto">
+        <div className="grid gap-px bg-slate-200 rounded-2xl overflow-hidden border border-slate-200 shadow-sm md:grid-cols-4">
           {STATS.map((s, i) => (
-            <div key={i} style={{
-              background: '#0E0E1A', padding: '28px 24px', textAlign: 'center',
-            }}>
-              <div style={{
-                fontFamily: "'Space Grotesk', sans-serif",
-                fontSize: 42, fontWeight: 800, color: '#E8E7F5',
-                background: 'linear-gradient(135deg, #C4B5FD, #6C3CE1)',
-                WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
-              }}>
+            <div key={i} className="bg-white p-6 text-center hover:bg-slate-50/50 transition-colors">
+              <div className="font-heading text-4xl font-extrabold bg-gradient-to-br from-red-600 to-rose-600 bg-clip-text text-transparent">
                 {s.value}
               </div>
-              <div style={{ fontSize: 15, fontWeight: 700, color: '#E8E7F5', marginTop: 4 }}>{s.label}</div>
-              <div style={{ fontSize: 12, color: '#7674A0', marginTop: 2 }}>{s.sub}</div>
+              <div className="text-sm font-bold text-slate-800 mt-1.5">{s.label}</div>
+              <div className="text-xs text-slate-500 mt-0.5">{s.sub}</div>
             </div>
           ))}
         </div>
       </section>
 
       {/* ── How It Works ────────────────────────────────────────────────── */}
-      <section id="how-it-works" style={{ padding: '0 24px 100px' }}>
-        <div style={{ maxWidth: 900, margin: '0 auto' }}>
-          <div style={{ textAlign: 'center', marginBottom: 56 }}>
-            <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.1em', color: '#7674A0', textTransform: 'uppercase' }}>
-              Flujo
-            </span>
-            <h2 style={{
-              fontFamily: "'Space Grotesk', sans-serif",
-              fontSize: 'clamp(28px, 4vw, 44px)', fontWeight: 800, letterSpacing: '-1px',
-              margin: '12px 0 0', color: '#E8E7F5',
-            }}>
+      <section id="how-it-works" className="py-20 border-t border-slate-200 bg-white px-6 shadow-sm">
+        <div className="max-w-4xl mx-auto space-y-12">
+          <div className="text-center space-y-3">
+            <span className="text-xs font-bold uppercase tracking-wider text-rose-600">Flujo</span>
+            <h2 className="font-heading text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
               Cómo funciona Bralidus
             </h2>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 24 }}>
+          <div className="grid gap-6 md:grid-cols-3">
             {HOW_IT_WORKS.map((step, i) => (
-              <div key={i} style={{
-                background: '#0E0E1A', border: `1px solid rgba(108,60,225,0.14)`,
-                borderRadius: 20, padding: 32,
-                transition: 'border-color 0.2s, box-shadow 0.2s',
-              }}
-                onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(108,60,225,0.35)'; (e.currentTarget as HTMLDivElement).style.boxShadow = '0 0 28px rgba(108,60,225,0.10)'; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(108,60,225,0.14)'; (e.currentTarget as HTMLDivElement).style.boxShadow = 'none'; }}
-              >
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, marginBottom: 20 }}>
-                  <div style={{
-                    width: 44, height: 44, borderRadius: 12, flexShrink: 0,
-                    background: `${step.color}18`, border: `1px solid ${step.color}35`,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    color: step.color,
-                  }}>
-                    {step.icon}
-                  </div>
-                  <span style={{
-                    fontFamily: "'Space Grotesk', sans-serif",
-                    fontSize: 36, fontWeight: 800, color: `${step.color}25`, lineHeight: 1,
-                  }}>
-                    {step.step}
-                  </span>
+              <div key={i} className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm hover:border-rose-300 hover:shadow-md transition-all relative overflow-hidden group">
+                <div className="absolute top-4 right-6 font-heading font-extrabold text-slate-100 text-5xl select-none group-hover:text-rose-500/5 transition-colors font-mono">
+                  {step.step}
                 </div>
-                <h3 style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 18, color: '#E8E7F5', margin: '0 0 10px' }}>
+                <div className="h-10 w-10 rounded-lg bg-rose-50 border border-rose-100 text-rose-600 flex items-center justify-center shrink-0 mb-4">
+                  {step.icon}
+                </div>
+                <h3 className="font-heading font-bold text-slate-900 text-lg mb-2">
                   {step.title}
                 </h3>
-                <p style={{ fontSize: 14, color: '#7674A0', lineHeight: 1.65, margin: 0 }}>{step.desc}</p>
+                <p className="text-xs text-slate-500 leading-relaxed">{step.desc}</p>
               </div>
             ))}
           </div>
@@ -455,148 +377,102 @@ export function Landing() {
       </section>
 
       {/* ── Experts Grid ────────────────────────────────────────────────── */}
-      <section id="experts" style={{ padding: '0 24px 100px' }}>
-        <div style={{ maxWidth: 900, margin: '0 auto' }}>
-          <div style={{ textAlign: 'center', marginBottom: 56 }}>
-            <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.1em', color: '#7674A0', textTransform: 'uppercase' }}>
-              Mixture of Experts
-            </span>
-            <h2 style={{
-              fontFamily: "'Space Grotesk', sans-serif",
-              fontSize: 'clamp(28px, 4vw, 44px)', fontWeight: 800, letterSpacing: '-1px',
-              margin: '12px 0 8px', color: '#E8E7F5',
-            }}>
+      <section id="experts" className="py-20 max-w-4xl mx-auto px-6">
+        <div className="space-y-12">
+          <div className="text-center space-y-3">
+            <span className="text-xs font-bold uppercase tracking-wider text-rose-600">Mixture of Experts</span>
+            <h2 className="font-heading text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
               5 Experts especializados
             </h2>
-            <p style={{ fontSize: 15, color: '#7674A0', margin: 0 }}>
+            <p className="text-sm text-slate-500 max-w-xl mx-auto">
               El GatingNetwork activa los expertos más relevantes para tu query — sin configuración manual.
             </p>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 20 }}>
-            {EXPERTS.map(expert => (
-              <div key={expert.id} style={{
-                background: '#0E0E1A',
-                border: `1px solid ${expert.border}`,
-                borderRadius: 18, padding: 28,
-                transition: 'transform 0.2s, box-shadow 0.2s',
-              }}
-                onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-3px)'; (e.currentTarget as HTMLDivElement).style.boxShadow = `0 12px 32px ${expert.color}18`; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.transform = 'translateY(0)'; (e.currentTarget as HTMLDivElement).style.boxShadow = 'none'; }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 16 }}>
-                  <div style={{
-                    width: 40, height: 40, borderRadius: 10,
-                    background: expert.bg, border: `1px solid ${expert.border}`,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    color: expert.color, flexShrink: 0,
-                  }}>
-                    {expert.icon}
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {EXPERTS.map(expert => {
+              const styles = getExpertStyles(expert.id);
+              return (
+                <div key={expert.id} className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm hover:border-rose-350 hover:-translate-y-1 hover:shadow-md transition-all">
+                  <div className="flex items-center gap-3.5 mb-4">
+                    <div className={`h-10 w-10 rounded-lg flex items-center justify-center border shrink-0 ${styles.bg} ${styles.border} ${styles.text}`}>
+                      {expert.icon}
+                    </div>
+                    <h3 className="font-heading font-bold text-slate-900 text-sm">
+                      {expert.name}
+                    </h3>
                   </div>
-                  <h3 style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 15, color: '#E8E7F5', margin: 0 }}>
-                    {expert.name}
-                  </h3>
+                  <p className="text-xs text-slate-500 leading-relaxed mb-4">{expert.description}</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {expert.keywords.slice(0, 4).map(kw => (
+                      <span key={kw} className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${styles.bg} ${styles.border} ${styles.text}`}>
+                        {kw}
+                      </span>
+                    ))}
+                  </div>
                 </div>
-                <p style={{ fontSize: 13, color: '#7674A0', lineHeight: 1.6, margin: '0 0 16px' }}>{expert.description}</p>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                  {expert.keywords.slice(0, 4).map(kw => (
-                    <span key={kw} style={{
-                      fontSize: 11, fontWeight: 600, padding: '3px 9px',
-                      background: expert.bg, border: `1px solid ${expert.border}`,
-                      borderRadius: 100, color: expert.color,
-                    }}>
-                      {kw}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </section>
 
       {/* ── Data Sources ─────────────────────────────────────────────────── */}
-      <section style={{ padding: '0 24px 100px' }}>
-        <div style={{ maxWidth: 900, margin: '0 auto' }}>
-          <div style={{ textAlign: 'center', marginBottom: 56 }}>
-            <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.1em', color: '#7674A0', textTransform: 'uppercase' }}>
-              Fuentes de datos
-            </span>
-            <h2 style={{
-              fontFamily: "'Space Grotesk', sans-serif",
-              fontSize: 'clamp(28px, 4vw, 44px)', fontWeight: 800, letterSpacing: '-1px',
-              margin: '12px 0 0', color: '#E8E7F5',
-            }}>
+      <section className="py-20 border-t border-slate-200 bg-white px-6 shadow-sm">
+        <div className="max-w-4xl mx-auto space-y-12">
+          <div className="text-center space-y-3">
+            <span className="text-xs font-bold uppercase tracking-wider text-rose-600">Fuentes de datos</span>
+            <h2 className="font-heading text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
               Datos reales. Sin mocks.
             </h2>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16 }}>
-            {DATA_SOURCES.map(src => (
-              <div key={src.name} style={{
-                background: '#0E0E1A', border: '1px solid rgba(108,60,225,0.14)',
-                borderRadius: 16, padding: 22,
-                transition: 'border-color 0.2s',
-              }}
-                onMouseEnter={e => ((e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(108,60,225,0.30)')}
-                onMouseLeave={e => ((e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(108,60,225,0.14)')}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
-                  <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 15, color: '#E8E7F5' }}>
-                    {src.name}
-                  </span>
-                  <span style={{
-                    fontSize: 10, fontWeight: 700, padding: '2px 8px',
-                    borderRadius: 100, background: `${src.typeColor}15`,
-                    border: `1px solid ${src.typeColor}30`, color: src.typeColor,
-                  }}>
-                    {src.type}
-                  </span>
+          <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4">
+            {DATA_SOURCES.map(src => {
+              const styles = getSourceStyles(src.type);
+              return (
+                <div key={src.name} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm hover:border-rose-300 transition-all flex flex-col justify-between space-y-3">
+                  <div className="flex justify-between items-start gap-2">
+                    <span className="font-heading font-bold text-slate-900 text-sm">
+                      {src.name}
+                    </span>
+                    <span className={`text-[9px] px-2 py-0.5 rounded-full border ${styles.text}`}>
+                      {src.type}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 leading-relaxed">{src.description}</p>
                 </div>
-                <p style={{ fontSize: 12, color: '#7674A0', lineHeight: 1.55, margin: 0 }}>{src.description}</p>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </section>
 
       {/* ── API Preview ─────────────────────────────────────────────────── */}
-      <section id="api" style={{ padding: '0 24px 100px' }}>
-        <div style={{ maxWidth: 900, margin: '0 auto' }}>
-          <div style={{ textAlign: 'center', marginBottom: 56 }}>
-            <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.1em', color: '#7674A0', textTransform: 'uppercase' }}>
-              API Reference
-            </span>
-            <h2 style={{
-              fontFamily: "'Space Grotesk', sans-serif",
-              fontSize: 'clamp(28px, 4vw, 44px)', fontWeight: 800, letterSpacing: '-1px',
-              margin: '12px 0 0', color: '#E8E7F5',
-            }}>
+      <section id="api" className="py-20 max-w-4xl mx-auto px-6">
+        <div className="space-y-12">
+          <div className="text-center space-y-3">
+            <span className="text-xs font-bold uppercase tracking-wider text-rose-600">API Reference</span>
+            <h2 className="font-heading text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
               Una llamada. Todo el contexto.
             </h2>
           </div>
 
-          <div ref={codeRef} style={{
-            background: '#0A0A14', border: '1px solid rgba(108,60,225,0.25)',
-            borderRadius: 20, overflow: 'hidden',
-            boxShadow: '0 24px 80px rgba(0,0,0,0.5), 0 0 0 1px rgba(108,60,225,0.08)',
-          }}>
+          <div ref={codeRef} className="bg-slate-950 border border-slate-800 rounded-2xl overflow-hidden shadow-xl max-w-3xl mx-auto relative">
+            <div className="absolute top-0 right-0 h-20 w-20 bg-rose-500/5 rounded-full blur-xl pointer-events-none" />
+            
             {/* Terminal header */}
-            <div style={{
-              background: '#0E0E1A', padding: '12px 20px',
-              borderBottom: '1px solid rgba(108,60,225,0.15)',
-              display: 'flex', alignItems: 'center', gap: 8,
-            }}>
-              <div style={{ width: 12, height: 12, borderRadius: '50%', background: '#EF4444' }} />
-              <div style={{ width: 12, height: 12, borderRadius: '50%', background: '#F59E0B' }} />
-              <div style={{ width: 12, height: 12, borderRadius: '50%', background: '#10B981' }} />
-              <span style={{ marginLeft: 12, fontSize: 12, color: '#7674A0', fontFamily: "'DM Mono', monospace" }}>
+            <div className="bg-slate-900 px-5 py-3 border-b border-slate-800/80 flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-red-500" />
+              <div className="w-3 h-3 rounded-full bg-amber-500" />
+              <div className="w-3 h-3 rounded-full bg-emerald-500" />
+              <span className="ml-3 text-xs text-slate-400 font-mono">
                 POST https://bralidus.railway.app/query/moe
               </span>
             </div>
 
             {/* Code body */}
-            <div style={{ padding: '28px 32px', fontFamily: "'Courier New', monospace", fontSize: 14, lineHeight: 2 }}>
+            <div className="p-6 font-mono text-xs md:text-sm text-slate-300 leading-relaxed overflow-x-auto">
               {CODE_LINES.map((line, i) => (
                 <div key={i} style={{
                   opacity: i < typedLines ? 1 : 0,
@@ -617,7 +493,7 @@ export function Landing() {
               ))}
               {/* Cursor */}
               {typedLines < CODE_LINES.length && (
-                <span style={{ display: 'inline-block', width: 8, height: 16, background: '#6C3CE1', animation: 'blink 1s step-end infinite', verticalAlign: 'middle' }} />
+                <span className="inline-block w-2 h-4 bg-rose-600 animate-pulse align-middle ml-1" />
               )}
             </div>
           </div>
@@ -625,49 +501,22 @@ export function Landing() {
       </section>
 
       {/* ── CTA Final ───────────────────────────────────────────────────── */}
-      <section style={{ padding: '0 24px 120px', textAlign: 'center' }}>
-        <div style={{ maxWidth: 640, margin: '0 auto' }}>
-          <div style={{
-            background: 'linear-gradient(135deg, rgba(108,60,225,0.12), rgba(14,181,198,0.08))',
-            border: '1px solid rgba(108,60,225,0.25)', borderRadius: 28,
-            padding: '60px 48px',
-          }}>
+      <section className="py-20 px-6">
+        <div className="max-w-3xl mx-auto">
+          <div className="bg-gradient-to-br from-rose-50/40 to-rose-100/10 border border-rose-200 rounded-3xl p-10 text-center space-y-6 relative overflow-hidden shadow-md">
             {/* Glow */}
-            <div style={{
-              width: 80, height: 80, borderRadius: '50%',
-              background: 'linear-gradient(135deg, #6C3CE1, #0EB5C6)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              margin: '0 auto 28px',
-              boxShadow: '0 0 40px rgba(108,60,225,0.5)',
-              animation: 'pulse-glow 2.5s ease-in-out infinite',
-            }}>
+            <div className="h-14 w-14 rounded-full bg-rose-600 text-white flex items-center justify-center mx-auto shadow-md shadow-rose-600/20 animate-pulse">
               <IconDatabase />
             </div>
-            <h2 style={{
-              fontFamily: "'Space Grotesk', sans-serif",
-              fontSize: 32, fontWeight: 800, letterSpacing: '-1px',
-              color: '#E8E7F5', margin: '0 0 14px',
-            }}>
+            <h2 className="font-heading text-3xl font-extrabold text-slate-900">
               Empieza ahora
             </h2>
-            <p style={{ fontSize: 15, color: '#7674A0', lineHeight: 1.65, margin: '0 0 36px' }}>
+            <p className="text-sm text-slate-550 max-w-md mx-auto leading-relaxed">
               Accede con tu email institucional, genera una API Key y haz tu primer request en menos de 5 minutos.
             </p>
             <button
               onClick={() => navigate('/login')}
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: 10,
-                padding: '16px 36px',
-                background: 'linear-gradient(135deg, #6C3CE1, #5B30C4)',
-                color: '#fff', fontWeight: 700, fontSize: 16,
-                border: '1px solid rgba(139,92,246,0.5)',
-                borderRadius: 14, cursor: 'pointer', width: '100%',
-                justifyContent: 'center',
-                boxShadow: '0 8px 32px rgba(108,60,225,0.4)',
-                transition: 'all 0.2s',
-              }}
-              onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 16px 48px rgba(108,60,225,0.55)'; }}
-              onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 8px 32px rgba(108,60,225,0.4)'; }}
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-rose-600 px-6 py-3.5 text-base font-semibold text-white shadow-md hover:bg-rose-500 hover:scale-[1.02] active:scale-[0.98] transition-all group"
             >
               Acceder con email
               <IconArrow />
@@ -677,54 +526,41 @@ export function Landing() {
       </section>
 
       {/* ── Footer ──────────────────────────────────────────────────────── */}
-      <footer style={{
-        borderTop: '1px solid rgba(108,60,225,0.12)',
-        padding: '40px 24px',
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        flexWrap: 'wrap', gap: 16, maxWidth: 900, margin: '0 auto',
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{
-            width: 28, height: 28, borderRadius: 8,
-            background: 'linear-gradient(135deg, #6C3CE1, #0EB5C6)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-              <circle cx="12" cy="12" r="3" fill="white"/>
-              <circle cx="4" cy="6" r="2" fill="rgba(255,255,255,0.7)"/>
-              <circle cx="20" cy="6" r="2" fill="rgba(255,255,255,0.7)"/>
-              <circle cx="4" cy="18" r="2" fill="rgba(255,255,255,0.7)"/>
-              <circle cx="20" cy="18" r="2" fill="rgba(255,255,255,0.7)"/>
-              <line x1="6" y1="7" x2="10" y2="11" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5"/>
-              <line x1="18" y1="7" x2="14" y2="11" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5"/>
-              <line x1="6" y1="17" x2="10" y2="13" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5"/>
-              <line x1="18" y1="17" x2="14" y2="13" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5"/>
-            </svg>
+      <footer className="bg-slate-900 text-slate-400 py-12 px-6 border-t border-slate-800 mt-20">
+        <div className="max-w-4xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-rose-600/10 border border-rose-550/30">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="3" fill="#F43F5E"/>
+                <circle cx="4" cy="6" r="2" fill="rgba(244,63,94,0.7)"/>
+                <circle cx="20" cy="6" r="2" fill="rgba(244,63,94,0.7)"/>
+                <circle cx="4" cy="18" r="2" fill="rgba(244,63,94,0.7)"/>
+                <circle cx="20" cy="18" r="2" fill="rgba(244,63,94,0.7)"/>
+                <line x1="6" y1="7" x2="10" y2="11" stroke="rgba(244,63,94,0.4)" strokeWidth="1.5"/>
+                <line x1="18" y1="7" x2="14" y2="11" stroke="rgba(244,63,94,0.4)" strokeWidth="1.5"/>
+                <line x1="6" y1="17" x2="10" y2="13" stroke="rgba(244,63,94,0.4)" strokeWidth="1.5"/>
+                <line x1="18" y1="17" x2="14" y2="13" stroke="rgba(244,63,94,0.4)" strokeWidth="1.5"/>
+              </svg>
+            </div>
+            <div>
+              <div className="font-heading font-extrabold text-sm text-slate-200">Bralidus</div>
+              <div className="text-[10px] text-slate-500">Powered by Validus · Scouttech</div>
+            </div>
           </div>
-          <div>
-            <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 14, color: '#E8E7F5' }}>Bralidus</div>
-            <div style={{ fontSize: 11, color: '#4A4A6A' }}>Powered by Validus · ScoutTech</div>
+
+          <div className="flex gap-6 text-slate-400">
+            <a href="https://validus.scouttech.lat" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">
+              Validus
+            </a>
+            <button onClick={() => navigate('/dashboard')} className="hover:text-white transition-colors bg-transparent border-none cursor-pointer">
+              Dashboard
+            </button>
           </div>
-        </div>
 
-        <div style={{ display: 'flex', gap: 24 }}>
-          <a href="https://validus.scouttech.lat" target="_blank" rel="noopener noreferrer"
-            style={{ fontSize: 13, color: '#7674A0', textDecoration: 'none' }}
-            onMouseEnter={e => (e.currentTarget.style.color = '#E8E7F5')}
-            onMouseLeave={e => (e.currentTarget.style.color = '#7674A0')}>
-            Validus
-          </a>
-          <button onClick={() => navigate('/dashboard')}
-            style={{ fontSize: 13, color: '#7674A0', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'inherit' }}
-            onMouseEnter={e => (e.currentTarget.style.color = '#E8E7F5')}
-            onMouseLeave={e => (e.currentTarget.style.color = '#7674A0')}>
-            Dashboard
-          </button>
+          <p className="text-xs text-slate-500">
+            © 2026 Scouttech · Todos los derechos reservados
+          </p>
         </div>
-
-        <p style={{ fontSize: 12, color: '#4A4A6A', margin: 0 }}>
-          © 2026 ScoutTech · Todos los derechos reservados
-        </p>
       </footer>
     </div>
   );
