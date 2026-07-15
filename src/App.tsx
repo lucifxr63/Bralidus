@@ -7,12 +7,14 @@ import { DeveloperPortal } from '@/pages/DeveloperPortal';
 import { Login } from '@/pages/Login';
 import { Landing } from '@/pages/Landing';
 import { AuthCallback } from '@/pages/AuthCallback';
+import { CompanyIdentityGate } from '@/components/CompanyIdentityGate';
 import type { Session } from '@supabase/supabase-js';
 
 function ProtectedRoute({ session, children }: { session: Session | null; children: React.ReactNode }) {
   if (session === undefined) return null;
   if (!session) return <Navigate to="/login" replace />;
-  return <>{children}</>;
+  // Gatea también la identidad de empresa compartida antes de la app.
+  return <CompanyIdentityGate>{children}</CompanyIdentityGate>;
 }
 
 export default function App() {
