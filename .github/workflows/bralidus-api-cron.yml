@@ -1,0 +1,64 @@
+name: bralidus-api-cron
+
+# Agenda los 9 jobs del scheduler de la API de Bralidus (bralidus-api en Vercel),
+# que en serverless no corre APScheduler. Cada schedule dispara POST /jobs/run/{id}
+# con BRALIDUS_CRON_SECRET. Reemplaza al scheduler in-proc (patrón igual al de S-Pulse).
+#
+# NOTA: los `schedule` sólo corren desde la rama default (master) — activar tras merge.
+# Horarios en UTC (Chile = UTC-4 en invierno). Los jobs pesados (radar/cmf/seia/concursal)
+# pueden exceder el límite de 60s de Vercel Hobby → considerar Pro o correrlos en el runner.
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'       # radar_refresh (cada 30 min)
+    - cron: '0 */2 * * *'        # cache_sweep (cada 2 h)
+    - cron: '15 13,17,21 * * *'  # cmf_sync (9/13/17:15 Chile)
+    - cron: '30 11 * * 1-5'      # concursal_sync (lun-vie 07:30 Chile)
+    - cron: '0 11 * * 1'         # bcch_sync (lun 07:00 Chile)
+    - cron: '0 13 * * 6'         # empleo_sync (sáb 09:00 Chile)
+    - cron: '0 12 */3 * *'       # seia_sync (cada 3 días 08:00 Chile)
+    - cron: '0 3 * * 0'          # fred_sync (dom 03:00)
+    - cron: '0 4 1 * *'          # yfinance_sync (día 1, 04:00)
+  workflow_dispatch:
+    inputs:
+      job:
+        description: 'job_id a disparar (ver /jobs/list)'
+        required: true
+        default: cache_sweep
+
+concurrency:
+  group: bralidus-api-cron
+  cancel-in-progress: false
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Disparar job de la API
+        env:
+          CRON_SECRET: ${{ secrets.BRALIDUS_CRON_SECRET }}
+          API: https://api.bralidus.scouttech.lat
+          SCHED: ${{ github.event.schedule }}
+          EVENT: ${{ github.event_name }}
+          DISPATCH: ${{ github.event.inputs.job }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT" = "workflow_dispatch" ]; then
+            JOB="$DISPATCH"
+          else
+            case "$SCHED" in
+              '*/30 * * * *')       JOB=radar_refresh ;;
+              '0 */2 * * *')        JOB=cache_sweep ;;
+              '15 13,17,21 * * *')  JOB=cmf_sync ;;
+              '30 11 * * 1-5')      JOB=concursal_sync ;;
+              '0 11 * * 1')         JOB=bcch_sync ;;
+              '0 13 * * 6')         JOB=empleo_sync ;;
+              '0 12 */3 * *')       JOB=seia_sync ;;
+              '0 3 * * 0')          JOB=fred_sync ;;
+              '0 4 1 * *')          JOB=yfinance_sync ;;
+              *) echo "schedule no mapeado: $SCHED"; exit 1 ;;
+            esac
+          fi
+          echo "Disparando job: $JOB"
+          curl -fsS --max-time 300 -X POST "$API/jobs/run/$JOB" \
+            -H "Authorization: Bearer $CRON_SECRET"
