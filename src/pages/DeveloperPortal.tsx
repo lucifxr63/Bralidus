@@ -217,6 +217,35 @@ const API_DOCS: EndpointDoc[] = [
     responseExample: '{\n  "data": [\n    {\n      "codigo": "1057389-12-LE26",\n      "nombre": "Adquisición de insumos de laboratorio",\n      "organismo": "Hospital de Talca",\n      "monto_estimado_clp": 18000000,\n      "fecha_cierre": "2026-07-24T15:00:00Z"\n    }\n  ]\n}',
     errorCodes: ['401 Unauthorized', '429 Rate limit de Licitus', '503 Licitus no disponible'],
   },
+  {
+    method: 'POST', path: '/api/v1/intel/query', color: '#8B5CF6',
+    description: 'EL endpoint de unificación: GraphRAG dinámico que fusiona en un solo contexto citable todas las fuentes del ecosistema — datos macro fechados (FRED/yfinance), doctrina normativa chilena, relaciones societarias con trazabilidad legal (S-Pulse) y actividad en compras públicas + benchmarks B2G (Licitus). Con company_rut en startup_context, las capas societaria y B2G se anexan automáticamente. Una llamada, toda la inteligencia.',
+    params: [
+      { name: 'query', type: 'string', required: true, description: 'Pregunta de negocio (máx. 2000 chars)' },
+      { name: 'startup_context', type: 'object', required: false, description: '{ industry, stage, geography, company_rut?, business_model? } — determina el routing de entidades y activa S-Pulse/Licitus' },
+      { name: 'top_k', type: 'number', required: false, description: 'Nodos de conocimiento a recuperar (1–25, default 10)' },
+    ],
+    responseExample: '{\n  "query": "...",\n  "entities_activated": ["USD/CLP (Tipo de Cambio Chile)", "..."],\n  "nodes": [ { "document_title": "...", "relevance": 0.87, "metadata": {...} } ],\n  "context_for_llm": "## Contexto macro...\\n\\n## Inteligencia de Relaciones B2B (S-Pulse)...\\n\\n## Actividad en Compras Públicas (Licitus)...",\n  "total_hits": 12\n}',
+    errorCodes: ['400 Query inválida', '401 Unauthorized', '429 Rate limit exceeded', '502 Motor no disponible'],
+  },
+  {
+    method: 'GET', path: '/api/v1/data/spulse/companies/search', color: '#6366F1',
+    description: 'Busca empresas chilenas en el grafo societario de S-Pulse por nombre o RUT (mínimo 2 caracteres). Punto de entrada para obtener el RUT canónico antes de pedir profile o network.',
+    params: [
+      { name: 'q', type: 'string', required: true, description: 'Nombre o RUT (parcial) de la empresa' },
+    ],
+    responseExample: '{\n  "data": [\n    { "rut": "76086428-5", "business_name": "Insumos Médicos SpA", "legal_type": "SpA" }\n  ]\n}',
+    errorCodes: ['400 q muy corto', '401 Unauthorized', '503 S-Pulse no disponible'],
+  },
+  {
+    method: 'GET', path: '/api/v1/data/spulse/companies/:rut/profile', color: '#6366F1',
+    description: 'Ficha 360° de una empresa desde el grafo societario: datos legales, socios y representantes con % de participación, y señales recientes. Cada relación es auditable hasta su documento fuente (trazabilidad legal).',
+    params: [
+      { name: ':rut', type: 'string (path)', required: true, description: 'RUT de la empresa (ej: 76086428-5)' },
+    ],
+    responseExample: '{\n  "data": {\n    "company": { "rut": "76086428-5", "business_name": "...", "legal_type": "SpA", "status": "activa" },\n    "members": [ { "name": "...", "roles": ["socio"], "equity_percentage": 50 } ],\n    "recent_triggers": []\n  }\n}',
+    errorCodes: ['400 RUT inválido', '401 Unauthorized', '503 S-Pulse no disponible o empresa no encontrada'],
+  },
 ];
 
 const LOGS_PER_PAGE = 20;
@@ -329,6 +358,36 @@ const ENDPOINTS = [
     path: '/api/v1/data/licitus/mercado/activas?limit=5',
     label: 'Licitus — Licitaciones activas',
     color: '#22C55E',
+    defaultBody: '',
+  },
+  {
+    method: 'POST',
+    path: '/api/v1/intel/query',
+    label: 'Intel — GraphRAG unificado (macro + S-Pulse + Licitus)',
+    color: '#8B5CF6',
+    defaultBody: JSON.stringify({
+      query: '¿Qué tan atractivo es el mercado de insumos médicos para el Estado chileno?',
+      startup_context: {
+        industry: 'healthtech',
+        stage: 'seed',
+        geography: 'chile',
+        company_rut: '76086428-5',
+      },
+      top_k: 5,
+    }, null, 2),
+  },
+  {
+    method: 'GET',
+    path: '/api/v1/data/spulse/companies/search?q=falabella',
+    label: 'S-Pulse — Buscar empresa en el grafo societario',
+    color: '#6366F1',
+    defaultBody: '',
+  },
+  {
+    method: 'GET',
+    path: '/api/v1/data/spulse/companies/76086428-5/profile',
+    label: 'S-Pulse — Ficha 360° (socios + trazabilidad)',
+    color: '#6366F1',
     defaultBody: '',
   },
 ] as const;
