@@ -183,6 +183,40 @@ const API_DOCS: EndpointDoc[] = [
     responseExample: '{\n  "rut": "765432109",\n  "calculado_al": "2026-06-08",\n  "ingreso_fiscal_12m": 450000000,\n  "tendencia_pct": -12.5,\n  "trato_directo_pct": 34.2,\n  "win_rate_pct": 28.0,\n  "top_organismo_nombre": "Hospital Regional"\n}',
     errorCodes: ['400 RUT inválido', '401 Unauthorized', '404 Sin métricas calculadas'],
   },
+  {
+    method: 'GET', path: '/api/v1/data/licitus/proveedor/:rut', color: '#22C55E',
+    description: 'Actividad real de un proveedor en Mercado Público vía Licitus: órdenes de compra efectivas, buyer intelligence (organismos que le compran), categorías UNSPSC y calidad de datos. Fuente paralela y más rica que chilecompra/metricas (OCs reales de purchase_orders, no cálculo propio).',
+    params: [
+      { name: ':rut', type: 'string (path)', required: true, description: 'RUT del proveedor (ej: 76086428-5)' },
+      { name: 'periodo_meses', type: 'number', required: false, description: 'Ventana de análisis en meses (1–24, default 12)' },
+    ],
+    responseExample: '{\n  "data": {\n    "rut": "76086428-5",\n    "actividad": { "total_ocs": 42, "monto_total_clp": 380000000 },\n    "buyer_intelligence": [\n      { "organismo": "Hospital Regional", "ocs": 12, "monto_clp": 95000000 }\n    ],\n    "categorias": [{ "unspsc": "42131600", "nombre": "Insumos médicos" }],\n    "data_quality": { "cobertura_meses": 12 }\n  }\n}',
+    errorCodes: ['401 Unauthorized', '429 Rate limit de Licitus', '503 Licitus no disponible o RUT sin actividad'],
+  },
+  {
+    method: 'GET', path: '/api/v1/data/licitus/mercado/benchmarks', color: '#22C55E',
+    description: 'Benchmarks de mercado público por rubro UNSPSC y/o región vía Licitus: volumen transado, percentiles de montos (p25 / mediana / p75), cantidad de contratos y top compradores. Ideal para dimensionar un mercado B2G antes de entrar.',
+    params: [
+      { name: 'unspsc', type: 'string', required: false, description: 'Prefijo de categoría UNSPSC (ej: 43231500)' },
+      { name: 'region', type: 'string', required: false, description: 'Región de Chile (ej: Metropolitana)' },
+      { name: 'periodo_meses', type: 'number', required: false, description: 'Ventana de análisis en meses (1–24, default 12)' },
+    ],
+    responseExample: '{\n  "data": {\n    "volumen_total_clp": 12500000000,\n    "contratos": 843,\n    "montos": { "p25": 2100000, "mediana": 6800000, "p75": 19500000 },\n    "top_compradores": [\n      { "organismo": "MINSAL", "monto_clp": 2400000000 }\n    ]\n  }\n}',
+    errorCodes: ['401 Unauthorized', '429 Rate limit de Licitus', '503 Sin datos para los filtros indicados'],
+  },
+  {
+    method: 'GET', path: '/api/v1/data/licitus/mercado/activas', color: '#22C55E',
+    description: 'Licitaciones activas en Mercado Público vía Licitus, filtrables por rubro UNSPSC, región, monto mínimo y ventana de cierre. Datos sincronizados diariamente por la ingesta propia de Licitus y enriquecidos con IA.',
+    params: [
+      { name: 'unspsc', type: 'string', required: false, description: 'Prefijo de categoría UNSPSC' },
+      { name: 'region', type: 'string', required: false, description: 'Región de Chile' },
+      { name: 'monto_min', type: 'number', required: false, description: 'Monto mínimo estimado en CLP' },
+      { name: 'cierre_desde_horas', type: 'number', required: false, description: 'Solo licitaciones que cierran dentro de N horas (default 168)' },
+      { name: 'limit', type: 'number', required: false, description: 'Máximo de resultados (1–100, default 20)' },
+    ],
+    responseExample: '{\n  "data": [\n    {\n      "codigo": "1057389-12-LE26",\n      "nombre": "Adquisición de insumos de laboratorio",\n      "organismo": "Hospital de Talca",\n      "monto_estimado_clp": 18000000,\n      "fecha_cierre": "2026-07-24T15:00:00Z"\n    }\n  ]\n}',
+    errorCodes: ['401 Unauthorized', '429 Rate limit de Licitus', '503 Licitus no disponible'],
+  },
 ];
 
 const LOGS_PER_PAGE = 20;
@@ -274,6 +308,27 @@ const ENDPOINTS = [
     path: '/api/v1/data/chilecompra/metricas',
     label: 'ChileCompra — Métricas M1-M10',
     color: '#F59E0B',
+    defaultBody: '',
+  },
+  {
+    method: 'GET',
+    path: '/api/v1/data/licitus/proveedor/76086428-5?periodo_meses=12',
+    label: 'Licitus — Actividad de proveedor (OCs reales)',
+    color: '#22C55E',
+    defaultBody: '',
+  },
+  {
+    method: 'GET',
+    path: '/api/v1/data/licitus/mercado/benchmarks?periodo_meses=12',
+    label: 'Licitus — Benchmarks de mercado B2G',
+    color: '#22C55E',
+    defaultBody: '',
+  },
+  {
+    method: 'GET',
+    path: '/api/v1/data/licitus/mercado/activas?limit=5',
+    label: 'Licitus — Licitaciones activas',
+    color: '#22C55E',
     defaultBody: '',
   },
 ] as const;
