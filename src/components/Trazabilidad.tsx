@@ -78,7 +78,7 @@ export default function Trazabilidad() {
     ? ((logs.reduce((s, l) => s + l.graph_hits, 0) / Math.max(logs.reduce((s, l) => s + l.total_hits, 0), 1)) * 100).toFixed(1)
     : '0';
 
-  const topMethod = methodDist.sort((a, b) => b.value - a.value)[0]?.name ?? '—';
+  const topMethod = [...methodDist].sort((a, b) => b.value - a.value)[0]?.name ?? '—';
 
   const filtered = useMemo(() =>
     search ? logs.filter(l => l.query_preview.toLowerCase().includes(search.toLowerCase())) : logs,

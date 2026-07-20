@@ -566,16 +566,16 @@ export function DeveloperPortal() {
   const fetchWebhooks = async () => {
     setWebhooksLoading(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token ?? import.meta.env.VITE_SUPABASE_ANON_KEY;
-      const res = await fetch(`${BASE}/api/v1/webhooks`, {
-        headers: { 'Authorization': `Bearer ${token}` },
-      });
-      // 401/404 → Edge Function no disponible, estado vacío silencioso
-      if (!res.ok) { setWebhooksLoading(false); return; }
-      const data = await res.json() as { webhooks?: WebhookSub[] };
-      setWebhooks(data.webhooks ?? []);
-    } catch { /* Edge Function no disponible */ }
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data, error } = await supabase
+        .from('webhook_subscriptions')
+        .select('id, endpoint_url, events, is_active, created_at')
+        .eq('profile_id', user.id)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      setWebhooks((data as WebhookSub[]) ?? []);
+    } catch { /* tabla no disponible aún */ }
     finally { setWebhooksLoading(false); }
   };
 
@@ -590,17 +590,17 @@ export function DeveloperPortal() {
     }
     setWebhookCreating(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token ?? import.meta.env.VITE_SUPABASE_ANON_KEY;
-      const res = await fetch(`${BASE}/api/v1/webhooks`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ endpoint_url: webhookUrl.trim(), events: webhookEvents }),
-      });
-      const data = await res.json() as { webhook?: WebhookSub; error?: string };
-      if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
-      setNewWebhookSecret(data.webhook!.secret ?? null);
-      setWebhooks(prev => [data.webhook!, ...prev]);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('No user');
+      const { data, error } = await supabase
+        .from('webhook_subscriptions')
+        .insert({ profile_id: user.id, endpoint_url: webhookUrl.trim(), events: webhookEvents })
+        .select('id, endpoint_url, events, secret, is_active, created_at')
+        .single();
+      if (error) throw error;
+      const webhook = data as WebhookSub;
+      setNewWebhookSecret(webhook.secret ?? null);
+      setWebhooks(prev => [webhook, ...prev]);
       setWebhookUrl('');
       setWebhookEvents([]);
       setShowWebhookForm(false);
@@ -615,13 +615,14 @@ export function DeveloperPortal() {
   const handleDeleteWebhook = async (id: string) => {
     if (!confirm('¿Eliminar este webhook? Dejará de recibir notificaciones.')) return;
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token ?? import.meta.env.VITE_SUPABASE_ANON_KEY;
-      const res = await fetch(`${BASE}/api/v1/webhooks/${id}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('No user');
+      const { error } = await supabase
+        .from('webhook_subscriptions')
+        .delete()
+        .eq('id', id)
+        .eq('profile_id', user.id);
+      if (error) throw error;
       setWebhooks(prev => prev.filter(w => w.id !== id));
       toast.success('Webhook eliminado');
     } catch {
