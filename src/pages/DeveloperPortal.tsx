@@ -577,21 +577,25 @@ export function DeveloperPortal() {
   const fetchWebhooks = async () => {
     setWebhooksLoading(true);
     try {
+      const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
       const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
+      const token = session?.access_token ?? anonKey;
       if (!token) {
         setWebhooks([]);
         setWebhooksLoading(false);
         return;
       }
       const res = await fetch(`${BASE}/api/v1/webhooks`, {
-        headers: { 'Authorization': `Bearer ${token}` },
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'apikey': anonKey || '',
+        },
       });
 
       if (!res.ok) { setWebhooksLoading(false); return; }
       const data = await res.json() as { webhooks?: WebhookSub[] };
       setWebhooks(data.webhooks ?? []);
-    } catch { /* Edge Function no disponible */ }
+    } catch { /* Edge Function no disponible o no autenticado */ }
     finally { setWebhooksLoading(false); }
   };
 
@@ -606,11 +610,17 @@ export function DeveloperPortal() {
     }
     setWebhookCreating(true);
     try {
+      const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
       const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token ?? import.meta.env.VITE_SUPABASE_ANON_KEY;
+      const token = session?.access_token ?? anonKey;
+
       const res = await fetch(`${BASE}/api/v1/webhooks`, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'apikey': anonKey || '',
+          'Content-Type': 'application/json'
+        },
         body: JSON.stringify({ endpoint_url: webhookUrl.trim(), events: webhookEvents }),
       });
       const data = await res.json() as { webhook?: WebhookSub; error?: string };
@@ -631,11 +641,16 @@ export function DeveloperPortal() {
   const handleDeleteWebhook = async (id: string) => {
     if (!confirm('¿Eliminar este webhook? Dejará de recibir notificaciones.')) return;
     try {
+      const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
       const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token ?? import.meta.env.VITE_SUPABASE_ANON_KEY;
+      const token = session?.access_token ?? anonKey;
+
       const res = await fetch(`${BASE}/api/v1/webhooks/${id}`, {
         method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` },
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'apikey': anonKey || '',
+        },
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       setWebhooks(prev => prev.filter(w => w.id !== id));
@@ -644,6 +659,8 @@ export function DeveloperPortal() {
       toast.error('Error al eliminar el webhook');
     }
   };
+
+
 
   const stats = useMemo(() => {
     const totalReqs = logs.reduce((s, l) => s + (l.requests_count || 1), 0);
