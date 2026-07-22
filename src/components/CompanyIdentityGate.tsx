@@ -16,10 +16,27 @@ export function CompanyIdentityGate({ children }: { children: React.ReactNode })
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
+    try {
+      if (sessionStorage.getItem('validus_company_identity_skipped') === 'true') {
+        setNeeded(false);
+        return;
+      }
+    } catch (e) {
+      console.warn('sessionStorage check error:', e);
+    }
     let active = true;
     getCompanyIdentity().then((c) => { if (active) setNeeded(c === null); });
     return () => { active = false; };
   }, []);
+
+  function handleSkip() {
+    try {
+      sessionStorage.setItem('validus_company_identity_skipped', 'true');
+    } catch (e) {
+      console.warn('sessionStorage error:', e);
+    }
+    setNeeded(false);
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -60,8 +77,17 @@ export function CompanyIdentityGate({ children }: { children: React.ReactNode })
 
   return (
     <div style={{ minHeight: '100svh', background: '#05050D', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
-      <div style={{ width: '100%', maxWidth: 400, background: '#0A0A14', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 16, padding: '1.75rem' }}>
-        <h2 style={{ color: '#EDEDF5', fontSize: '1.25rem', fontWeight: 700, margin: 0 }}>Identificá tu empresa</h2>
+      <div style={{ position: 'relative', width: '100%', maxWidth: 400, background: '#0A0A14', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 16, padding: '1.75rem' }}>
+        <button
+          type="button"
+          onClick={handleSkip}
+          style={{ position: 'absolute', top: '1.25rem', right: '1.25rem', background: 'transparent', border: 'none', color: '#9A9AB0', cursor: 'pointer', fontSize: '1.1rem' }}
+          title="Omitir por ahora"
+          aria-label="Cerrar modal"
+        >
+          ✕
+        </button>
+        <h2 style={{ color: '#EDEDF5', fontSize: '1.25rem', fontWeight: 700, margin: 0, paddingRight: '2rem' }}>Identificá tu empresa</h2>
         <p style={{ color: '#9A9AB0', fontSize: '0.85rem', margin: '0.4rem 0 1.25rem' }}>
           Usamos el RUT de tu <strong>empresa</strong> (no tu RUT personal) para el análisis
           societario y macro. Se guarda una vez y lo comparte todo el ecosistema Scouttech.
@@ -76,6 +102,12 @@ export function CompanyIdentityGate({ children }: { children: React.ReactNode })
             background: '#6C3CE1', color: '#fff', fontWeight: 600, fontSize: '0.9rem', opacity: saving ? 0.5 : 1,
           }}>
             {saving ? 'Guardando…' : 'Continuar'}
+          </button>
+          <button type="button" onClick={handleSkip} disabled={saving} style={{
+            padding: '0.4rem', background: 'transparent', border: 'none', cursor: 'pointer',
+            color: '#9A9AB0', fontSize: '0.8rem', textDecoration: 'underline',
+          }}>
+            Omitir por ahora
           </button>
         </form>
       </div>
