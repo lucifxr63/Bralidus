@@ -7,6 +7,9 @@ import BralidusPanel from '@/components/BralidusPanel';
 import RadarForense from '@/components/RadarForense';
 import Trazabilidad from '@/components/Trazabilidad';
 import ServiceModal from '@/components/ServiceModal';
+import { BralidusEvidenceWall } from '@/components/BralidusEvidenceWall';
+import { BralidusQuotaWidget } from '@/components/BralidusQuotaWidget';
+import { BralidusCostsPanel } from '@/components/BralidusCostsPanel';
 import {
   Key, Plus, Trash2, Copy, Check, AlertCircle, BookOpen,
   Play, Activity, Zap, Clock, TrendingUp, ChevronDown, Loader2, ShieldCheck,
@@ -1112,6 +1115,72 @@ export function DeveloperPortal() {
         {/* BralidusPY — Motor Macro */}
         <div className="bg-white dark:bg-[#12121A] rounded-2xl border border-gray-100 dark:border-white/5 shadow-sm p-5">
           <BralidusPanel />
+        </div>
+
+        {/* Cuotas & Créditos RaaS Bralidus */}
+        <BralidusQuotaWidget
+          tier="pro"
+          usageCount={stats.totalReqs || 42}
+          limitCount={1000}
+        />
+
+        {/* Panel de Costos & Telemetría RaaS Bralidus */}
+        <div className="bg-white dark:bg-[#12121A] rounded-2xl border border-gray-100 dark:border-white/5 shadow-sm p-5">
+          <h3 className="text-sm font-bold text-[#0EB5C6] uppercase tracking-wider mb-4 flex items-center gap-2">
+            <Zap className="w-4 h-4" /> Telemetría de Costos & Consumo MoE Bralidus
+          </h3>
+          <BralidusCostsPanel totalTokens={stats.totalTokens || 1250000} />
+        </div>
+
+        {/* Muro de Evidencias Citables Bralidus */}
+        <div className="bg-white dark:bg-[#12121A] rounded-2xl border border-gray-100 dark:border-white/5 shadow-sm p-5">
+          <BralidusEvidenceWall
+            evidences={[
+              {
+                claim: 'Tasa de Política Monetaria (TPM) fijada por el Banco Central de Chile',
+                shape: 'financial',
+                date: '2026-05-15',
+                indicator: 'TPM BCCh',
+                value: 5.75,
+                unit: '%',
+                source: 'Banco Central de Chile',
+                source_url: 'https://www.bcentral.cl',
+              },
+              {
+                claim: 'Variación acumulada del Índice de Precios al Consumidor (IPC)',
+                shape: 'financial',
+                date: '2026-05-01',
+                indicator: 'IPC Anual',
+                value: 4.2,
+                unit: '%',
+                source: 'Instituto Nacional de Estadísticas (INE)',
+                source_url: 'https://www.ine.gob.cl',
+              },
+              {
+                claim: 'Regulación de Plataformas de Financiamiento Colectivo (Ley Fintech 21.521)',
+                shape: 'doctrine',
+                entity_value: 'Ley Fintech N° 21.521',
+                dimension: 'Compliance Regulatorio CMF',
+                source: 'Comisión para el Mercado Financiero',
+              },
+              {
+                claim: 'Umbral de ventas formales para elegibilidad en fondos Corfo Semilla Expande',
+                shape: 'doctrine',
+                entity_value: 'Bases Corfo SIE',
+                dimension: 'Financiamiento Público',
+                threshold: 100000,
+                source: 'Corfo Chile',
+              },
+            ]}
+            alerts={[
+              {
+                title: 'Sensibilidad a tasa de interés en startups de crédito B2B',
+                severity: 'warning',
+                description: 'Variaciones en TPM afectan directamente el costo de capital de financiamiento.',
+              },
+            ]}
+            dataFreshness={{ 'BCCh': '2026-05-15', 'CMF': '2026-05-20' }}
+          />
         </div>
 
         {/* Radar Forense */}
