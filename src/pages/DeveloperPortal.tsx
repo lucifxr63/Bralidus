@@ -584,9 +584,10 @@ export function DeveloperPortal() {
         setWebhooksLoading(false);
         return;
       }
-      const res = await fetch(`${BASE}/webhooks`, {
+      const res = await fetch(`${BASE}/api/v1/webhooks`, {
         headers: { 'Authorization': `Bearer ${token}` },
       });
+
       if (!res.ok) { setWebhooksLoading(false); return; }
       const data = await res.json() as { webhooks?: WebhookSub[] };
       setWebhooks(data.webhooks ?? []);
