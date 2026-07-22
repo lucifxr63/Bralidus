@@ -78,7 +78,9 @@ type Tab =
   | 'playground'
   | 'audit'
   | 'apikeys'
-  | 'services';
+  | 'services'
+  | 'docs';
+
 
 type ServiceStatus = 'ok' | 'degraded' | 'error' | 'unused';
 
@@ -788,15 +790,13 @@ export function DeveloperPortal() {
             </p>
           </div>
           <div className="flex items-center gap-3">
-            <a
-              href="https://validus.scouttech.lat/developers"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-[#12121A] border border-gray-200 dark:border-white/10 rounded-xl text-sm font-semibold text-gray-700 dark:text-gray-300 hover:border-violet-400 transition shadow-sm"
+            <button
+              onClick={() => setActiveTab('docs')}
+              className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-[#12121A] border border-gray-200 dark:border-white/10 rounded-xl text-sm font-semibold text-gray-700 dark:text-gray-300 hover:border-violet-400 transition shadow-sm cursor-pointer"
             >
               <BookOpen className="w-4 h-4 text-violet-500" />
               Docs
-            </a>
+            </button>
             <button
               onClick={() => setShowModal(true)}
               className="flex items-center gap-1.5 px-4 py-2.5 bg-teal-500 text-white font-semibold rounded-xl hover:bg-teal-600 transition shadow-sm text-sm"
@@ -821,7 +821,9 @@ export function DeveloperPortal() {
               { id: 'audit',      label: 'RAG Audit',          icon: ShieldCheck },
               { id: 'apikeys',    label: 'API Keys',           icon: Key },
               { id: 'services',   label: 'Servicios',          icon: Server },
+              { id: 'docs',       label: 'Documentación API', icon: BookOpen,     badge: 'v1.0',  badgeColor: 'text-violet-400 border-violet-400/30' },
             ].map(tab => {
+
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
               return (
@@ -1088,10 +1090,13 @@ export function DeveloperPortal() {
               <Play className="w-4 h-4 text-violet-500" />
               <span className="font-bold text-gray-900 dark:text-white text-sm">Playground</span>
             </div>
-            <a href="https://validus.scouttech.lat/developers" target="_blank" rel="noopener noreferrer"
-              className="text-xs text-violet-400 hover:text-violet-300 transition">
+            <button
+              onClick={() => setActiveTab('docs')}
+              className="text-xs text-violet-400 hover:text-violet-300 transition cursor-pointer font-medium"
+            >
               Ver documentación completa →
-            </a>
+            </button>
+
           </div>
 
           <div className="p-5 space-y-4">
@@ -1670,7 +1675,201 @@ export function DeveloperPortal() {
           </div>
         )}
 
+        {/* ── TAB: DOCS (Documentación API Bralidus RaaS) ────────────────── */}
+        {activeTab === 'docs' && (
+          <div className="space-y-8 font-sans">
+            {/* Header & Quickstart */}
+            <div className="bg-white dark:bg-[#12121A] rounded-2xl border border-gray-100 dark:border-white/5 p-6 shadow-sm">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-gray-100 dark:border-white/5">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <BookOpen className="w-5 h-5 text-violet-500" />
+                    <h2 className="text-xl font-bold text-gray-900 dark:text-white">Documentación Bralidus RaaS API v1</h2>
+                    <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-violet-500/10 text-violet-400 border border-violet-500/20">OpenAPI 3.0</span>
+                  </div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 max-w-2xl">
+                    Guía de referencia completa para integrar el motor Bralidus Mixture of Experts (MoE), consultas GraphRAG, inteligencia B2G Licitus, grafo societario S-Pulse e indicadores macroeconómicos en tus aplicaciones.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setActiveTab('playground')}
+                    className="flex items-center gap-1.5 px-4 py-2.5 bg-teal-500 hover:bg-teal-600 text-white text-xs font-semibold rounded-xl transition shadow-sm cursor-pointer"
+                  >
+                    <Play className="w-4 h-4" />
+                    Probar en Playground
+                  </button>
+                </div>
+              </div>
+
+              {/* Integration Quickstart Code Snippets */}
+              <div className="pt-6 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-bold text-gray-900 dark:text-white uppercase tracking-wider">Quickstart Code Snippets</h3>
+                  <div className="flex items-center gap-1 bg-gray-100 dark:bg-black/40 p-1 rounded-xl">
+                    {(['curl', 'node', 'python'] as const).map(lang => (
+                      <button
+                        key={lang}
+                        onClick={() => setSnippetLang(lang)}
+                        className={`px-3 py-1 text-[11px] font-semibold rounded-lg transition capitalize cursor-pointer ${
+                          snippetLang === lang
+                            ? 'bg-violet-600 text-white shadow-sm'
+                            : 'text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'
+                        }`}
+                      >
+                        {lang === 'node' ? 'Node.js / JS' : lang === 'python' ? 'Python (httpx)' : 'cURL'}
+                      </button>
+                    ))}
+
+                  </div>
+                </div>
+
+                <div className="relative group bg-gray-950 dark:bg-black/50 border border-gray-800 rounded-xl p-4 font-mono text-xs text-violet-300 overflow-x-auto leading-relaxed">
+                  <pre>{snippets[snippetLang]}</pre>
+                  <button
+                    onClick={() => { navigator.clipboard.writeText(snippets[snippetLang]); toast.success('Copiado al portapapeles'); }}
+                    className="absolute top-3 right-3 p-1.5 bg-white/10 hover:bg-white/20 rounded-lg opacity-0 group-hover:opacity-100 transition text-gray-300 cursor-pointer"
+                  >
+                    <Copy className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Authentication & Rate Limits Guide */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-white dark:bg-[#12121A] rounded-2xl border border-gray-100 dark:border-white/5 p-5 shadow-sm">
+                <div className="flex items-center gap-2 mb-2">
+                  <Key className="w-4 h-4 text-teal-400" />
+                  <h4 className="text-sm font-bold text-gray-900 dark:text-white">Autenticación</h4>
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+                  Todas las peticiones a la API requieren tu Developer API Key en el encabezado <code className="text-teal-400 font-mono">Authorization</code>:
+                </p>
+                <code className="mt-2 block text-[11px] bg-gray-100 dark:bg-black/40 text-teal-400 p-2.5 rounded-lg font-mono">
+                  Authorization: Bearer val_live_...
+                </code>
+              </div>
+
+              <div className="bg-white dark:bg-[#12121A] rounded-2xl border border-gray-100 dark:border-white/5 p-5 shadow-sm">
+                <div className="flex items-center gap-2 mb-2">
+                  <ShieldCheck className="w-4 h-4 text-purple-400" />
+                  <h4 className="text-sm font-bold text-gray-900 dark:text-white">Cuotas & Rate Limits</h4>
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+                  Límites de velocidad por IP y Developer Key:
+                </p>
+                <ul className="mt-2 space-y-1 text-[11px] text-gray-600 dark:text-gray-300">
+                  <li>• Starter Tier: <span className="font-bold text-purple-400">60 req/min</span></li>
+                  <li>• Growth / Pro: <span className="font-bold text-purple-400">300 req/min</span></li>
+                  <li>• Enterprise MoE: <span className="font-bold text-purple-400">Personalizado</span></li>
+                </ul>
+              </div>
+
+              <div className="bg-white dark:bg-[#12121A] rounded-2xl border border-gray-100 dark:border-white/5 p-5 shadow-sm">
+                <div className="flex items-center gap-2 mb-2">
+                  <Activity className="w-4 h-4 text-amber-400" />
+                  <h4 className="text-sm font-bold text-gray-900 dark:text-white">Respuestas de Error</h4>
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+                  Formato estándar JSON de error devuelto por la API Gateway:
+                </p>
+                <code className="mt-2 block text-[10px] bg-gray-100 dark:bg-black/40 text-amber-400 p-2.5 rounded-lg font-mono">
+                  {`{ "error": "Invalid API key", "status": 401 }`}
+                </code>
+              </div>
+            </div>
+
+            {/* Interactive Endpoint Catalog */}
+            <div className="bg-white dark:bg-[#12121A] rounded-2xl border border-gray-100 dark:border-white/5 shadow-sm overflow-hidden">
+              <div className="px-5 py-4 border-b border-gray-100 dark:border-white/5 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <BookOpen className="w-4 h-4 text-violet-500" />
+                  <span className="font-bold text-gray-900 dark:text-white text-sm">Catálogo Completo de Endpoints API v1</span>
+                  <span className="text-xs text-gray-400 font-mono">({API_DOCS.length} endpoints)</span>
+                </div>
+              </div>
+
+              <div className="divide-y divide-gray-50 dark:divide-white/5">
+                {API_DOCS.map((doc, i) => (
+                  <div key={i}>
+                    <button
+                      onClick={() => setExpandedDocIdx(expandedDocIdx === i ? null : i)}
+                      className="w-full flex items-center gap-3 px-5 py-4 hover:bg-gray-50 dark:hover:bg-white/[0.02] transition text-left cursor-pointer"
+                    >
+                      <span
+                        className="text-[11px] font-extrabold px-2.5 py-1 rounded-md shrink-0 font-mono"
+                        style={{ backgroundColor: `${METHOD_COLORS[doc.method] ?? '#888'}22`, color: METHOD_COLORS[doc.method] ?? '#888' }}
+                      >
+                        {doc.method}
+                      </span>
+                      <code className="text-xs text-gray-800 dark:text-gray-200 font-mono font-semibold">{doc.path}</code>
+                      <span className="text-xs text-gray-400 ml-2 hidden md:inline truncate flex-1">{doc.description.slice(0, 75)}…</span>
+                      <ChevronRight className={`w-4 h-4 text-gray-400 ml-auto shrink-0 transition-transform duration-200 ${expandedDocIdx === i ? 'rotate-90 text-violet-400' : ''}`} />
+                    </button>
+                    {expandedDocIdx === i && (
+                      <div className="px-6 pb-6 space-y-4 bg-gray-50/50 dark:bg-white/[0.01] border-t border-gray-100 dark:border-white/5 pt-4">
+                        <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed">{doc.description}</p>
+
+                        <div>
+                          <p className="text-[10px] font-bold text-gray-400 mb-1.5 uppercase tracking-wider">Autenticación Requerida</p>
+                          <code className="text-xs bg-gray-100 dark:bg-black/40 text-teal-400 px-3 py-2 rounded-lg block font-mono">
+                            {'Authorization: Bearer <TU_API_KEY>'}
+                          </code>
+                        </div>
+
+                        {doc.params.length > 0 && (
+                          <div>
+                            <p className="text-[10px] font-bold text-gray-400 mb-2 uppercase tracking-wider">Parámetros de Entrada</p>
+                            <div className="overflow-x-auto border border-gray-200 dark:border-white/10 rounded-xl">
+                              <table className="w-full text-xs text-left">
+                                <thead className="bg-gray-100 dark:bg-white/5">
+                                  <tr>
+                                    <th className="p-2.5 font-semibold text-gray-500">Campo</th>
+                                    <th className="p-2.5 font-semibold text-gray-500">Tipo</th>
+                                    <th className="p-2.5 font-semibold text-gray-500">Requerido</th>
+                                    <th className="p-2.5 font-semibold text-gray-500">Descripción</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100 dark:divide-white/5 font-mono text-[11px]">
+                                  {doc.params.map((p, j) => (
+                                    <tr key={j} className="hover:bg-gray-50 dark:hover:bg-white/[0.02]">
+                                      <td className="p-2.5 font-bold text-teal-500">{p.name}</td>
+                                      <td className="p-2.5 text-violet-400">{p.type}</td>
+                                      <td className="p-2.5">{p.required ? <span className="text-red-400 font-bold">Requerido</span> : <span className="text-gray-400">Opcional</span>}</td>
+                                      <td className="p-2.5 text-gray-400 font-sans">{p.description}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        )}
+
+                        <div>
+                          <p className="text-[10px] font-bold text-gray-400 mb-2 uppercase tracking-wider">Ejemplo de Respuesta JSON</p>
+                          <pre className="bg-gray-950 dark:bg-black/50 text-emerald-400 text-xs rounded-xl p-4 overflow-x-auto font-mono leading-relaxed border border-gray-800">{doc.responseExample}</pre>
+                        </div>
+
+                        <div>
+                          <p className="text-[10px] font-bold text-gray-400 mb-2 uppercase tracking-wider">Códigos de Estado y Error</p>
+                          <div className="flex flex-wrap gap-2">
+                            {doc.errorCodes.map((code, j) => (
+                              <span key={j} className="text-[11px] bg-red-500/10 text-red-400 border border-red-500/20 px-2.5 py-1 rounded-lg font-mono">{code}</span>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
       </main>
+
 
       {/* Modal Crear Llave */}
       {showModal && (
