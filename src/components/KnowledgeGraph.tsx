@@ -108,11 +108,13 @@ function buildGraph(rawNodes: RawKnNode[], rawEdges: RawKnEdge[], filterCat: str
 }
 
 // ── SVG Graph ─────────────────────────────────────────────────────────────────
-function GraphSVG({ nodes, edges }: { nodes: PlacedNode[]; edges: PlacedEdge[] }) {
+function GraphSVG({ nodes, edges, searchTerm = '' }: { nodes: PlacedNode[]; edges: PlacedEdge[]; searchTerm?: string }) {
   const svgRef  = useRef<SVGSVGElement>(null);
   const [vp, setVp]   = useState({ x: 0, y: 0, scale: 1 });
   const drag          = useRef<{ sx: number; sy: number; ox: number; oy: number } | null>(null);
   const [hovered, setHovered] = useState<string | null>(null);
+
+  const term = searchTerm.trim().toLowerCase();
 
   // Fit-to-view on data change
   useEffect(() => {
@@ -210,40 +212,49 @@ function GraphSVG({ nodes, edges }: { nodes: PlacedNode[]; edges: PlacedEdge[] }
           }
 
           {/* Nodes */}
-          {nodes.map(n => (
-            <g
-              key={n.id}
-              transform={`translate(${n.x},${n.y})`}
-              style={{ cursor: 'default' }}
-              onMouseEnter={() => setHovered(n.id)}
-              onMouseLeave={() => setHovered(null)}
-            >
-              {/* Outer glow for hubs */}
-              {n.isHub && (
-                <circle r={n.r + 5} fill={n.color + '18'} />
-              )}
-              {/* Node circle */}
-              <circle
-                r={n.r}
-                fill={n.color + (n.isHub ? '2A' : '14')}
-                stroke={n.color + (n.isHub ? 'CC' : '77')}
-                strokeWidth={n.isHub ? 1.8 : 1.2}
-                filter={n.isHub ? `url(#glow-${n.category})` : undefined}
-              />
-              {/* Label */}
-              <text
-                y={n.r + 11}
-                textAnchor="middle"
-                fontSize={8.5}
-                fill={n.isHub ? '#C8CDD8' : '#545966'}
-                fontWeight={n.isHub ? 600 : 400}
-                fontFamily="'DM Sans', sans-serif"
-                style={{ pointerEvents: 'none' }}
+          {nodes.map(n => {
+            const isMatch = !term || n.label.toLowerCase().includes(term) || n.category.toLowerCase().includes(term);
+            const opacity = isMatch ? 1 : 0.2;
+
+            return (
+              <g
+                key={n.id}
+                transform={`translate(${n.x},${n.y})`}
+                style={{ cursor: 'default', opacity }}
+                onMouseEnter={() => setHovered(n.id)}
+                onMouseLeave={() => setHovered(null)}
               >
-                {n.label.length > 22 ? n.label.slice(0, 20) + '…' : n.label}
-              </text>
-            </g>
-          ))}
+                {/* Search match highlight pulse */}
+                {term && isMatch && (
+                  <circle r={n.r + 8} fill="#0EB5C622" stroke="#0EB5C6" strokeWidth={1 / vp.scale} strokeDasharray="3 3" />
+                )}
+                {/* Outer glow for hubs */}
+                {n.isHub && (
+                  <circle r={n.r + 5} fill={n.color + '18'} />
+                )}
+                {/* Node circle */}
+                <circle
+                  r={n.r}
+                  fill={n.color + (n.isHub ? '2A' : '14')}
+                  stroke={n.color + (n.isHub ? 'CC' : '77')}
+                  strokeWidth={n.isHub ? 1.8 : 1.2}
+                  filter={n.isHub ? `url(#glow-${n.category})` : undefined}
+                />
+                {/* Label */}
+                <text
+                  y={n.r + 11}
+                  textAnchor="middle"
+                  fontSize={8.5}
+                  fill={isMatch ? (n.isHub ? '#C8CDD8' : '#545966') : '#333742'}
+                  fontWeight={n.isHub ? 600 : 400}
+                  fontFamily="'DM Sans', sans-serif"
+                  style={{ pointerEvents: 'none' }}
+                >
+                  {n.label.length > 22 ? n.label.slice(0, 20) + '…' : n.label}
+                </text>
+              </g>
+            );
+          })}
         </g>
       </svg>
 
@@ -277,6 +288,7 @@ function GraphSVG({ nodes, edges }: { nodes: PlacedNode[]; edges: PlacedEdge[] }
   );
 }
 
+
 // ── Markdown parser ──────────────────────────────────────────────────────────
 function parseMdFile(filename: string, raw: string, category: string): { nodes: VaultNode[]; edges: VaultEdge[] } {
   let titulo = filename.replace(/\.md$/i, ''), tags: string[] = [], body = raw;
@@ -308,12 +320,13 @@ function parseMdFile(filename: string, raw: string, category: string): { nodes: 
 
 // ── Main component ───────────────────────────────────────────────────────────
 export function KnowledgeGraph() {
-  const [rawNodes,  setRawNodes]  = useState<RawKnNode[]>([]);
-  const [rawEdges,  setRawEdges]  = useState<RawKnEdge[]>([]);
-  const [loading,   setLoading]   = useState(true);
-  const [uploading, setUploading] = useState(false);
-  const [uploadCat, setUploadCat] = useState<'normativa' | 'metodologia' | 'mercado'>('metodologia');
-  const [filterCat, setFilterCat] = useState<string | null>(null);
+  const [rawNodes,    setRawNodes]    = useState<RawKnNode[]>([]);
+  const [rawEdges,    setRawEdges]    = useState<RawKnEdge[]>([]);
+  const [loading,     setLoading]     = useState(true);
+  const [uploading,   setUploading]   = useState(false);
+  const [uploadCat,   setUploadCat]   = useState<'normativa' | 'metodologia' | 'mercado'>('metodologia');
+  const [filterCat,   setFilterCat]   = useState<string | null>(null);
+  const [graphSearch, setGraphSearch] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
@@ -395,6 +408,15 @@ export function KnowledgeGraph() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {/* In-canvas node search */}
+          <input
+            type="text"
+            placeholder="Buscar nodo en lienzo..."
+            value={graphSearch}
+            onChange={e => setGraphSearch(e.target.value)}
+            className="text-xs bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:border-teal-500/50"
+          />
+
           <select value={uploadCat} onChange={e => setUploadCat(e.target.value as typeof uploadCat)} disabled={uploading}
             className="text-xs bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg px-2 py-1.5 text-gray-600 dark:text-gray-300 focus:outline-none disabled:opacity-50">
             <option value="normativa">Normativa</option>
@@ -422,8 +444,9 @@ export function KnowledgeGraph() {
           <code className="text-xs bg-white/5 px-3 py-1 rounded-lg font-mono mt-1">npm run sync</code>
         </div>
       ) : (
-        <GraphSVG nodes={nodes} edges={edges} />
+        <GraphSVG nodes={nodes} edges={edges} searchTerm={graphSearch} />
       )}
     </div>
   );
 }
+

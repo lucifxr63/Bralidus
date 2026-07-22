@@ -1,0 +1,106 @@
+name: Bralidus Developer Portal CI/CD
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  validate-and-test:
+    name: 🧪 Typecheck, Test & Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: 'validateai-developer-portal/package-lock.json'
+
+      - name: Install Dependencies
+        working-directory: validateai-developer-portal
+        run: npm ci
+
+      - name: 🔍 TypeScript Strict Typecheck
+        working-directory: validateai-developer-portal
+        run: npx tsc --noEmit
+
+      - name: 🧪 Run E2E Integration Tests
+        working-directory: validateai-developer-portal
+        env:
+          VITE_BRALIDUS_API_URL: https://braliduspy-production.up.railway.app
+          VITE_TEST_BRALIDUS_KEY: ${{ secrets.BRALIDUS_TEST_API_KEY }}
+        run: npx vitest run e2e/bralidus-api.spec.ts
+
+      - name: 🏗️ Production Vite Build
+        working-directory: validateai-developer-portal
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+        run: npm run build
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-portal
+          path: validateai-developer-portal/dist/
+
+  deploy-supabase-functions:
+    name: 🚀 Deploy Supabase Edge Functions
+    needs: validate-and-test
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Deploy Edge Functions
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          if [ -n "${SUPABASE_ACCESS_TOKEN:-}" ]; then
+            echo "Deploying Supabase Edge Functions..."
+            cd validateai/supabase
+            supabase functions deploy api-v1 --project-ref ${{ secrets.SUPABASE_PROJECT_ID }}
+          else
+            echo "SUPABASE_ACCESS_TOKEN not set. Skipping automated function deployment."
+          fi
+
+  deploy-frontend:
+    name: 🌐 Deploy Frontend to Vercel
+    needs: validate-and-test
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Download Build Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist-portal
+          path: validateai-developer-portal/dist/
+
+      - name: Deploy to Vercel Action
+        uses: amondnet/vercel-action@v25
+        if: ${{ secrets.VERCEL_TOKEN != '' }}
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          working-directory: validateai-developer-portal
+          vercel-args: '--prod'

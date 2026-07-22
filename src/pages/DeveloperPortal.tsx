@@ -10,6 +10,8 @@ import ServiceModal from '@/components/ServiceModal';
 import { BralidusEvidenceWall } from '@/components/BralidusEvidenceWall';
 import { BralidusQuotaWidget } from '@/components/BralidusQuotaWidget';
 import { BralidusCostsPanel } from '@/components/BralidusCostsPanel';
+import { AuditLog } from '@/components/AuditLog';
+
 import {
   Key, Plus, Trash2, Copy, Check, AlertCircle, BookOpen,
   Play, Activity, Zap, TrendingUp, ChevronDown, Loader2, ShieldCheck,
@@ -1052,6 +1054,9 @@ export function DeveloperPortal() {
                 </div>
               );
             })()}
+
+            {/* ── Consola de Acciones del Sistema ── */}
+            <AuditLog className="mt-2" />
           </div>
         )}
 
