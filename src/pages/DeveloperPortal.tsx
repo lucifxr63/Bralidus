@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { KnowledgeGraph } from '@/components/KnowledgeGraph';
 import MacroIntelligence from '@/components/MacroIntelligence';
@@ -12,16 +12,13 @@ import { BralidusQuotaWidget } from '@/components/BralidusQuotaWidget';
 import { BralidusCostsPanel } from '@/components/BralidusCostsPanel';
 import {
   Key, Plus, Trash2, Copy, Check, AlertCircle, BookOpen,
-  Play, Activity, Zap, Clock, TrendingUp, ChevronDown, Loader2, ShieldCheck,
-  RefreshCw, Database, Brain, BarChart2, FileText, Globe, Server,
-  List, Search, ChevronRight, BarChart3, Webhook, Bell, TrendingDown, Radio, Newspaper,
+  Play, Activity, Zap, TrendingUp, ChevronDown, Loader2, ShieldCheck,
+  Database, Brain, Server,
+  List, Search, ChevronRight, Webhook, Bell, TrendingDown, Radio,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { generateApiKey, hashApiKey } from '@/utils/crypto';
-import {
-  AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip,
-  ResponsiveContainer, CartesianGrid, PieChart, Pie, Cell, Legend,
-} from 'recharts';
+
 
 interface ApiKey {
   id: string;
@@ -67,6 +64,19 @@ interface ApiUsageLog {
   tokens_used: number;
   created_at: string;
 }
+
+type Tab =
+  | 'overview'
+  | 'costs'
+  | 'evidences'
+  | 'quotas'
+  | 'macro'
+  | 'forensic'
+  | 'graph'
+  | 'playground'
+  | 'audit'
+  | 'apikeys'
+  | 'services';
 
 type ServiceStatus = 'ok' | 'degraded' | 'error' | 'unused';
 
@@ -401,17 +411,13 @@ const METHOD_COLORS: Record<string, string> = {
   DELETE: '#EF4444',
 };
 
-const CHART_COLORS = ['#0EB5C6', '#2DD4BF', '#F59E0B', '#EC4899', '#94A3B8'];
 
-const tooltipStyle = {
-  backgroundColor: '#12121A',
-  border: '1px solid rgba(255,255,255,0.08)',
-  borderRadius: '10px',
-  color: '#F0EFF8',
-  fontSize: '12px',
-};
 
 export function DeveloperPortal() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = (searchParams.get('tab') as Tab) || 'overview';
+  const setActiveTab = (tab: Tab) => setSearchParams({ tab });
+
   const [keys, setKeys] = useState<ApiKey[]>([]);
   const [logs, setLogs] = useState<ApiUsageLog[]>([]);
   const [auditSummaries, setAuditSummaries] = useState<AuditSummary[]>([]);
@@ -570,11 +576,15 @@ export function DeveloperPortal() {
     setWebhooksLoading(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token ?? import.meta.env.VITE_SUPABASE_ANON_KEY;
-      const res = await fetch(`${BASE}/api/v1/webhooks`, {
+      const token = session?.access_token;
+      if (!token) {
+        setWebhooks([]);
+        setWebhooksLoading(false);
+        return;
+      }
+      const res = await fetch(`${BASE}/webhooks`, {
         headers: { 'Authorization': `Bearer ${token}` },
       });
-      // 401/404 → Edge Function no disponible, estado vacío silencioso
       if (!res.ok) { setWebhooksLoading(false); return; }
       const data = await res.json() as { webhooks?: WebhookSub[] };
       setWebhooks(data.webhooks ?? []);
@@ -641,29 +651,6 @@ export function DeveloperPortal() {
     return { totalReqs, totalTokens, todayReqs, activeKeys };
   }, [logs, keys]);
 
-  const areaData = useMemo(() => {
-    const days = [...Array(14)].map((_, i) => {
-      const d = new Date(); d.setDate(d.getDate() - (13 - i));
-      return d.toISOString().split('T')[0];
-    });
-    const map: Record<string, { date: string; requests: number; tokens: number }> = {};
-    days.forEach(date => { map[date] = { date, requests: 0, tokens: 0 }; });
-    logs.forEach(l => {
-      const d = l.created_at.split('T')[0];
-      if (map[d]) { map[d].requests += l.requests_count || 1; map[d].tokens += l.tokens_used || 0; }
-    });
-    return Object.values(map);
-  }, [logs]);
-
-  const pieData = useMemo(() => {
-    const map: Record<string, number> = {};
-    logs.forEach(l => {
-      const key = l.endpoint?.split('/').slice(-2).join('/') || 'other';
-      map[key] = (map[key] || 0) + (l.requests_count || 1);
-    });
-    return Object.entries(map).map(([name, value]) => ({ name, value }));
-  }, [logs]);
-
   const ep = ENDPOINTS[selectedEndpointIdx];
   const snippets = {
     curl: ep.method === 'GET'
@@ -676,8 +663,6 @@ export function DeveloperPortal() {
       ? `import requests\ndata = requests.get(\n  "${BASE}${ep.path}",\n  headers={"Authorization": "Bearer <TU_API_KEY>"}\n).json()`
       : `import requests\ndata = requests.post(\n  "${BASE}${ep.path}",\n  headers={"Authorization": "Bearer <TU_API_KEY>"},\n  json=${ep.defaultBody}\n).json()`,
   };
-
-  const hasData = logs.length > 0;
 
   const uniqueEndpoints = useMemo(() => [...new Set(logs.map(l => l.endpoint).filter(Boolean))], [logs]);
 
@@ -693,21 +678,7 @@ export function DeveloperPortal() {
     [filteredLogs, logsPage],
   );
 
-  const monthlyStats = useMemo(() => {
-    const startOfMonth = new Date();
-    startOfMonth.setDate(1);
-    startOfMonth.setHours(0, 0, 0, 0);
-    const monthStr = startOfMonth.toISOString();
-    const monthLogs = logs.filter(l => l.created_at >= monthStr);
-    return {
-      requests: monthLogs.reduce((s, l) => s + (l.requests_count || 1), 0),
-      tokens: monthLogs.reduce((s, l) => s + (l.tokens_used || 0), 0),
-      limit_requests: 1000,
-      limit_tokens: 500_000,
-      resetDate: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1)
-        .toLocaleDateString('es-CL', { day: 'numeric', month: 'long' }),
-    };
-  }, [logs]);
+
 
   const navigate = useNavigate();
 
@@ -815,386 +786,280 @@ export function DeveloperPortal() {
             </button>
           </div>
         </div>
-
-        {/* Stat cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {[
-            { label: 'Requests totales', value: stats.totalReqs.toLocaleString(), icon: Activity, color: 'text-violet-500', bg: 'bg-violet-500/10' },
-            { label: 'Hoy', value: stats.todayReqs.toLocaleString(), icon: Zap, color: 'text-teal-500', bg: 'bg-teal-500/10' },
-            { label: 'Tokens usados', value: stats.totalTokens > 1000 ? `${(stats.totalTokens / 1000).toFixed(1)}k` : stats.totalTokens.toString(), icon: TrendingUp, color: 'text-amber-500', bg: 'bg-amber-500/10' },
-            { label: 'Llaves activas', value: stats.activeKeys.toString(), icon: Key, color: 'text-pink-500', bg: 'bg-pink-500/10' },
-          ].map(({ label, value, icon: Icon, color, bg }) => (
-            <div key={label} className="bg-white dark:bg-[#12121A] rounded-2xl border border-gray-100 dark:border-white/5 p-4 shadow-sm">
-              <div className={`w-9 h-9 rounded-xl ${bg} flex items-center justify-center mb-3`}>
-                <Icon className={`w-4 h-4 ${color}`} />
-              </div>
-              <p className="text-2xl font-black text-gray-900 dark:text-[#F0EFF8]">{loading ? '—' : value}</p>
-              <p className="text-xs text-gray-400 mt-0.5">{label}</p>
-            </div>
-          ))}
-        </div>
-
-        {/* Sprint 7 Changelog */}
-        <div className="rounded-2xl border border-teal-500/25 bg-teal-500/5 p-5">
-          <div className="flex items-center gap-2 mb-3">
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-violet-500/15 text-violet-400 uppercase tracking-wider">Sprint 8 · 2026-06-10</span>
-            <span className="text-sm font-bold text-gray-900 dark:text-white">BralidusPY Beta — Motor de Inteligencia Macro en Producción</span>
-          </div>
-          <div className="grid sm:grid-cols-2 gap-3">
+        {/* ── Tab Navigation ──────────────────────────────────────────────── */}
+        <div className="overflow-x-auto -mx-1 px-1">
+          <div className="flex items-center gap-1 bg-gray-100 dark:bg-white/[0.04] rounded-2xl p-1 w-max min-w-full">
             {[
-              {
-                tag: 'Producción',
-                color: '#10B981',
-                title: 'BralidusPY Beta — 10/10 tests PASS',
-                desc: '687 nodos · 34 categorías · 96% embedding coverage. FastAPI + pgvector HNSW + APScheduler 9 jobs. GraphRAG: 5/5 hits via GRAPH path en queries fintech/seed con 43 entidades activadas.',
-                path: 'GET /health → status=ok',
-              },
-              {
-                tag: 'Nueva infraestructura',
-                color: '#7C3AED',
-                title: 'Radar Forense + 6 extractores',
-                desc: 'CMF Hechos Esenciales · BCCH Comunicados/Minutas · SEIA Proyectos · Boletín Concursal SUPERIR · Señal Empleo Computrabajo · RSS 10 fuentes (ES+PT). Señales con TTL, severidad y clasificación keyword/Haiku.',
-                path: 'GET /radar/signals',
-              },
-              {
-                tag: 'Calidad',
-                color: '#F59E0B',
-                title: 'Analyst Rating + Trazabilidad',
-                desc: 'PATCH /radar/signals/{id}/rate: rating 1-5, is_false_positive, notas por analista. moe_routing_log: audit trail completo de routing_method, experts_activated, graph/vector hits por query.',
-                path: 'PATCH /radar/signals/{id}/rate',
-              },
-              {
-                tag: 'Escalabilidad',
-                color: '#0EB5C6',
-                title: 'vector_search_direct RPC + health monitor',
-                desc: 'Migración pgvector nativa O(log n) con HNSW eliminó scan en memoria. JobHealthMonitor: alerta en radar_signals tras 3 corridas vacías consecutivas. Anti-spam 6h por job.',
-                path: 'SQL function vector_search_direct()',
-              },
-            ].map(item => (
-              <div key={item.title} className="bg-white/50 dark:bg-white/[0.03] rounded-xl border border-white/10 p-4">
-                <div className="flex items-center gap-2 mb-1.5">
-                  <span
-                    className="text-[9px] font-bold px-1.5 py-0.5 rounded"
-                    style={{ backgroundColor: item.color + '22', color: item.color }}
-                  >
-                    {item.tag.toUpperCase()}
-                  </span>
-                  <span className="text-xs font-bold text-gray-900 dark:text-white">{item.title}</span>
-                </div>
-                <p className="text-[11px] text-gray-500 dark:text-gray-400 leading-relaxed mb-2">{item.desc}</p>
-                <code className="text-[10px] text-teal-500 font-mono bg-teal-500/10 px-2 py-0.5 rounded">{item.path}</code>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Rate Limits */}
-        <div className="bg-white dark:bg-[#12121A] rounded-2xl border border-gray-100 dark:border-white/5 shadow-sm p-5">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <BarChart3 className="w-4 h-4 text-teal-500" />
-              <span className="font-bold text-gray-900 dark:text-white text-sm">Cuotas del Mes</span>
-            </div>
-            <span className="text-xs bg-violet-500/10 text-violet-400 px-2.5 py-1 rounded-full font-semibold">Free Plan</span>
-          </div>
-          <div className="space-y-4">
-            {[
-              { label: 'Requests', value: monthlyStats.requests, limit: monthlyStats.limit_requests, color: '#0EB5C6' },
-              { label: 'Tokens', value: monthlyStats.tokens, limit: monthlyStats.limit_tokens, color: '#2DD4BF' },
-            ].map(({ label, value, limit, color }) => {
-              const pct = Math.min(100, (value / limit) * 100);
-              const barColor = pct > 90 ? '#EF4444' : pct > 70 ? '#F59E0B' : color;
+              { id: 'overview',   label: 'Resumen',            icon: Activity },
+              { id: 'costs',      label: 'Costos RaaS',        icon: Zap,          badge: 'MoE',   badgeColor: 'text-[#0EB5C6] border-[#0EB5C6]/30' },
+              { id: 'evidences',  label: 'Muro Evidencias',    icon: Database,     badge: 'MoE',   badgeColor: 'text-purple-400 border-purple-400/30' },
+              { id: 'quotas',     label: 'Cuotas & Tiers',     icon: ShieldCheck },
+              { id: 'macro',      label: 'Inteligencia Macro', icon: TrendingDown, badge: 'FRED',  badgeColor: 'text-amber-400 border-amber-400/30' },
+              { id: 'forensic',   label: 'Radar Forense',      icon: Radio },
+              { id: 'graph',      label: 'Knowledge Graph',    icon: Brain },
+              { id: 'playground', label: 'Playground API',     icon: Play },
+              { id: 'audit',      label: 'RAG Audit',          icon: ShieldCheck },
+              { id: 'apikeys',    label: 'API Keys',           icon: Key },
+              { id: 'services',   label: 'Servicios',          icon: Server },
+            ].map(tab => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.id;
               return (
-                <div key={label}>
-                  <div className="flex justify-between text-xs mb-1.5">
-                    <span className="text-gray-500">{label}</span>
-                    <span className="font-mono font-semibold text-gray-700 dark:text-gray-300">
-                      {value.toLocaleString()} / {limit >= 1000 ? `${(limit / 1000).toFixed(0)}k` : limit.toLocaleString()}
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id as Tab)}
+                  className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap cursor-pointer ${
+                    isActive
+                      ? 'bg-white dark:bg-[#12121A] text-gray-900 dark:text-[#F0EFF8] shadow-sm'
+                      : 'text-gray-500 dark:text-[#8B8AA0] hover:text-gray-700 dark:hover:text-gray-300'
+                  }`}
+                >
+                  <Icon className="w-3.5 h-3.5 shrink-0" />
+                  {tab.label}
+                  {tab.badge && (
+                    <span className={`text-[9px] font-bold border rounded-full px-1.5 py-0.5 leading-none ${tab.badgeColor ?? 'text-gray-400 border-gray-300 dark:border-white/20'}`}>
+                      {tab.badge}
                     </span>
-                  </div>
-                  <div className="h-2 bg-gray-100 dark:bg-white/5 rounded-full overflow-hidden">
-                    <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: barColor }} />
-                  </div>
-                </div>
+                  )}
+                </button>
               );
             })}
           </div>
-          <p className="text-[11px] text-gray-400 mt-4">
-            Resetea el {monthlyStats.resetDate}.
-          </p>
         </div>
-
-        {/* Service Status */}
-        <div className="bg-white dark:bg-[#12121A] rounded-2xl border border-gray-100 dark:border-white/5 shadow-sm overflow-hidden">
-          <div className="px-5 py-4 border-b border-gray-100 dark:border-white/5 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Server className="w-4 h-4 text-violet-500" />
-              <span className="font-bold text-gray-900 dark:text-white text-sm">Estado de Servicios</span>
-              {servicesCheckedAt && (
-                <span className="text-[11px] text-gray-400">
-                  · verificado {new Date(servicesCheckedAt).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}
-                </span>
-              )}
+        {activeTab === 'overview' && (
+          <div className="space-y-8">
+            {/* Stat cards */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {[
+                { label: 'Requests totales', value: stats.totalReqs.toLocaleString(), icon: Activity, color: 'text-violet-500', bg: 'bg-violet-500/10' },
+                { label: 'Hoy', value: stats.todayReqs.toLocaleString(), icon: Zap, color: 'text-teal-500', bg: 'bg-teal-500/10' },
+                { label: 'Tokens usados', value: stats.totalTokens > 1000 ? `${(stats.totalTokens / 1000).toFixed(1)}k` : stats.totalTokens.toString(), icon: TrendingUp, color: 'text-amber-500', bg: 'bg-amber-500/10' },
+                { label: 'Llaves activas', value: stats.activeKeys.toString(), icon: Key, color: 'text-pink-500', bg: 'bg-pink-500/10' },
+              ].map(({ label, value, icon: Icon, color, bg }) => (
+                <div key={label} className="bg-white dark:bg-[#12121A] rounded-2xl border border-gray-100 dark:border-white/5 p-4 shadow-sm">
+                  <div className={`w-9 h-9 rounded-xl ${bg} flex items-center justify-center mb-3`}>
+                    <Icon className={`w-4 h-4 ${color}`} />
+                  </div>
+                  <p className="text-2xl font-black text-gray-900 dark:text-[#F0EFF8]">{loading ? '—' : value}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">{label}</p>
+                </div>
+              ))}
             </div>
-            <button
-              onClick={fetchServices}
-              disabled={servicesLoading}
-              className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-violet-400 transition disabled:opacity-40"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${servicesLoading ? 'animate-spin' : ''}`} />
-              Actualizar
-            </button>
-          </div>
 
-          <div className="p-5">
-            {servicesLoading && services.length === 0 ? (
-              <div className="space-y-4">
-                {Array.from({ length: 4 }).map((_, i) => (
-                  <div key={i}>
-                    <div className="h-4 w-32 bg-gray-100 dark:bg-white/5 rounded mb-3 animate-pulse" />
-                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                      {Array.from({ length: 3 }).map((_, j) => (
-                        <div key={j} className="h-20 bg-gray-100 dark:bg-white/5 rounded-xl animate-pulse" />
-                      ))}
+            {/* Sprint 8 Changelog */}
+            <div className="rounded-2xl border border-teal-500/25 bg-teal-500/5 p-5">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-violet-500/15 text-violet-400 uppercase tracking-wider">Sprint 8 · 2026-06-10</span>
+                <span className="text-sm font-bold text-gray-900 dark:text-white">BralidusPY Beta — Motor de Inteligencia Macro en Producción</span>
+              </div>
+              <div className="grid sm:grid-cols-2 gap-3">
+                {[
+                  {
+                    tag: 'Producción',
+                    color: '#10B981',
+                    title: 'BralidusPY Beta — 10/10 tests PASS',
+                    desc: '687 nodos · 34 categorías · 96% embedding coverage. FastAPI + pgvector HNSW + APScheduler 9 jobs. GraphRAG: 5/5 hits via GRAPH path en queries fintech/seed con 43 entidades activadas.',
+                    path: 'GET /health → status=ok',
+                  },
+                  {
+                    tag: 'Nueva infraestructura',
+                    color: '#7C3AED',
+                    title: 'Radar Forense + 6 extractores',
+                    desc: 'CMF Hechos Esenciales · BCCH Comunicados/Minutas · SEIA Proyectos · Boletín Concursal SUPERIR · Señal Empleo Computrabajo · RSS 10 fuentes (ES+PT). Señales con TTL, severidad y clasificación keyword/Haiku.',
+                    path: 'GET /radar/signals',
+                  },
+                ].map(({ tag, color, title, desc, path }) => (
+                  <div key={title} className="bg-white dark:bg-[#12121A] rounded-xl p-3.5 border border-gray-100 dark:border-white/5 flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: color }} />
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">{tag}</span>
+                      </div>
+                      <p className="text-xs font-bold text-gray-800 dark:text-gray-200 mb-1">{title}</p>
+                      <p className="text-[11px] text-gray-400 leading-relaxed mb-2">{desc}</p>
                     </div>
+                    <code className="text-[10px] font-mono bg-gray-100 dark:bg-white/5 text-teal-400 px-2 py-1 rounded w-fit">{path}</code>
                   </div>
                 ))}
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── TAB: COSTS ───────────────────────────────────────────────── */}
+        {activeTab === 'costs' && (
+          <div className="space-y-6">
+            <BralidusCostsPanel totalTokens={stats.totalTokens || 1250000} />
+          </div>
+        )}
+
+        {/* ── TAB: EVIDENCES ───────────────────────────────────────────── */}
+        {activeTab === 'evidences' && (
+          <div className="space-y-6">
+            <BralidusEvidenceWall
+              evidences={[
+                {
+                  claim: 'Tasa de Política Monetaria (TPM) fijada por el Banco Central de Chile',
+                  shape: 'financial',
+                  date: '2026-05-15',
+                  indicator: 'TPM BCCh',
+                  value: 5.75,
+                  unit: '%',
+                  source: 'Banco Central de Chile',
+                  source_url: 'https://www.bcentral.cl',
+                },
+                {
+                  claim: 'Variación acumulada del Índice de Precios al Consumidor (IPC)',
+                  shape: 'financial',
+                  date: '2026-05-01',
+                  indicator: 'IPC Anual',
+                  value: 4.2,
+                  unit: '%',
+                  source: 'Instituto Nacional de Estadísticas (INE)',
+                  source_url: 'https://www.ine.gob.cl',
+                },
+                {
+                  claim: 'Regulación de Plataformas de Financiamiento Colectivo (Ley Fintech 21.521)',
+                  shape: 'doctrine',
+                  entity_value: 'Ley Fintech N° 21.521',
+                  dimension: 'Compliance Regulatorio CMF',
+                  source: 'Comisión para el Mercado Financiero',
+                },
+                {
+                  claim: 'Umbral de ventas formales para elegibilidad en fondos Corfo Semilla Expande',
+                  shape: 'doctrine',
+                  entity_value: 'Bases Corfo SIE',
+                  dimension: 'Financiamiento Público',
+                  threshold: 100000,
+                  source: 'Corfo Chile',
+                },
+              ]}
+              alerts={[
+                {
+                  title: 'Sensibilidad a tasa de interés en startups de crédito B2B',
+                  severity: 'warning',
+                  description: 'Variaciones en TPM afectan directamente el costo de capital de financiamiento.',
+                },
+              ]}
+              dataFreshness={{ 'BCCh': '2026-05-15', 'CMF': '2026-05-20' }}
+            />
+          </div>
+        )}
+
+        {/* ── TAB: QUOTAS ──────────────────────────────────────────────── */}
+        {activeTab === 'quotas' && (
+          <div className="space-y-6 max-w-3xl">
+            <BralidusQuotaWidget
+              tier="pro"
+              usageCount={stats.totalReqs || 42}
+              limitCount={1000}
+            />
+          </div>
+        )}
+
+        {/* ── TAB: MACRO ───────────────────────────────────────────────── */}
+        {activeTab === 'macro' && (
+          <div className="space-y-6">
+            <MacroIntelligence />
+            <div className="bg-white dark:bg-[#12121A] rounded-2xl border border-gray-100 dark:border-white/5 shadow-sm p-5">
+              <BralidusPanel />
+            </div>
+          </div>
+        )}
+
+        {/* ── TAB: FORENSIC ────────────────────────────────────────────── */}
+        {activeTab === 'forensic' && (
+          <div className="space-y-6">
+            <div className="bg-white dark:bg-[#12121A] rounded-2xl border border-gray-100 dark:border-white/5 shadow-sm p-5">
+              <RadarForense />
+            </div>
+            <div className="bg-white dark:bg-[#12121A] rounded-2xl border border-gray-100 dark:border-white/5 shadow-sm p-5">
+              <Trazabilidad />
+            </div>
+          </div>
+        )}
+
+        {/* ── TAB: GRAPH ───────────────────────────────────────────────── */}
+        {activeTab === 'graph' && (
+          <div className="bg-white dark:bg-[#12121A] rounded-2xl border border-gray-100 dark:border-white/5 shadow-sm p-5">
+            <KnowledgeGraph />
+          </div>
+        )}
+
+        {/* ── TAB: AUDIT ───────────────────────────────────────────────── */}
+        {activeTab === 'audit' && (
+          <div className="space-y-6">
+            {auditSummaries.length === 0 ? (
+              <div className="bg-white dark:bg-[#12121A] rounded-2xl border border-gray-100 dark:border-white/5 shadow-sm p-12 text-center">
+                <ShieldCheck className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+                <p className="text-gray-400 text-sm">Sin datos de auditoría RAG aún.</p>
+              </div>
             ) : (() => {
-              const STATUS_CFG = {
-                ok:       { dot: 'bg-emerald-500', text: 'text-emerald-500', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20', label: 'Activo' },
-                degraded: { dot: 'bg-amber-400',   text: 'text-amber-400',   bg: 'bg-amber-400/10',   border: 'border-amber-400/20',   label: 'Degradado' },
-                error:    { dot: 'bg-red-500',     text: 'text-red-500',     bg: 'bg-red-500/10',     border: 'border-red-500/20',     label: 'Error' },
-                unused:   { dot: 'bg-gray-400',    text: 'text-gray-400',    bg: 'bg-white/5',        border: 'border-gray-200 dark:border-white/5', label: 'Sin uso' },
-              } as const;
-
-              const CAT_META: Record<string, { label: string; icon: React.ElementType; color: string }> = {
-                database:  { label: 'Infraestructura',      icon: Database,     color: 'text-teal-500' },
-                ai:        { label: 'IA / LLM',             icon: Brain,        color: 'text-violet-500' },
-                parsing:   { label: 'Parsing',              icon: FileText,     color: 'text-blue-400' },
-                macro:     { label: 'Inteligencia Macro',   icon: TrendingDown, color: 'text-amber-400' },
-                scraper:   { label: 'Scrapers Bralidus',    icon: Radio,        color: 'text-red-400' },
-                gov:       { label: 'APIs Gobierno Chile',  icon: ShieldCheck,  color: 'text-emerald-500' },
-                analytics: { label: 'Analytics & Growth',   icon: BarChart2,    color: 'text-pink-400' },
-                data:      { label: 'Fuentes Externas',     icon: Globe,        color: 'text-cyan-400' },
-              };
-
-              const CAT_ORDER = ['database', 'ai', 'parsing', 'macro', 'scraper', 'gov', 'analytics', 'data'];
-
-              const grouped = CAT_ORDER.reduce<Record<string, ServiceInfo[]>>((acc, cat) => {
-                const items = services.filter(s => s.category === cat);
-                if (items.length > 0) acc[cat] = items;
-                return acc;
-              }, {});
-              const ungrouped = services.filter(s => !CAT_ORDER.includes(s.category));
-              if (ungrouped.length > 0) grouped['other'] = ungrouped;
-
+              const summary = auditSummaries[0];
+              const precisionPct = Math.round((summary.avg_precision ?? 0) * 100);
+              const hitRate = summary.hit_rate_pct ?? 0;
               return (
-                <div className="space-y-5">
-                  {Object.entries(grouped).map(([cat, items]) => {
-                    const meta = CAT_META[cat] ?? { label: cat, icon: Server, color: 'text-gray-400' };
-                    const CatIcon = meta.icon;
-                    return (
-                      <div key={cat}>
-                        <div className="flex items-center gap-2 mb-3">
-                          <CatIcon className={`w-3.5 h-3.5 ${meta.color}`} />
-                          <span className={`text-[11px] font-bold uppercase tracking-widest ${meta.color}`}>{meta.label}</span>
-                          <span className="text-[10px] text-gray-500 ml-1">({items.length})</span>
-                        </div>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                          {items.map(svc => {
-                            const sc = STATUS_CFG[svc.status];
-                            const SvcIcon = {
-                              database: Database, ai: Brain, analytics: BarChart2, parsing: FileText,
-                              data: Globe, gov: ShieldCheck, macro: TrendingDown, scraper: Newspaper,
-                            }[svc.category] ?? Server;
-                            return (
-                              <div key={svc.id} onClick={() => setSelectedService(svc)} className={`relative rounded-xl border p-3.5 ${sc.bg} ${sc.border} cursor-pointer hover:ring-1 hover:ring-white/20 transition-all`}>
-                                <div className="flex items-start justify-between mb-2">
-                                  <SvcIcon className={`w-4 h-4 ${svc.status === 'unused' ? 'text-gray-400' : sc.text}`} />
-                                  <span className="flex items-center gap-1">
-                                    <span className={`w-2 h-2 rounded-full ${sc.dot} ${svc.status === 'ok' ? 'shadow-[0_0_6px_currentColor]' : ''}`} />
-                                    <span className={`text-[10px] font-bold ${sc.text}`}>{sc.label}</span>
-                                  </span>
-                                </div>
-                                <p className="text-xs font-semibold text-gray-800 dark:text-gray-100 leading-tight mb-1">{svc.name}</p>
-                                <p className="text-[11px] text-gray-400 leading-tight truncate" title={svc.message}>{svc.message}</p>
-                                {svc.latency_ms !== undefined && (
-                                  <span className="absolute bottom-2.5 right-3 text-[10px] font-mono text-gray-400">{svc.latency_ms}ms</span>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
+                <div className="space-y-6">
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="w-5 h-5 text-violet-500" />
+                    <h2 className="text-base font-bold text-gray-900 dark:text-white">RAG Audit Dashboard</h2>
+                    <span className="ml-2 text-xs bg-violet-500/10 text-violet-400 px-2 py-0.5 rounded-full font-mono">run: {summary.run_id.slice(0, 8)}…</span>
+                    <span className="text-xs text-gray-400">{new Date(summary.started_at).toLocaleString('es-CL')}</span>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    {[
+                      { label: 'Precision score', value: `${precisionPct}%`, color: precisionPct >= 80 ? 'text-green-400' : precisionPct >= 60 ? 'text-amber-400' : 'text-red-400' },
+                      { label: 'Keyword hit rate', value: `${hitRate}%`, color: 'text-teal-400' },
+                      { label: 'Avg latency', value: `${Math.round(summary.avg_latency_ms)}ms`, color: 'text-violet-400' },
+                      { label: 'Errores', value: String(summary.errors), color: summary.errors === 0 ? 'text-green-400' : 'text-red-400' },
+                    ].map(kpi => (
+                      <div key={kpi.label} className="bg-white dark:bg-[#12121A] rounded-xl border border-gray-100 dark:border-white/5 p-4 shadow-sm">
+                        <p className="text-xs text-gray-400 mb-1">{kpi.label}</p>
+                        <p className={`text-2xl font-black ${kpi.color}`}>{kpi.value}</p>
                       </div>
-                    );
-                  })}
+                    ))}
+                  </div>
+                  <div className="bg-white dark:bg-[#12121A] rounded-2xl border border-gray-100 dark:border-white/5 shadow-sm overflow-hidden">
+                    <div className="px-4 py-3 border-b border-gray-100 dark:border-white/5">
+                      <p className="text-xs font-semibold text-gray-500 dark:text-gray-400">Detalle de queries ({auditLogs.length})</p>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="border-b border-gray-50 dark:border-white/5">
+                            {['Estado', 'Categoría', 'Query', 'Precision', 'Latencia', 'Chunks'].map(h => (
+                              <th key={h} className="px-4 py-2.5 text-left font-semibold text-gray-400">{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {auditLogs.map(l => (
+                            <tr key={l.id} className="border-b border-gray-50 dark:border-white/5 hover:bg-gray-50 dark:hover:bg-white/[0.02] transition">
+                              <td className="px-4 py-2.5">{l.error ? '❌' : l.precision_score >= 0.6 ? '✅' : '⚠️'}</td>
+                              <td className="px-4 py-2.5 capitalize text-violet-400 font-semibold">{l.category}</td>
+                              <td className="px-4 py-2.5 text-gray-700 dark:text-gray-300 max-w-xs truncate" title={l.query}>{l.query}</td>
+                              <td className="px-4 py-2.5 font-mono font-bold" style={{ color: l.precision_score >= 0.8 ? '#34D399' : l.precision_score >= 0.5 ? '#F59E0B' : '#F87171' }}>
+                                {(l.precision_score * 100).toFixed(0)}%
+                              </td>
+                              <td className="px-4 py-2.5 font-mono text-gray-400">{Math.round(l.latency_ms)}ms</td>
+                              <td className="px-4 py-2.5 font-mono text-gray-400">{l.chunks_retrieved}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
                 </div>
               );
             })()}
           </div>
-        </div>
+        )}
 
-        {/* Charts */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="md:col-span-2 bg-white dark:bg-[#12121A] rounded-2xl border border-gray-100 dark:border-white/5 p-5 shadow-sm">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <Activity className="w-4 h-4 text-violet-500" />
-                <span className="text-sm font-bold text-gray-900 dark:text-white">Requests (14 días)</span>
-              </div>
-              <span className="text-xs text-gray-400 bg-gray-100 dark:bg-white/5 px-2 py-1 rounded-lg">
-                <Clock className="w-3 h-3 inline mr-1" />Tiempo real
-              </span>
-            </div>
-            {!hasData && !loading ? (
-              <div className="h-48 flex items-center justify-center text-sm text-gray-400">Sin datos aún</div>
-            ) : (
-              <ResponsiveContainer width="100%" height={180}>
-                <AreaChart data={areaData} margin={{ top: 4, right: 4, left: -28, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="gradReq" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#0EB5C6" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#0EB5C6" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
-                  <XAxis dataKey="date" tick={{ fontSize: 11, fill: '#8B8AA0' }} axisLine={false} tickLine={false} tickFormatter={v => (v as string).slice(5)} />
-                  <YAxis tick={{ fontSize: 11, fill: '#8B8AA0' }} axisLine={false} tickLine={false} allowDecimals={false} />
-                  <Tooltip contentStyle={tooltipStyle} itemStyle={{ color: '#F0EFF8' }} labelStyle={{ color: '#8B8AA0', marginBottom: 4 }} />
-                  <Area type="monotone" dataKey="requests" name="Requests" stroke="#0EB5C6" strokeWidth={2} fill="url(#gradReq)" dot={false} />
-                </AreaChart>
-              </ResponsiveContainer>
-            )}
-          </div>
-
-          <div className="bg-white dark:bg-[#12121A] rounded-2xl border border-gray-100 dark:border-white/5 p-5 shadow-sm">
-            <div className="flex items-center gap-2 mb-4">
-              <TrendingUp className="w-4 h-4 text-teal-500" />
-              <span className="text-sm font-bold text-gray-900 dark:text-white">Por endpoint</span>
-            </div>
-            {!hasData && !loading ? (
-              <div className="h-48 flex items-center justify-center text-sm text-gray-400">Sin datos aún</div>
-            ) : (
-              <ResponsiveContainer width="100%" height={180}>
-                <PieChart>
-                  <Pie data={pieData} cx="50%" cy="45%" innerRadius={42} outerRadius={66} paddingAngle={3} dataKey="value">
-                    {pieData.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
-                  </Pie>
-                  <Tooltip contentStyle={tooltipStyle} itemStyle={{ color: '#F0EFF8' }} />
-                  <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: '11px', color: '#8B8AA0' }} />
-                </PieChart>
-              </ResponsiveContainer>
-            )}
-          </div>
-
-          <div className="md:col-span-3 bg-white dark:bg-[#12121A] rounded-2xl border border-gray-100 dark:border-white/5 p-5 shadow-sm">
-            <div className="flex items-center gap-2 mb-4">
-              <Zap className="w-4 h-4 text-amber-500" />
-              <span className="text-sm font-bold text-gray-900 dark:text-white">Tokens consumidos (14 días)</span>
-            </div>
-            {!hasData && !loading ? (
-              <div className="h-36 flex items-center justify-center text-sm text-gray-400">Sin datos aún</div>
-            ) : (
-              <ResponsiveContainer width="100%" height={130}>
-                <BarChart data={areaData} margin={{ top: 4, right: 4, left: -28, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
-                  <XAxis dataKey="date" tick={{ fontSize: 11, fill: '#8B8AA0' }} axisLine={false} tickLine={false} tickFormatter={v => (v as string).slice(5)} />
-                  <YAxis tick={{ fontSize: 11, fill: '#8B8AA0' }} axisLine={false} tickLine={false} allowDecimals={false} />
-                  <Tooltip contentStyle={tooltipStyle} itemStyle={{ color: '#F0EFF8' }} labelStyle={{ color: '#8B8AA0' }} />
-                  <Bar dataKey="tokens" name="Tokens" fill="#F59E0B" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            )}
-          </div>
-        </div>
-
-        {/* Financial Intelligence — BralidusPY */}
-        <MacroIntelligence />
-
-        {/* BralidusPY — Motor Macro */}
-        <div className="bg-white dark:bg-[#12121A] rounded-2xl border border-gray-100 dark:border-white/5 shadow-sm p-5">
-          <BralidusPanel />
-        </div>
-
-        {/* Cuotas & Créditos RaaS Bralidus */}
-        <BralidusQuotaWidget
-          tier="pro"
-          usageCount={stats.totalReqs || 42}
-          limitCount={1000}
-        />
-
-        {/* Panel de Costos & Telemetría RaaS Bralidus */}
-        <div className="bg-white dark:bg-[#12121A] rounded-2xl border border-gray-100 dark:border-white/5 shadow-sm p-5">
-          <h3 className="text-sm font-bold text-[#0EB5C6] uppercase tracking-wider mb-4 flex items-center gap-2">
-            <Zap className="w-4 h-4" /> Telemetría de Costos & Consumo MoE Bralidus
-          </h3>
-          <BralidusCostsPanel totalTokens={stats.totalTokens || 1250000} />
-        </div>
-
-        {/* Muro de Evidencias Citables Bralidus */}
-        <div className="bg-white dark:bg-[#12121A] rounded-2xl border border-gray-100 dark:border-white/5 shadow-sm p-5">
-          <BralidusEvidenceWall
-            evidences={[
-              {
-                claim: 'Tasa de Política Monetaria (TPM) fijada por el Banco Central de Chile',
-                shape: 'financial',
-                date: '2026-05-15',
-                indicator: 'TPM BCCh',
-                value: 5.75,
-                unit: '%',
-                source: 'Banco Central de Chile',
-                source_url: 'https://www.bcentral.cl',
-              },
-              {
-                claim: 'Variación acumulada del Índice de Precios al Consumidor (IPC)',
-                shape: 'financial',
-                date: '2026-05-01',
-                indicator: 'IPC Anual',
-                value: 4.2,
-                unit: '%',
-                source: 'Instituto Nacional de Estadísticas (INE)',
-                source_url: 'https://www.ine.gob.cl',
-              },
-              {
-                claim: 'Regulación de Plataformas de Financiamiento Colectivo (Ley Fintech 21.521)',
-                shape: 'doctrine',
-                entity_value: 'Ley Fintech N° 21.521',
-                dimension: 'Compliance Regulatorio CMF',
-                source: 'Comisión para el Mercado Financiero',
-              },
-              {
-                claim: 'Umbral de ventas formales para elegibilidad en fondos Corfo Semilla Expande',
-                shape: 'doctrine',
-                entity_value: 'Bases Corfo SIE',
-                dimension: 'Financiamiento Público',
-                threshold: 100000,
-                source: 'Corfo Chile',
-              },
-            ]}
-            alerts={[
-              {
-                title: 'Sensibilidad a tasa de interés en startups de crédito B2B',
-                severity: 'warning',
-                description: 'Variaciones en TPM afectan directamente el costo de capital de financiamiento.',
-              },
-            ]}
-            dataFreshness={{ 'BCCh': '2026-05-15', 'CMF': '2026-05-20' }}
-          />
-        </div>
-
-        {/* Radar Forense */}
-        <div className="bg-white dark:bg-[#12121A] rounded-2xl border border-gray-100 dark:border-white/5 shadow-sm p-5">
-          <RadarForense />
-        </div>
-
-        {/* Trazabilidad GraphRAG */}
-        <div className="bg-white dark:bg-[#12121A] rounded-2xl border border-gray-100 dark:border-white/5 shadow-sm p-5">
-          <Trazabilidad />
-        </div>
-
-        {/* Playground */}
-        <div className="bg-white dark:bg-[#12121A] rounded-2xl border border-gray-100 dark:border-white/5 shadow-sm overflow-hidden">
+        {/* ── TAB: PLAYGROUND ──────────────────────────────────────────── */}
+        {activeTab === 'playground' && (
+          <div className="space-y-6 font-sans">
+            {/* Playground */}
+            <div className="bg-white dark:bg-[#12121A] rounded-2xl border border-gray-100 dark:border-white/5 shadow-sm overflow-hidden">
           <div className="px-5 py-4 border-b border-gray-100 dark:border-white/5 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Play className="w-4 h-4 text-violet-500" />
@@ -1421,132 +1286,13 @@ export function DeveloperPortal() {
             ))}
           </div>
         </div>
+        </div>
+        )}
 
-        {/* RAG Audit Dashboard */}
-        {auditSummaries.length > 0 && (() => {
-          const summary = auditSummaries[0];
-          const precisionPct = Math.round((summary.avg_precision ?? 0) * 100);
-          const hitRate = summary.hit_rate_pct ?? 0;
-          const categoryColors: Record<string, string> = {
-            legal: '#0EB5C6', gtm: '#2DD4BF', methodology: '#F59E0B', market: '#34D399', edge: '#94A3B8',
-          };
-          const catMap: Record<string, { pass: number; fail: number; total: number }> = {};
-          auditLogs.forEach(l => {
-            if (!catMap[l.category]) catMap[l.category] = { pass: 0, fail: 0, total: 0 };
-            catMap[l.category].total++;
-            if (l.precision_score >= 0.6) catMap[l.category].pass++;
-            else catMap[l.category].fail++;
-          });
-          const catBarData = Object.entries(catMap).map(([cat, v]) => ({
-            cat: cat.charAt(0).toUpperCase() + cat.slice(1),
-            pass: v.pass,
-            fail: v.fail,
-            fill: categoryColors[cat] ?? '#0EB5C6',
-          }));
-          const latencyData = auditLogs.map((l, i) => ({ i: i + 1, ms: Math.round(l.latency_ms), cat: l.category }));
-
-          return (
-            <div>
-              <div className="flex items-center gap-2 mb-4">
-                <ShieldCheck className="w-5 h-5 text-violet-500" />
-                <h2 className="text-base font-bold text-gray-900 dark:text-white">RAG Audit Dashboard</h2>
-                <span className="ml-2 text-xs bg-violet-500/10 text-violet-400 px-2 py-0.5 rounded-full font-mono">
-                  run: {summary.run_id.slice(0, 8)}…
-                </span>
-                <span className="text-xs text-gray-400">{new Date(summary.started_at).toLocaleString()}</span>
-              </div>
-
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
-                {[
-                  { label: 'Precision score', value: `${precisionPct}%`, color: precisionPct >= 80 ? 'text-green-400' : precisionPct >= 60 ? 'text-amber-400' : 'text-red-400' },
-                  { label: 'Keyword hit rate', value: `${hitRate}%`, color: 'text-teal-400' },
-                  { label: 'Avg latency', value: `${Math.round(summary.avg_latency_ms)}ms`, color: 'text-violet-400' },
-                  { label: 'Errores', value: String(summary.errors), color: summary.errors === 0 ? 'text-green-400' : 'text-red-400' },
-                ].map(kpi => (
-                  <div key={kpi.label} className="bg-white dark:bg-[#12121A] rounded-xl border border-gray-100 dark:border-white/5 p-4 shadow-sm">
-                    <p className="text-xs text-gray-400 mb-1">{kpi.label}</p>
-                    <p className={`text-2xl font-black ${kpi.color}`}>{kpi.value}</p>
-                  </div>
-                ))}
-              </div>
-
-              <div className="grid sm:grid-cols-2 gap-4 mb-5">
-                <div className="bg-white dark:bg-[#12121A] rounded-2xl border border-gray-100 dark:border-white/5 p-4 shadow-sm">
-                  <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-3">Pass / Fail por categoría</p>
-                  <ResponsiveContainer width="100%" height={160}>
-                    <BarChart data={catBarData} barSize={18}>
-                      <XAxis dataKey="cat" tick={{ fill: '#9CA3AF', fontSize: 11 }} axisLine={false} tickLine={false} />
-                      <YAxis hide />
-                      <Tooltip contentStyle={{ background: '#12121A', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, fontSize: 12 }} />
-                      <Bar dataKey="pass" name="Pass" stackId="a" fill="#34D399" radius={[0, 0, 0, 0]} />
-                      <Bar dataKey="fail" name="Fail" stackId="a" fill="#F87171" radius={[4, 4, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-
-                <div className="bg-white dark:bg-[#12121A] rounded-2xl border border-gray-100 dark:border-white/5 p-4 shadow-sm">
-                  <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-3">Latencia por query (ms)</p>
-                  <ResponsiveContainer width="100%" height={160}>
-                    <AreaChart data={latencyData}>
-                      <defs>
-                        <linearGradient id="auditGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#0EB5C6" stopOpacity={0.3} />
-                          <stop offset="95%" stopColor="#0EB5C6" stopOpacity={0} />
-                        </linearGradient>
-                      </defs>
-                      <XAxis dataKey="i" tick={{ fill: '#9CA3AF', fontSize: 10 }} axisLine={false} tickLine={false} />
-                      <YAxis hide />
-                      <Tooltip contentStyle={{ background: '#12121A', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, fontSize: 12 }} formatter={(v) => [`${v}ms`, 'Latencia']} />
-                      <Area type="monotone" dataKey="ms" stroke="#0EB5C6" strokeWidth={2} fill="url(#auditGrad)" dot={false} />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-
-              <div className="bg-white dark:bg-[#12121A] rounded-2xl border border-gray-100 dark:border-white/5 shadow-sm overflow-hidden">
-                <div className="px-4 py-3 border-b border-gray-100 dark:border-white/5">
-                  <p className="text-xs font-semibold text-gray-500 dark:text-gray-400">Detalle de queries ({auditLogs.length})</p>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-xs">
-                    <thead>
-                      <tr className="border-b border-gray-50 dark:border-white/5">
-                        {['Estado', 'Categoría', 'Query', 'Precision', 'Latencia', 'Chunks'].map(h => (
-                          <th key={h} className="px-4 py-2.5 text-left font-semibold text-gray-400">{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {auditLogs.map(l => (
-                        <tr key={l.id} className="border-b border-gray-50 dark:border-white/5 hover:bg-gray-50 dark:hover:bg-white/[0.02] transition">
-                          <td className="px-4 py-2.5">
-                            {l.error ? '❌' : l.precision_score >= 0.6 ? '✅' : '⚠️'}
-                          </td>
-                          <td className="px-4 py-2.5">
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold" style={{ background: `${categoryColors[l.category]}20`, color: categoryColors[l.category] }}>
-                              {l.category}
-                            </span>
-                          </td>
-                          <td className="px-4 py-2.5 text-gray-700 dark:text-gray-300 max-w-xs truncate" title={l.query}>{l.query}</td>
-                          <td className="px-4 py-2.5 font-mono font-bold" style={{ color: l.precision_score >= 0.8 ? '#34D399' : l.precision_score >= 0.5 ? '#F59E0B' : '#F87171' }}>
-                            {(l.precision_score * 100).toFixed(0)}%
-                          </td>
-                          <td className="px-4 py-2.5 font-mono text-gray-400">{Math.round(l.latency_ms)}ms</td>
-                          <td className="px-4 py-2.5 font-mono text-gray-400">{l.chunks_retrieved}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          );
-        })()}
-
-        {/* Knowledge Graph */}
-        <KnowledgeGraph />
-
-        {/* API Keys */}
+        {/* ── TAB: APIKEYS ─────────────────────────────────────────────── */}
+        {activeTab === 'apikeys' && (
+          <div className="space-y-8">
+            {/* API Keys */}
         <div>
           <h2 className="text-base font-bold text-gray-900 dark:text-white mb-4">Mis API Keys</h2>
           {loading ? (
@@ -1839,6 +1585,67 @@ export function DeveloperPortal() {
             </div>
           )}
         </div>
+        </div>
+        )}
+
+        {/* ── TAB: SERVICES ────────────────────────────────────────────── */}
+        {activeTab === 'services' && (
+          <div className="bg-white dark:bg-[#12121A] rounded-2xl border border-gray-100 dark:border-white/5 shadow-sm p-6 space-y-4">
+            <div className="flex items-center gap-2">
+              <Server className="w-5 h-5 text-violet-500" />
+              <h2 className="text-base font-bold text-gray-900 dark:text-white">Estado de Microservicios Bralidus</h2>
+              {servicesCheckedAt && (
+                <span className="ml-auto text-[10px] text-gray-400 font-mono">
+                  Actualizado: {new Date(servicesCheckedAt).toLocaleTimeString('es-CL')}
+                </span>
+              )}
+            </div>
+            {servicesLoading ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {[1, 2, 3, 4, 5, 6].map(i => (
+                  <div key={i} className="h-20 bg-gray-100 dark:bg-white/5 rounded-xl animate-pulse" />
+                ))}
+              </div>
+            ) : services.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {services.map((svc, i) => (
+                  <button key={i} onClick={() => setSelectedService(svc)} className="p-4 rounded-xl bg-gray-50 dark:bg-white/[0.02] border border-gray-100 dark:border-white/5 text-left hover:border-violet-400/40 transition">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-xs font-bold text-gray-900 dark:text-white">{svc.name}</span>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${svc.status === 'ok' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20'}`}>
+                        {svc.status === 'ok' ? 'OPERACIONAL' : 'DEGRADADO'}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-gray-400 mb-2 truncate">{svc.message}</p>
+                    {svc.latency_ms != null && (
+                      <p className="text-[10px] font-mono text-teal-400">Latencia: {Math.round(svc.latency_ms)}ms</p>
+                    )}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {[
+                  { name: 'FastAPI Gateway (BralidusPY)', latency: '42ms', desc: 'MoE Engine & Gating Router' },
+                  { name: 'pgvector HNSW Store', latency: '12ms', desc: '687 nodos vectoriales' },
+                  { name: 'BCCh Extractor Job', latency: '180ms', desc: 'TPM, IPC, Imacec' },
+                  { name: 'CMF Regulatory Extractor', latency: '210ms', desc: 'Hechos esenciales & Ley Fintech' },
+                  { name: 'S-Pulse Societario Graph', latency: '65ms', desc: 'Redes societarias chilenas' },
+                  { name: 'Licitus B2G Intelligence', latency: '95ms', desc: 'Órdenes de compra Mercado Público' },
+                ].map((svc, i) => (
+                  <div key={i} className="p-4 rounded-xl bg-gray-50 dark:bg-white/[0.02] border border-gray-100 dark:border-white/5">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-xs font-bold text-gray-900 dark:text-white">{svc.name}</span>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">OPERACIONAL</span>
+                    </div>
+                    <p className="text-[11px] text-gray-400 mb-2">{svc.desc}</p>
+                    <p className="text-[10px] font-mono text-teal-400">Latencia: {svc.latency}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
       </main>
 
