@@ -370,6 +370,39 @@ function buildMeta(svc: ServiceInfo): ServiceMeta {
       test_label: 'Estado de integración',
       run_test: async () => ({ status: 'mock_data', blocker: 'Requiere crear Reddit App en reddit.com/prefs/apps (gratuito)', scope: 'read', eta: 'Sprint C' }),
     },
+    licitus: {
+      description: 'Licitus — Inteligencia de Mercado Público B2G. Procesa órdenes de compra reales de purchase_orders, analiza concentración de compradores públicos, benchmarks de mercado por rubro UNSPSC, licitaciones activas y calcula el Madurez B2G Score (0-100).',
+      schema: 'GET /api/v1/data/licitus/proveedor/:rut -> { actividad_ocs, buyer_intelligence, b2g_maturity }\nGET /api/v1/data/licitus/proveedor/:rut/vs-mercado -> { comparativa: { facturacion, ticket, concentracion } }\nGET /api/v1/data/licitus/proveedor/:rut/oportunidades -> { oportunidades: [{ codigo, nombre, relevancia_score }] }\nGET /api/v1/data/licitus/mercado/benchmarks?unspsc&region -> { volumen, proveedores, contratos }\nGET /api/v1/data/licitus/mercado/activas -> [{ codigo, nombre, monto_estimado_clp, fecha_cierre }]',
+      test_label: 'Test Licitus (RUT 76.086.428-5)',
+      run_test: async () => {
+        const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+        const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL ?? 'https://fcdhcntyvsydnvjwopfe.supabase.co';
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token ?? anonKey;
+        const res = await fetch(`${SUPABASE_URL}/functions/v1/api-v1/api/v1/data/licitus/proveedor/76086428-5`, {
+          headers: { 'Authorization': `Bearer ${token}`, 'apikey': anonKey || '' }
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status} — ${res.statusText}`);
+        return await res.json();
+      },
+    },
+
+    spulse: {
+      description: 'S-Pulse — Grafo societario chileno con trazabilidad legal. Mapea la red de socios, participaciones accionales, directores cruzados y señales de riesgo en sociedades chilenas.',
+      schema: 'GET /api/v1/data/spulse/companies/search?q= -> [{ rut, name, status }]\nGET /api/v1/data/spulse/companies/:rut/profile -> { rut, name, partners: [{ name, percentage }], legal_signals }\nGET /api/v1/data/spulse/companies/:rut/network -> { nodes, edges }',
+      test_label: 'Test S-Pulse (RUT 76.086.428-5)',
+      run_test: async () => {
+        const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+        const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL ?? 'https://fcdhcntyvsydnvjwopfe.supabase.co';
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token ?? anonKey;
+        const res = await fetch(`${SUPABASE_URL}/functions/v1/api-v1/api/v1/data/spulse/companies/76086428-5/profile`, {
+          headers: { 'Authorization': `Bearer ${token}`, 'apikey': anonKey || '' }
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status} — ${res.statusText}`);
+        return await res.json();
+      },
+    },
   };
 
   return map[id] ?? {
