@@ -79,6 +79,56 @@ export const API_DOCS: EndpointDoc[] = [
     responseExample: '{\n  "answer": "...",\n  "sources": [...],\n  "graph_path": "GRAPH",\n  "entities_activated": 43\n}',
     errorCodes: ['401 Unauthorized', '422 Invalid query', '500 MoE engine error'],
   },
+  {
+    method: 'GET', path: '/api/v1/data/licitus/proveedor/:rut', color: '#F59E0B',
+    description: 'Licitus — Histórico de órdenes de compra, buyer intelligence y Madurez B2G (b2g_maturity_score 0-100) para un proveedor del Estado.',
+    params: [
+      { name: 'periodo_meses', type: 'number', required: false, description: 'Ventana de tiempo en meses (default: 12, máx: 24)' },
+    ],
+    responseExample: '{\n  "data": {\n    "rut": "76086428-5",\n    "nombre_empresa": "Empresa SpA",\n    "actividad_ocs": { "ocs_ganadas_12m": 14, "monto_total_adjudicado_clp": 125800000 },\n    "b2g_maturity": { "b2g_maturity_score": 72, "nivel": "alto", "senales": ["..."] }\n  }\n}',
+    errorCodes: ['400 RUT inválido', '401 Unauthorized', '503 Licitus no disponible o sin datos'],
+  },
+  {
+    method: 'GET', path: '/api/v1/data/licitus/proveedor/:rut/vs-mercado', color: '#F59E0B',
+    description: 'Licitus — Comparativa de facturación, ticket promedio y concentración del proveedor vs. percentiles de su rubro UNSPSC.',
+    params: [
+      { name: 'periodo_meses', type: 'number', required: false, description: 'Ventana de tiempo en meses (default: 12)' },
+    ],
+    responseExample: '{\n  "data": {\n    "rut": "76086428-5",\n    "b2g_maturity": { "b2g_maturity_score": 72, "nivel": "alto" },\n    "comparativa": {\n      "facturacion": { "proveedor_clp": 125800000, "mercado_mediana_clp": 15000000, "posicion": "sobre_p75" }\n    }\n  }\n}',
+    errorCodes: ['400 RUT inválido', '401 Unauthorized', '503 Sin datos'],
+  },
+  {
+    method: 'GET', path: '/api/v1/data/licitus/proveedor/:rut/oportunidades', color: '#F59E0B',
+    description: 'Licitus — Licitaciones públicas abiertas rankeadas por score de relevancia para el perfil del proveedor.',
+    params: [
+      { name: 'limit', type: 'number', required: false, description: 'Máximo de resultados (default: 10, máx: 50)' },
+    ],
+    responseExample: '{\n  "data": {\n    "total_encontradas": 4,\n    "oportunidades": [\n      { "codigo": "1234-56-LE26", "nombre": "...", "relevancia_score": 0.9, "motivos_relevancia": ["Coincidencia de rubro UNSPSC"] }\n    ]\n  }\n}',
+    errorCodes: ['400 RUT inválido', '401 Unauthorized'],
+  },
+  {
+    method: 'GET', path: '/api/v1/data/licitus/mercado/benchmarks', color: '#F59E0B',
+    description: 'Licitus — Benchmarks B2G agregados por rubro UNSPSC y región: volumen total, medianas, percentiles p25/p75 y concentración.',
+    params: [
+      { name: 'unspsc', type: 'string', required: false, description: 'Código UNSPSC del rubro (ej: 43232200)' },
+      { name: 'region', type: 'string', required: false, description: 'Código de región Chile (ej: 13 para RM)' },
+      { name: 'periodo_meses', type: 'number', required: false, description: 'Ventana en meses (default: 12)' },
+    ],
+    responseExample: '{\n  "data": {\n    "volumen": { "licitaciones_publicadas": 342, "monto_total_ocs_clp": 4850000000 },\n    "proveedores": { "activos_en_periodo": 78, "monto_mediana_clp": 15000000 }\n  }\n}',
+    errorCodes: ['401 Unauthorized'],
+  },
+  {
+    method: 'GET', path: '/api/v1/data/licitus/mercado/activas', color: '#F59E0B',
+    description: 'Licitus — Licitaciones públicas vigentes en Mercado Público con cierre próximo.',
+    params: [
+      { name: 'unspsc', type: 'string', required: false, description: 'Filtrar por rubro UNSPSC' },
+      { name: 'region', type: 'string', required: false, description: 'Filtrar por región (ej: 13)' },
+      { name: 'monto_min', type: 'number', required: false, description: 'Monto mínimo estimado en CLP' },
+      { name: 'limit', type: 'number', required: false, description: 'Límite de resultados (default: 20)' },
+    ],
+    responseExample: '{\n  "data": [\n    { "codigo": "1234-56-LE26", "nombre": "...", "monto_estimado_clp": 45000000, "fecha_cierre": "2026-07-28T18:00:00" }\n  ]\n}',
+    errorCodes: ['401 Unauthorized'],
+  },
 ];
 
 export interface PlaygroundEndpoint {
@@ -128,6 +178,41 @@ export const ENDPOINTS: readonly PlaygroundEndpoint[] = [
       startup_context: { industry: 'healthtech', stage: 'seed', geography: 'chile', company_rut: '76086428-5' },
       top_k: 5,
     }, null, 2),
+  },
+  {
+    method: 'GET',
+    path: '/api/v1/data/licitus/proveedor/76086428-5',
+    label: 'Licitus — Ficha B2G (OCs + Madurez B2G)',
+    color: '#F59E0B',
+    defaultBody: '',
+  },
+  {
+    method: 'GET',
+    path: '/api/v1/data/licitus/proveedor/76086428-5/vs-mercado',
+    label: 'Licitus — Comparativa Proveedor vs Mercado',
+    color: '#F59E0B',
+    defaultBody: '',
+  },
+  {
+    method: 'GET',
+    path: '/api/v1/data/licitus/proveedor/76086428-5/oportunidades',
+    label: 'Licitus — Licitaciones activas relevantes',
+    color: '#F59E0B',
+    defaultBody: '',
+  },
+  {
+    method: 'GET',
+    path: '/api/v1/data/licitus/mercado/benchmarks',
+    label: 'Licitus — Benchmarks de Mercado Público',
+    color: '#F59E0B',
+    defaultBody: '',
+  },
+  {
+    method: 'GET',
+    path: '/api/v1/data/licitus/mercado/activas',
+    label: 'Licitus — Licitaciones abiertas vigentes',
+    color: '#F59E0B',
+    defaultBody: '',
   },
   {
     method: 'GET',
