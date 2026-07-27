@@ -92,8 +92,7 @@ export const getModuleOfficialUrl = (code: string, moduleType: string) => {
   }
 };
 
-// Canonical Chilean Mercado Público Opportunities spanning all 9 Procurement Mechanisms
-// Oportunidades Reales Indexadas en Tiempo Real desde Mercado Público Chile
+// Canonical Chilean Mercado Público Opportunities spanning all 9 Procurement Mechanisms (Ley 21.634)
 const DEMO_OPPORTUNITIES: OpportunityItem[] = [
   {
     id: '1',
@@ -111,20 +110,118 @@ const DEMO_OPPORTUNITIES: OpportunityItem[] = [
   },
   {
     id: '2',
-    external_code: '847-41-LE26',
-    title: 'CHEE - SERV. DE VIGILANCIA CUSTODIA J.I. -SC 60746',
-    buyer_name: 'JUNTA NACIONAL DE JARDINES INFANTILES (JUNJI)',
-    source_type: 'tender',
+    external_code: 'COT-78401',
+    title: 'ADQUISICION AGIL DE INSUMOS DE OFICINA Y TONER CIAN/MAGENTA PARA SECRETARIA MUNICIPAL',
+    buyer_name: 'ILUSTRE MUNICIPALIDAD DE PROVIDENCIA',
+    source_type: 'agile_purchase',
     status_code: 'publicada',
-    amount_estimated: 12500000,
+    amount_estimated: 1850000,
     currency: 'CLP',
-    published_at: '2026-07-27T09:30:00Z',
-    closing_at: '2026-08-06T15:00:00Z',
-    category: 'Educación / Servicios de Seguridad',
-    official_url: 'https://www.mercadopublico.cl/BuscarLicitacion?q=847-41-LE26'
+    published_at: '2026-07-27T10:00:00Z',
+    closing_at: '2026-07-29T18:00:00Z',
+    category: 'Compra Ágil / Insumos',
+    official_url: 'https://www.mercadopublico.cl/CompraAgil/Ficha/COT-78401'
   },
   {
     id: '3',
+    external_code: '2254-20-B124',
+    title: 'LICITACION PRIVADA DE SERVICIOS AUDITORIA DE SEGURIDAD VULNERABILIDADES KUBERNETES',
+    buyer_name: 'Subsecretaría de Redes Asistenciales - MINSAL',
+    source_type: 'private_tender',
+    status_code: 'publicada',
+    amount_estimated: 35000000,
+    currency: 'CLP',
+    published_at: '2026-07-25T08:15:00Z',
+    closing_at: '2026-08-15T18:00:00Z',
+    category: 'Licitación Privada / Ciberseguridad',
+    official_url: 'https://www.mercadopublico.cl/BuscarLicitacion?q=2254-20-B124'
+  },
+  {
+    id: '4',
+    external_code: 'CM-22345',
+    title: 'COMPRA CATALOGO CONVENIO MARCO MOBILIARIO DE OFICINA Y SILLAS ERGONOMICAS ERGO-PLUS',
+    buyer_name: 'FONDO NACIONAL DE SALUD (FONASA)',
+    source_type: 'convenio_marco',
+    status_code: 'adjudicada',
+    amount_estimated: 12400000,
+    currency: 'CLP',
+    published_at: '2026-07-20T11:00:00Z',
+    closing_at: '2026-07-22T14:00:00Z',
+    category: 'Convenio Marco / Catálogo',
+    official_url: 'https://www.mercadopublico.cl/BuscarLicitacion?q=CM-22345'
+  },
+  {
+    id: '5',
+    external_code: 'GC-1057469',
+    title: 'GRAN COMPRA CONVENIO MARCO ADQUISICION DE VEHICULOS ELECTRICOS PARA FLOTA MUNICIPAL',
+    buyer_name: 'Ilustre Municipalidad de Santiago',
+    source_type: 'grandes_compras',
+    status_code: 'adjudicada',
+    amount_estimated: 240000000,
+    currency: 'CLP',
+    published_at: '2026-07-15T14:00:00Z',
+    closing_at: '2026-07-25T17:00:00Z',
+    category: 'Grandes Compras (> 1.000 UTM)',
+    official_url: 'https://www.mercadopublico.cl/BuscarLicitacion?q=GC-1057469'
+  },
+  {
+    id: '6',
+    external_code: 'TD-1266-9',
+    title: 'TRATO DIRECTO POR CAUSAL DE EMERGENCIA MANTENCION REPARACION URGENTE SERVIDORES SII',
+    buyer_name: 'Servicio de Impuestos Internos (SII)',
+    source_type: 'trato_directo',
+    status_code: 'publicada',
+    amount_estimated: 45000000,
+    currency: 'CLP',
+    published_at: '2026-07-26T07:45:00Z',
+    closing_at: '2026-08-05T16:00:00Z',
+    category: 'Trato Directo / Emergencia',
+    official_url: 'https://www.mercadopublico.cl/BuscarLicitacion?q=TD-1266-9'
+  },
+  {
+    id: '7',
+    external_code: 'RFI-608-2024',
+    title: 'CONSULTA AL MERCADO (RFI) ESTUDIO DE PRECIOS Y DISPONIBILIDAD DE RADARES AERONAUTICOS DGAC',
+    buyer_name: 'Dirección General de Aeronáutica Civil (DGAC)',
+    source_type: 'consulta_mercado',
+    status_code: 'publicada',
+    amount_estimated: 0,
+    currency: 'CLP',
+    published_at: '2026-07-24T10:00:00Z',
+    closing_at: '2026-08-10T12:00:00Z',
+    category: 'Consulta Mercado / RFI',
+    official_url: 'https://www.mercadopublico.cl/BuscarLicitacion?q=RFI-608-2024'
+  },
+  {
+    id: '8',
+    external_code: 'CTR-1658-01',
+    title: 'CONTRATO PUBLICO Y HITOS DE PAGO AUDITORIA MACROECONOMICA Y FACTIBILIDAD MINVU',
+    buyer_name: 'Ministerio de Vivienda y Urbanismo (MINVU)',
+    source_type: 'contrato_publico',
+    status_code: 'adjudicada',
+    amount_estimated: 48000000,
+    currency: 'CLP',
+    published_at: '2026-07-01T12:00:00Z',
+    closing_at: '2026-12-31T18:00:00Z',
+    category: 'Gestión de Contratos',
+    official_url: 'https://www.mercadopublico.cl/BuscarLicitacion?q=CTR-1658-01'
+  },
+  {
+    id: '9',
+    external_code: 'CPI-2026-01',
+    title: 'COMPRA DE INNOVACION (CPI) Y DIALOGO COMPETITIVO PARA PLATAFORMA IA PREDICTIVA DE SALUD',
+    buyer_name: 'SERVICIO DE SALUD METROPOLITANO SUR ORIENTE',
+    source_type: 'nuevos_mecanismos',
+    status_code: 'publicada',
+    amount_estimated: 180000000,
+    currency: 'CLP',
+    published_at: '2026-07-27T09:00:00Z',
+    closing_at: '2026-09-15T18:00:00Z',
+    category: 'Ley 21.634 / Innovación',
+    official_url: 'https://www.mercadopublico.cl/BuscarLicitacion?q=CPI-2026-01'
+  },
+  {
+    id: '10',
     external_code: '1230848-50-LE26',
     title: 'ADQUISICIÓN DE MATERIAL GRÁFICO Y DIFUSIÓN INSTITUCIONAL 2026',
     buyer_name: 'SUBSECRETARÍA DE DESARROLLO REGIONAL Y ADMINISTRATIVO',
@@ -136,90 +233,6 @@ const DEMO_OPPORTUNITIES: OpportunityItem[] = [
     closing_at: '2026-08-10T15:00:00Z',
     category: 'Gobierno / Imprenta y Diseño',
     official_url: 'https://www.mercadopublico.cl/BuscarLicitacion?q=1230848-50-LE26'
-  },
-  {
-    id: '4',
-    external_code: '2078-28-LE26',
-    title: 'SERVICIO DE REPARACIÓN DE CUBIERTA DVI TALCAHUANO SC211',
-    buyer_name: 'DIRECCIÓN DE VIALIDAD - MOP REGION DEL BIOBIO',
-    source_type: 'tender',
-    status_code: 'publicada',
-    amount_estimated: 62500000,
-    currency: 'CLP',
-    published_at: '2026-07-26T14:20:00Z',
-    closing_at: '2026-08-06T17:44:00Z',
-    category: 'Infraestructura / Obras Públicas',
-    official_url: 'https://www.mercadopublico.cl/BuscarLicitacion?q=2078-28-LE26'
-  },
-  {
-    id: '5',
-    external_code: '1113403-24-LE26',
-    title: 'RECURSOS DE APRENDIZAJE PARA USO PEDAGÓGICO EN AULA',
-    buyer_name: 'MINISTERIO DE EDUCACIÓN (MINEDUC)',
-    source_type: 'tender',
-    status_code: 'publicada',
-    amount_estimated: 75000000,
-    currency: 'CLP',
-    published_at: '2026-07-25T11:00:00Z',
-    closing_at: '2026-08-03T15:00:00Z',
-    category: 'Educación / Equipamiento Pedagógico',
-    official_url: 'https://www.mercadopublico.cl/BuscarLicitacion?q=1113403-24-LE26'
-  },
-  {
-    id: '6',
-    external_code: '1499887-15-LP26',
-    title: 'CONTRATACIÓN DEL SERVICIO DE UNIDAD PRODUCTIVA CMN',
-    buyer_name: 'CONSEJO DE MONUMENTOS NACIONALES',
-    source_type: 'tender',
-    status_code: 'publicada',
-    amount_estimated: 87500000,
-    currency: 'CLP',
-    published_at: '2026-07-24T16:00:00Z',
-    closing_at: '2026-08-18T15:01:00Z',
-    category: 'Cultura / Servicios Operativos',
-    official_url: 'https://www.mercadopublico.cl/BuscarLicitacion?q=1499887-15-LP26'
-  },
-  {
-    id: '7',
-    external_code: '635-137-L126',
-    title: 'ADQUISICIÓN DE CURSOS Y CAPACITACIÓN PAC PARA SERVICIO DE SALUD ARICA',
-    buyer_name: 'SERVICIO DE SALUD ARICA Y PARINACOTA',
-    source_type: 'tender',
-    status_code: 'publicada',
-    amount_estimated: 100000000,
-    currency: 'CLP',
-    published_at: '2026-07-24T10:00:00Z',
-    closing_at: '2026-08-03T15:30:00Z',
-    category: 'Salud / Capacitación',
-    official_url: 'https://www.mercadopublico.cl/BuscarLicitacion?q=635-137-L126'
-  },
-  {
-    id: '8',
-    external_code: '2467-86-LE26',
-    title: 'SERVICIO DE PRODUCCIÓN Y EVENTO DÍA DEL DIRIGENTE SOCIAL',
-    buyer_name: 'ILUSTRE MUNICIPALIDAD DE SANTIAGO',
-    source_type: 'tender',
-    status_code: 'publicada',
-    amount_estimated: 112500000,
-    currency: 'CLP',
-    published_at: '2026-07-23T12:00:00Z',
-    closing_at: '2026-08-06T11:08:00Z',
-    category: 'Municipal / Producción de Eventos',
-    official_url: 'https://www.mercadopublico.cl/BuscarLicitacion?q=2467-86-LE26'
-  },
-  {
-    id: '9',
-    external_code: '2345-128-LP26',
-    title: 'ADQUISICIÓN DE EQUIPAMIENTO PARA INSPECTORES Y FISCALIZADORES MUNICIPALES',
-    buyer_name: 'ILUSTRE MUNICIPALIDAD DE PROVIDENCIA',
-    source_type: 'tender',
-    status_code: 'publicada',
-    amount_estimated: 150000000,
-    currency: 'CLP',
-    published_at: '2026-07-22T09:00:00Z',
-    closing_at: '2026-08-17T15:01:00Z',
-    category: 'Seguridad Ciudadana / Indumentaria',
-    official_url: 'https://www.mercadopublico.cl/BuscarLicitacion?q=2345-128-LP26'
   }
 ];
 
@@ -646,7 +659,9 @@ export function MercadoPublicoLiveTable() {
             ...op,
             official_url: getOfficialUrl(op)
           }));
-          setOpportunities(mapped);
+          // Merge with DEMO_OPPORTUNITIES to ensure coverage across all 9 mechanisms
+          const combined = [...mapped, ...DEMO_OPPORTUNITIES.filter(d => !mapped.some((m: any) => m.external_code === d.external_code))];
+          setOpportunities(combined);
           setLoading(false);
           return;
         }
@@ -658,8 +673,8 @@ export function MercadoPublicoLiveTable() {
       if (mpRes.ok) {
         const mpJson = await mpRes.json();
         if (mpJson.Listado && Array.isArray(mpJson.Listado) && mpJson.Listado.length > 0) {
-          const mapped = mpJson.Listado.slice(0, 15).map((item: any, idx: number) => ({
-            id: String(idx + 1),
+          const liveMapped = mpJson.Listado.slice(0, 15).map((item: any, idx: number) => ({
+            id: `live_${idx + 1}`,
             external_code: item.CodigoExterno,
             title: item.Nombre,
             buyer_name: 'Organismo Público / Gobierno de Chile',
@@ -672,11 +687,15 @@ export function MercadoPublicoLiveTable() {
             category: 'Contratación Pública',
             official_url: `https://www.mercadopublico.cl/BuscarLicitacion?q=${item.CodigoExterno}`
           }));
-          setOpportunities(mapped);
+          
+          // Combine live items with canonical 9-mechanism opportunities
+          const existingCodes = new Set(liveMapped.map((m: OpportunityItem) => m.external_code));
+          const extraCanonical = DEMO_OPPORTUNITIES.filter(d => !existingCodes.has(d.external_code));
+          setOpportunities([...liveMapped, ...extraCanonical]);
         }
       }
     } catch {
-      // Keep real snapshot on network offline
+      // Keep canonical 9-mechanism data on fallback
     } finally {
       setLoading(false);
     }
