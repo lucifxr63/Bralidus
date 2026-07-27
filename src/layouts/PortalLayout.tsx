@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import {
   Activity, Zap, Database, ShieldCheck, TrendingDown, Radio,
-  Brain, Play, Search, Key, Server, BookOpen,
+  Brain, Play, Search, Key, Server, BookOpen, ShoppingBag,
   Plus, Menu, X, ChevronDown, ChevronRight, LogOut,
 } from 'lucide-react';
 import type { Tab } from '@/types/portal';
@@ -26,6 +26,13 @@ const NAV_SECTIONS: NavSection[] = [
     title: '',
     items: [
       { id: 'overview', label: 'Resumen', icon: Activity },
+    ],
+  },
+  {
+    title: 'Mercado Público (B2G)',
+    items: [
+      { id: 'fase2',     label: 'Fase 2 Comercial',   icon: ShoppingBag,  badge: 'v2.0', badgeColor: '#F59E0B' },
+      { id: 'fase3',     label: 'Fase 3 IA Predictiva', icon: Brain,     badge: 'v3.0', badgeColor: '#C084FC' },
     ],
   },
   {
@@ -393,6 +400,8 @@ export function PortalLayout({ activeTab, setActiveTab, onNewKey, children }: Po
 function getTabTitle(tab: Tab): string {
   const titles: Record<Tab, string> = {
     overview:   'Resumen del Portal',
+    fase2:      'Mercado Público · Fase 2 Comercial',
+    fase3:      'Mercado Público · Fase 3 IA Predictiva & Modalidades',
     costs:      'Costos RaaS · MoE',
     evidences:  'Muro de Evidencias',
     quotas:     'Cuotas & Tiers',
@@ -411,6 +420,8 @@ function getTabTitle(tab: Tab): string {
 function getTabSubtitle(tab: Tab): string {
   const subtitles: Record<Tab, string> = {
     overview:   'Estado del sistema Bralidus, estadísticas y actividad reciente.',
+    fase2:      'Analítica de precios, perfil 360° de compradores/proveedores, webhooks y exportaciones masivas.',
+    fase3:      'Convenios Marco, Grandes Compras, Tratos Directos, Scoring de Oportunidades y Motor de Predicción de Adjudicación AI.',
     costs:      'Telemetría en tiempo real del motor Mixture of Experts (MoE).',
     evidences:  'Evidencias verificadas de indicadores macroeconómicos y doctrina regulatoria.',
     quotas:     'Consumo vs límites por tier. Alertas y upgrades de plan.',

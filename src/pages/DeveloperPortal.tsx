@@ -20,6 +20,8 @@ import { AuditTab }      from '@/features/audit/AuditTab';
 import { ApiKeysTab }    from '@/features/apikeys/ApiKeysTab';
 import { ServicesTab }   from '@/features/services/ServicesTab';
 import { DocsTab }       from '@/features/docs/DocsTab';
+import { Fase2CommercialTab } from '@/features/fase2/Fase2CommercialTab';
+import { Fase3PredictiveTab } from '@/features/fase3/Fase3PredictiveTab';
 
 import type { Tab } from '@/types/portal';
 
@@ -50,6 +52,14 @@ export function DeveloperPortal() {
           onNewKey={() => { setActiveTab('apikeys'); setShowModal(true); }}
           onNavigate={(tab) => setActiveTab(tab as Tab)}
         />
+      )}
+
+      {activeTab === 'fase2' && (
+        <Fase2CommercialTab />
+      )}
+
+      {activeTab === 'fase3' && (
+        <Fase3PredictiveTab />
       )}
 
       {activeTab === 'costs' && (

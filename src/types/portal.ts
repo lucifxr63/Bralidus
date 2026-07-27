@@ -12,6 +12,8 @@ export type Tab =
   | 'audit'
   | 'apikeys'
   | 'services'
+  | 'fase2'
+  | 'fase3'
   | 'docs';
 
 export interface ApiKey {

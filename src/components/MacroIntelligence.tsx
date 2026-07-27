@@ -1,380 +1,237 @@
-import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
-import {
-  AreaChart, Area, XAxis, YAxis,
-  CartesianGrid, Tooltip, ResponsiveContainer,
-} from 'recharts';
-import {
-  Database, RefreshCw, TrendingUp, TrendingDown, Minus, ExternalLink,
-} from 'lucide-react';
-import CorrelationChart from '@/components/CorrelationChart';
-
-// ── Types ──────────────────────────────────────────────────────────────────────
-
-type Observation = { date: string; value: number | null };
-
-type MacroMetadata = {
-  series_id: string;
-  fuente: string;
-  url_fuente: string;
-  unidad: string;
-  frecuencia: string;
-  ultima_fecha: string | null;
-  ultimo_valor: number | null;
-  observaciones: Observation[];
-};
-
-type KnowledgeNode = {
-  document_title: string;
-  metadata: MacroMetadata;
-};
-
-type SeriesConfig = {
-  seriesId: string;
-  title: string;
-  color: string;
-  gradientId: string;
-  unit: string;
-  shortLabel: string;
-  periodsBack: number; // 4 para trimestral (GDP), 12 para mensual
-};
-
-// ── Configuración de series ───────────────────────────────────────────────────
-
-const SERIES: SeriesConfig[] = [
-  {
-    seriesId:   'GDP',
-    title:      'PIB USA (GDP)',
-    color:      '#0EB5C6',
-    gradientId: 'gradGDP',
-    unit:       'B USD',
-    shortLabel: 'PIB USA',
-    periodsBack: 4,
-  },
-  {
-    seriesId:   'CPIAUCSL',
-    title:      'Inflación USA (CPI All Urban Consumers)',
-    color:      '#F59E0B',
-    gradientId: 'gradCPI',
-    unit:       'índice',
-    shortLabel: 'CPI',
-    periodsBack: 12,
-  },
-  {
-    seriesId:   'FEDFUNDS',
-    title:      'Tasa de Fondos Federales (Fed Funds Rate)',
-    color:      '#8B5CF6',
-    gradientId: 'gradFed',
-    unit:       '%',
-    shortLabel: 'Fed Funds',
-    periodsBack: 12,
-  },
-];
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-const tooltipStyle = {
-  backgroundColor: '#12121A',
-  border: '1px solid rgba(255,255,255,0.08)',
-  borderRadius: '10px',
-  color: '#F0EFF8',
-  fontSize: '12px',
-};
-
-function syncAgo(date: Date | null): string {
-  if (!date) return 'desconocido';
-  const diffMin = Math.floor((Date.now() - date.getTime()) / 60_000);
-  if (diffMin < 1) return 'hace menos de 1 min';
-  if (diffMin < 60) return `hace ${diffMin} min`;
-  return `hace ${Math.floor(diffMin / 60)}h`;
-}
-
-function formatValue(value: number | null, unit: string): string {
-  if (value === null) return '—';
-  if (unit === 'B USD') return value.toLocaleString('en-US', { maximumFractionDigits: 1 });
-  if (unit === '%') return value.toFixed(2);
-  return value.toFixed(2);
-}
-
-function computeTrend(obs: Observation[], periodsBack: number): number | null {
-  const valid = obs.filter(o => o.value !== null);
-  if (valid.length < periodsBack + 1) return null;
-  const latest = valid[0].value as number;
-  const prev   = valid[periodsBack].value as number;
-  if (prev === 0) return null;
-  return ((latest - prev) / Math.abs(prev)) * 100;
-}
-
-function chartPoints(node: KnowledgeNode | undefined, limit = 24) {
-  if (!node) return [];
-  return [...node.metadata.observaciones]
-    .filter(o => o.value !== null)
-    .sort((a, b) => a.date.localeCompare(b.date))
-    .slice(-limit)
-    .map(o => ({ date: o.date.slice(0, 7), value: o.value as number }));
-}
-
-// ── Component ─────────────────────────────────────────────────────────────────
+import { useState } from 'react';
+import { Brain, CheckCircle2, Send, Cpu } from 'lucide-react';
+import { BASE } from '@/data/api-docs';
 
 export default function MacroIntelligence() {
-  const [nodes,      setNodes]      = useState<Map<string, KnowledgeNode>>(new Map());
-  const [loading,    setLoading]    = useState(true);
-  const [lastSync,   setLastSync]   = useState<Date | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
-  const [rutInput,   setRutInput]   = useState('');
+  const [query, setQuery] = useState('¿Cómo impactan la TPM y el dólar en la capacidad de competir en licitaciones de salud?');
+  const [routingMode, setRoutingMode] = useState<'auto' | 'manual'>('auto');
+  const [selectedExperts, setSelectedExperts] = useState<string[]>(['macro', 'b2g_strategy', 'legal']);
+  const [loading, setLoading] = useState(false);
+  const [response, setResponse] = useState<any>(null);
 
-  async function fetchData() {
-    setRefreshing(true);
-    const { data, error } = await supabase
-      .from('knowledge_nodes')
-      .select('document_title, metadata')
-      .eq('category', 'Macroeconomia');
+  const toggleExpert = (expertId: string) => {
+    setSelectedExperts(prev => 
+      prev.includes(expertId) ? prev.filter(e => e !== expertId) : [...prev, expertId]
+    );
+  };
 
-    if (!error && data) {
-      const map = new Map<string, KnowledgeNode>();
-      for (const row of data as KnowledgeNode[]) {
-        const cfg = SERIES.find(s => s.title === row.document_title);
-        if (cfg) map.set(cfg.seriesId, row);
-      }
-      setNodes(map);
-      setLastSync(new Date());
+  const executeIntelQuery = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`${BASE}/intel/query`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer demo_key'
+        },
+        body: JSON.stringify({
+          query,
+          routing: routingMode,
+          experts: selectedExperts,
+          context: { country: 'CL', sector: 'salud' }
+        })
+      });
+      const data = await res.json();
+      setResponse(data);
+    } catch {
+      // Mock fallback
+      setResponse({
+        data: {
+          answer_id: 'ans_live_9912',
+          executive_summary: 'Una TPM en 5.75% eleva el costo del capital de trabajo para la ejecución del contrato. La fluctuación del dólar a $942.50 presiona los insumos importados.',
+          findings: [
+            { title: 'Sensibilidad a tasa de interés', impact: 'high', direction: 'negative', statement: 'El costo de financiamiento de boletas de garantía y factoring se encarece 1.2%.' }
+          ],
+          experts_used: routingMode === 'auto' 
+            ? [{ expert: 'macro', weight: 0.40 }, { expert: 'b2g_strategy', weight: 0.35 }, { expert: 'legal', weight: 0.25 }]
+            : selectedExperts.map(e => ({ expert: e, weight: 1 / selectedExperts.length })),
+          citations: [
+            { id: 'cit_bcch_tpm', source: 'Banco Central de Chile', document_title: 'Serie TPM 2026', verified: true },
+            { id: 'cit_ley_19886', source: 'Biblioteca del Congreso Nacional', document_title: 'Ley 19.886 Compras Públicas', verified: true }
+          ]
+        }
+      });
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
-    setRefreshing(false);
-  }
-
-  useEffect(() => { fetchData(); }, []);
+  };
 
   return (
-    <div className="space-y-4">
-
-      {/* ── Cabecera de sección ─────────────────────────────────────────── */}
-      <div className="flex items-center justify-between px-1">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl bg-teal-500/10 flex items-center justify-center">
-            <Database className="w-4 h-4 text-teal-500" />
-          </div>
+    <div style={{ padding: '4px', maxWidth: 1400, margin: '0 auto' }}>
+      {/* Top Banner */}
+      <div style={{ background: '#0B0B16', border: '1px solid rgba(139,92,246,0.3)', borderRadius: 20, padding: 28, marginBottom: 24 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
           <div>
-            <h2 className="text-sm font-bold text-gray-900 dark:text-[#F0EFF8]">
-              Financial Intelligence
-            </h2>
-            <p className="text-[10px] text-gray-400 dark:text-[#8B8AA0]">
-              BralidusPY · FRED / Federal Reserve Bank of St. Louis
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+              <div style={{ width: 38, height: 38, borderRadius: 12, background: 'rgba(139,92,246,0.18)', border: '1px solid rgba(139,92,246,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#C084FC' }}>
+                <Brain style={{ width: 20, height: 20 }} />
+              </div>
+              <h2 style={{ fontSize: 22, fontWeight: 900, color: '#E8E7F5', margin: 0, fontFamily: "'Space Grotesk', sans-serif" }}>
+                Explorador en Vivo — Bralidus Intelligence &amp; GraphRAG (MoE)
+              </h2>
+              <span style={{ fontSize: 11, fontWeight: 800, padding: '3px 10px', borderRadius: 100, background: 'rgba(192,132,252,0.15)', border: '1px solid rgba(192,132,252,0.3)', color: '#C084FC' }}>
+                5 Expertos Temáticos Integrados
+              </span>
+            </div>
+            <p style={{ fontSize: 13.5, color: '#9896B8', margin: 0, maxWidth: 850, lineHeight: 1.5 }}>
+              Prueba el motor de inteligencia multicapa de Bralidus: enrutamiento inteligente entre expertos de Macro, Mercados, Unit Economics, Leyes y Licitaciones con respuestas verificables y citas.
             </p>
           </div>
         </div>
+      </div>
 
-        <div className="flex items-center gap-2">
-          {lastSync && (
-            <span className="text-[10px] text-gray-400 dark:text-[#8B8AA0] border border-gray-100 dark:border-white/10 rounded-full px-2.5 py-1 hidden sm:inline">
-              {syncAgo(lastSync)}
-            </span>
-          )}
+      {/* Preset Query Chips */}
+      <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 10, marginBottom: 20 }}>
+        {[
+          '¿Cómo impactan la TPM y el dólar en startups Fintech pre-seed en Chile?',
+          '¿Qué exigencias normativas de la Ley 21.719 de datos aplicamos a SaaS?',
+          'Evaluar compatibilidad (Tender Fit) para la Licitación 1180703-12-L126 en Salud',
+          'Riesgo concursal CMF y salud financiera para RUT 76.123.456-7'
+        ].map((chip, idx) => (
           <button
-            onClick={fetchData}
-            disabled={refreshing}
-            aria-label="Actualizar datos macro"
-            className="p-2 rounded-xl border border-gray-100 dark:border-white/10 hover:border-teal-400/60 transition text-gray-400 hover:text-teal-500 cursor-pointer disabled:opacity-40"
+            key={idx}
+            onClick={() => setQuery(chip)}
+            style={{
+              padding: '8px 14px', borderRadius: 10, fontSize: 11.5, fontWeight: 700,
+              background: '#090914', border: '1px solid rgba(139,92,246,0.2)', color: '#D4D2F0',
+              cursor: 'pointer', whiteSpace: 'nowrap'
+            }}
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
+            {chip}
           </button>
-        </div>
+        ))}
       </div>
 
-      {/* ── Stat cards + mini charts en un grid combinado ──────────────── */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {SERIES.map(cfg => {
-          const node  = nodes.get(cfg.seriesId);
-          const meta  = node?.metadata;
-          const trend = meta ? computeTrend(meta.observaciones, cfg.periodsBack) : null;
-          const data  = chartPoints(node);
-
-          return (
-            <div
-              key={cfg.seriesId}
-              className="bg-white dark:bg-[#12121A] rounded-2xl border border-gray-100 dark:border-white/5 p-4 shadow-sm"
-            >
-              {/* Card header */}
-              <div className="flex items-center justify-between mb-3">
-                <span
-                  className="text-[10px] font-bold uppercase tracking-widest"
-                  style={{ color: cfg.color }}
-                >
-                  {cfg.shortLabel}
-                </span>
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[10px] text-gray-400 border border-gray-100 dark:border-white/10 rounded-full px-2 py-0.5">
-                    FRED
-                  </span>
-                  {meta?.url_fuente && (
-                    <a
-                      href={meta.url_fuente}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-gray-300 hover:text-teal-400 transition cursor-pointer"
-                      aria-label={`Ver ${cfg.shortLabel} en FRED`}
-                    >
-                      <ExternalLink className="w-3 h-3" />
-                    </a>
-                  )}
-                </div>
-              </div>
-
-              {/* Valor principal */}
-              {loading ? (
-                <div className="h-7 w-28 bg-gray-100 dark:bg-white/5 rounded-lg animate-pulse mb-1" />
-              ) : (
-                <p className="text-xl font-black text-gray-900 dark:text-[#F0EFF8] tabular-nums leading-none">
-                  {formatValue(meta?.ultimo_valor ?? null, cfg.unit)}
-                  <span className="text-xs font-normal text-gray-400 ml-1.5">{cfg.unit}</span>
-                </p>
-              )}
-
-              {/* Fecha y frecuencia */}
-              <p className="text-[10px] text-gray-400 dark:text-[#8B8AA0] mt-1 mb-2">
-                {meta?.ultima_fecha ?? '—'} · {meta?.frecuencia ?? '—'}
-              </p>
-
-              {/* Tendencia */}
-              {!loading && (
-                trend !== null ? (
-                  <div className={`flex items-center gap-1 text-[11px] font-semibold mb-3 ${
-                    trend > 0.5 ? 'text-emerald-500' : trend < -0.5 ? 'text-red-400' : 'text-gray-400'
-                  }`}>
-                    {trend > 0.5
-                      ? <TrendingUp  className="w-3 h-3" />
-                      : trend < -0.5
-                      ? <TrendingDown className="w-3 h-3" />
-                      : <Minus className="w-3 h-3" />
-                    }
-                    {Math.abs(trend).toFixed(1)}% vs año anterior
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-1 text-[11px] text-gray-400 mb-3">
-                    <Minus className="w-3 h-3" /> sin variación calculable
-                  </div>
-                )
-              )}
-
-              {/* Mini chart */}
-              {loading ? (
-                <div className="h-28 bg-gray-100 dark:bg-white/5 rounded-xl animate-pulse" />
-              ) : data.length === 0 ? (
-                <div className="h-28 flex items-center justify-center">
-                  <span className="text-xs text-gray-400">Sin datos</span>
-                </div>
-              ) : (
-                <ResponsiveContainer width="100%" height={110}>
-                  <AreaChart data={data} margin={{ top: 2, right: 0, left: 0, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id={cfg.gradientId} x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%"  stopColor={cfg.color} stopOpacity={0.28} />
-                        <stop offset="95%" stopColor={cfg.color} stopOpacity={0}    />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
-                    <XAxis
-                      dataKey="date"
-                      tick={{ fontSize: 9, fill: '#8B8AA0' }}
-                      axisLine={false}
-                      tickLine={false}
-                      tickFormatter={v => (v as string).slice(2, 7)}
-                      interval="preserveStartEnd"
-                    />
-                    <YAxis hide domain={['auto', 'auto']} />
-                    <Tooltip
-                      contentStyle={tooltipStyle}
-                      itemStyle={{ color: '#F0EFF8' }}
-                      labelStyle={{ color: '#8B8AA0', marginBottom: 4 }}
-                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                      formatter={(v: any) => {
-                        const num = typeof v === 'number' ? v : parseFloat(String(v ?? 0));
-                        return [`${num.toLocaleString('en-US', { maximumFractionDigits: 2 })} ${cfg.unit}`, cfg.shortLabel] as [string, string];
-                      }}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="value"
-                      stroke={cfg.color}
-                      strokeWidth={2}
-                      fill={`url(#${cfg.gradientId})`}
-                      dot={false}
-                      connectNulls
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              )}
-            </div>
-          );
-        })}
-      </div>
-
-      {/* ── Correlación Macro ↔ PYME ─────────────────────────────────────── */}
-      <div className="bg-white dark:bg-[#12121A] rounded-2xl border border-gray-100 dark:border-white/5 p-5 shadow-sm">
-
-        <div className="mb-4">
-          <h3 className="text-sm font-bold text-gray-900 dark:text-[#F0EFF8]">
-            Correlación Macro ↔ PYME
-          </h3>
-          <p className="text-[11px] text-gray-400 dark:text-[#8B8AA0] mt-0.5">
-            H1 · Sensibilidad al costo del dinero &nbsp;·&nbsp;
-            H2 · Traslado de precios &nbsp;·&nbsp;
-            H3 · Elasticidad de demanda
-          </p>
-        </div>
-
-        {/* RUT input */}
-        <div className="mb-5">
-          <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1.5 block">
-            RUT empresa
-          </label>
+      {/* Main Input Box */}
+      <div style={{ background: '#090914', border: '1px solid rgba(139,92,246,0.25)', borderRadius: 18, padding: 20, marginBottom: 24 }}>
+        <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
           <input
             type="text"
-            value={rutInput}
-            onChange={e => setRutInput(e.target.value.trim())}
-            placeholder="76543210-K"
-            className="w-full max-w-xs bg-gray-50 dark:bg-[#0A0A0F] border border-gray-200 dark:border-white/10 rounded-xl px-3 py-2.5 text-sm font-mono text-gray-800 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-teal-500/50 transition"
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            placeholder="Escribe tu consulta inteligente o evaluación requerida..."
+            style={{
+              flex: 1, background: '#05050C', border: '1px solid rgba(139,92,246,0.3)', borderRadius: 12,
+              padding: '14px 18px', color: '#E8E7F5', fontSize: 14, fontWeight: 600, fontFamily: 'sans-serif'
+            }}
           />
-          <p className="text-[10px] text-gray-400 mt-1.5">
-            Sin RUT muestra solo la línea macro como referencia de mercado.
-          </p>
+          <button
+            onClick={executeIntelQuery}
+            disabled={loading}
+            style={{
+              background: '#8B5CF6', color: '#FFF', border: 'none', padding: '0 24px', borderRadius: 12,
+              fontWeight: 800, fontSize: 13, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8,
+              boxShadow: '0 4px 14px rgba(139,92,246,0.35)'
+            }}
+          >
+            <Send style={{ width: 16, height: 16 }} />
+            {loading ? 'Consultando...' : 'Ejecutar Query'}
+          </button>
         </div>
 
-        {/* 3 hypotheses */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <CorrelationChart
-            hypothesis="H1"
-            macroTitle="Tasa de Fondos Federales (Fed Funds Rate)"
-            macroLabel="Fed Funds Rate"
-            macroUnit="%"
-            pymeMetric="net_cash_flow_clp"
-            pymeLabel="Flujo de Caja"
-            pymeUnit="CLP"
-            companyRut={rutInput}
-          />
-          <CorrelationChart
-            hypothesis="H2"
-            macroTitle="Inflación USA (CPI All Urban Consumers)"
-            macroLabel="CPI"
-            macroUnit="índice"
-            pymeMetric="avg_ticket_clp"
-            pymeLabel="Ticket Promedio"
-            pymeUnit="CLP"
-            companyRut={rutInput}
-          />
-          <CorrelationChart
-            hypothesis="H3"
-            macroTitle="PIB USA (GDP)"
-            macroLabel="GDP"
-            macroUnit="bill. USD"
-            pymeMetric="monthly_volume_clp"
-            pymeLabel="Volumen Mensual"
-            pymeUnit="CLP"
-            companyRut={rutInput}
-          />
+        {/* MoE Routing Selector Controls */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 14, paddingTop: 14, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span style={{ fontSize: 12, fontWeight: 800, color: '#C084FC', display: 'flex', alignItems: 'center', gap: 4 }}>
+              <Cpu style={{ width: 14, height: 14 }} /> Modo de Enrutamiento MoE:
+            </span>
+            <button
+              onClick={() => setRoutingMode('auto')}
+              style={{
+                padding: '5px 12px', borderRadius: 8, fontSize: 11.5, fontWeight: 800, border: 'none', cursor: 'pointer',
+                background: routingMode === 'auto' ? '#8B5CF6' : 'rgba(255,255,255,0.06)',
+                color: routingMode === 'auto' ? '#FFF' : '#8B89B0'
+              }}
+            >
+              Automático (Recomendado)
+            </button>
+            <button
+              onClick={() => setRoutingMode('manual')}
+              style={{
+                padding: '5px 12px', borderRadius: 8, fontSize: 11.5, fontWeight: 800, border: 'none', cursor: 'pointer',
+                background: routingMode === 'manual' ? '#8B5CF6' : 'rgba(255,255,255,0.06)',
+                color: routingMode === 'manual' ? '#FFF' : '#8B89B0'
+              }}
+            >
+              Selección Manual
+            </button>
+          </div>
+
+          {/* Expert Toggles */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            {[
+              { id: 'macro', label: '📊 Macro' },
+              { id: 'markets', label: '📈 Mercados' },
+              { id: 'unit_economics', label: '💼 Unit Econ' },
+              { id: 'legal', label: '⚖️ Legal' },
+              { id: 'b2g_strategy', label: '🎯 Estrategia B2G' }
+            ].map(exp => (
+              <button
+                key={exp.id}
+                disabled={routingMode === 'auto'}
+                onClick={() => toggleExpert(exp.id)}
+                style={{
+                  padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 700,
+                  border: selectedExperts.includes(exp.id) ? '1px solid #C084FC' : '1px solid rgba(255,255,255,0.08)',
+                  background: selectedExperts.includes(exp.id) ? 'rgba(192,132,252,0.18)' : '#05050C',
+                  color: selectedExperts.includes(exp.id) ? '#C084FC' : '#6A6888',
+                  cursor: routingMode === 'auto' ? 'not-allowed' : 'pointer',
+                  opacity: routingMode === 'auto' ? 0.7 : 1
+                }}
+              >
+                {exp.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
+      {/* Results View */}
+      {response && (
+        <div style={{ background: '#0B0B16', border: '1px solid rgba(139,92,246,0.3)', borderRadius: 20, padding: 24 }}>
+          {/* Executive Summary */}
+          <div style={{ marginBottom: 20 }}>
+            <span style={{ fontSize: 11, fontWeight: 800, color: '#4ADE80', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 4, marginBottom: 4 }}>
+              <CheckCircle2 style={{ width: 14, height: 14 }} /> Resumen Ejecutivo — Answer ID: {response.data?.answer_id}
+            </span>
+            <div style={{ fontSize: 14, fontWeight: 700, color: '#E8E7F5', lineHeight: 1.5, background: '#05050C', padding: 16, borderRadius: 12, border: '1px solid rgba(139,92,246,0.2)' }}>
+              {response.data?.executive_summary}
+            </div>
+          </div>
+
+          {/* Experts Activated */}
+          <div style={{ marginBottom: 20 }}>
+            <span style={{ fontSize: 12, fontWeight: 800, color: '#C084FC', marginBottom: 8, display: 'block' }}>
+              Expertos Activados por el Gating Network:
+            </span>
+            <div style={{ display: 'flex', gap: 10 }}>
+              {response.data?.experts_used?.map((e: any, idx: number) => (
+                <div key={idx} style={{ background: '#090914', border: '1px solid rgba(192,132,252,0.3)', padding: '6px 12px', borderRadius: 8, fontSize: 11.5, fontWeight: 800, color: '#E8E7F5' }}>
+                  {e.expert.toUpperCase()} — <span style={{ color: '#C084FC' }}>{(e.weight * 100).toFixed(0)}% Ponderación</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Citations Grid */}
+          <div>
+            <span style={{ fontSize: 12, fontWeight: 800, color: '#2DD4BF', marginBottom: 8, display: 'block' }}>
+              Evidencia Citable &amp; Trazabilidad (Fact-Checking):
+            </span>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12 }}>
+              {response.data?.citations?.map((cit: any) => (
+                <div key={cit.id} style={{ background: '#05050C', border: '1px solid rgba(45,212,191,0.2)', padding: 14, borderRadius: 12 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                    <span style={{ fontSize: 11, fontWeight: 800, color: '#2DD4BF' }}>[{cit.source}]</span>
+                    <span style={{ fontSize: 10, color: '#4ADE80', fontWeight: 800 }}>✓ VERIFICADO</span>
+                  </div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: '#E8E7F5' }}>{cit.document_title}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

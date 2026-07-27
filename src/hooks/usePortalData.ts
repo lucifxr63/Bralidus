@@ -73,7 +73,7 @@ export function usePortalData() {
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token ?? anonKey;
       if (!token) { setWebhooksLoading(false); return; }
-      const res = await fetch(`${BASE}/api/v1/webhooks`, {
+      const res = await fetch(`${BASE}/webhooks`, {
         headers: { 'Authorization': `Bearer ${token}`, 'apikey': anonKey || '' },
       });
       if (!res.ok) return;
