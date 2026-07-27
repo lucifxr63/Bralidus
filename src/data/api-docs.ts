@@ -14,7 +14,7 @@ export interface EndpointDoc {
 }
 
 export const API_DOCS: EndpointDoc[] = [
-  // Mercado Público (B2G Canónico)
+  // ── Mercado Público: Licitaciones & Compra Ágil ───────────────────────────
   {
     method: 'GET', path: '/api/v1/mercado-publico/licitaciones', color: '#F59E0B',
     description: 'Obtiene un listado paginado de licitaciones públicas de ChileCompra con filtros por rango de fechas, estado u organismo comprador.',
@@ -32,7 +32,7 @@ export const API_DOCS: EndpointDoc[] = [
   },
   {
     method: 'GET', path: '/api/v1/mercado-publico/licitaciones/:codigo_externo', color: '#F59E0B',
-    description: 'Obtiene el detalle completo de una licitación específica (ej. 1234-56-LE26), incluyendo fechas clave e ítems.',
+    description: 'Obtiene el detalle completo de una licitación específica (ej. 1234-56-LE26), incluyendo ítems, fechas clave y documentos adjuntos.',
     params: [
       { name: 'codigo_externo', type: 'string', required: true, description: 'Código único de la licitación (ej: 1234-56-LE26)' },
     ],
@@ -40,34 +40,59 @@ export const API_DOCS: EndpointDoc[] = [
     errorCodes: ['401 Unauthorized', '404 Licitación no encontrada'],
   },
   {
+    method: 'GET', path: '/api/v1/mercado-publico/compra-agil', color: '#F59E0B',
+    description: 'Listado en tiempo real de oportunidades de Compra Ágil del Estado (< 300 UTM / expedita adquisición).',
+    params: [
+      { name: 'buyer_rut', type: 'string', required: false, description: 'Filtrar por RUT de institución compradora' },
+      { name: 'q', type: 'string', required: false, description: 'Término de búsqueda en título' },
+      { name: 'page', type: 'number', required: false, description: 'Página (default: 1)' },
+    ],
+    responseExample: '{\n  "data": [\n    { "external_code": "5678-12-COT26", "title": "Insumos computacionales", "amount_estimated": 450000 }\n  ]\n}',
+    errorCodes: ['401 Unauthorized'],
+  },
+
+  // ── Mercado Público: Órdenes de Compra ──────────────────────────────────
+  {
     method: 'GET', path: '/api/v1/mercado-publico/ordenes-compra', color: '#F59E0B',
-    description: 'Transacciones reales de compra emitidas por organismos del Estado. Permite filtrar por fecha o RUT del proveedor adjudicado.',
+    description: 'Listado de órdenes de compra (OCs) emitidas por organismos del Estado. Permite filtrar por fecha, RUT proveedor o estado.',
     params: [
       { name: 'fecha', type: 'string', required: false, description: 'Fecha específica (YYYY-MM-DD)' },
       { name: 'rut_proveedor', type: 'string', required: false, description: 'RUT del proveedor adjudicado (ej: 76.086.428-5)' },
       { name: 'estado', type: 'string', required: false, description: 'Estado: enviada | aceptada | recepcion_conforme' },
+      { name: 'codigo_organismo', type: 'string', required: false, description: 'Código del organismo comprador' },
     ],
     responseExample: '{\n  "data": [\n    { "external_code": "1234-56-SE26", "supplier_name": "Scouttech SpA", "total": 45000000, "currency": "CLP", "issued_at": "2026-07-20T15:30:00Z" }\n  ]\n}',
     errorCodes: ['401 Unauthorized', '429 Rate limit exceeded'],
   },
   {
     method: 'GET', path: '/api/v1/mercado-publico/ordenes-compra/:codigo_oc', color: '#F59E0B',
-    description: 'Detalle completo de la orden de compra con precios unitarios, productos/servicios contratados y proveedor.',
+    description: 'Detalle completo de la orden de compra (ej: 1234-56-SE26) con precios unitarios, productos/servicios exactos y proveedor.',
     params: [
       { name: 'codigo_oc', type: 'string', required: true, description: 'Código único de la OC (ej: 1234-56-SE26)' },
     ],
     responseExample: '{\n  "data": {\n    "external_code": "1234-56-SE26",\n    "supplier_name": "Empresa SpA",\n    "total": 12500000,\n    "products": [...]\n  }\n}',
     errorCodes: ['401 Unauthorized', '404 Orden no encontrada'],
   },
+
+  // ── Mercado Público: Organismos & Proveedores ─────────────────────────────
   {
     method: 'GET', path: '/api/v1/mercado-publico/organismos', color: '#F59E0B',
-    description: 'Busca y lista todas las instituciones compradoras del Estado (Ministerios, Municipalidades, Hospitales).',
+    description: 'Directorio y búsqueda de organismos compradores del Estado (Ministerios, Municipalidades, Hospitales).',
     params: [
       { name: 'nombre', type: 'string', required: false, description: 'Nombre o parte del nombre de la institución (ej: MINEDUC)' },
       { name: 'rut', type: 'string', required: false, description: 'RUT o código de la institución' },
     ],
     responseExample: '{\n  "data": [\n    { "buyer_org_code": "6921", "buyer_name": "Ministerio de Educación" }\n  ]\n}',
     errorCodes: ['401 Unauthorized'],
+  },
+  {
+    method: 'GET', path: '/api/v1/mercado-publico/organismos/:id', color: '#F59E0B',
+    description: 'Ficha de un organismo comprador del Estado y sus órdenes de compra recientes emitidas.',
+    params: [
+      { name: 'id', type: 'string', required: true, description: 'Código del organismo (ej: 6921)' },
+    ],
+    responseExample: '{\n  "data": {\n    "buyer_id": "6921",\n    "purchase_orders": [...]\n  }\n}',
+    errorCodes: ['401 Unauthorized', '404 Organismo no encontrado'],
   },
   {
     method: 'GET', path: '/api/v1/mercado-publico/proveedores/:rut', color: '#F59E0B',
@@ -87,8 +112,37 @@ export const API_DOCS: EndpointDoc[] = [
     responseExample: '{\n  "data": {\n    "comparativa": {\n      "facturacion": { "proveedor_clp": 125800000, "mercado_mediana_clp": 15000000, "posicion": "sobre_p75" }\n    }\n  }\n}',
     errorCodes: ['400 RUT inválido', '401 Unauthorized'],
   },
+  {
+    method: 'GET', path: '/api/v1/mercado-publico/proveedores/:rut/oportunidades', color: '#F59E0B',
+    description: 'Licitaciones públicas y compras ágiles activas rankeadas por algoritmo de relevancia para el perfil del proveedor.',
+    params: [
+      { name: 'rut', type: 'string', required: true, description: 'RUT del proveedor (ej: 76.086.428-5)' },
+      { name: 'limit', type: 'number', required: false, description: 'Máximo de resultados (default: 10, máx: 50)' },
+    ],
+    responseExample: '{\n  "data": {\n    "total_encontradas": 5,\n    "oportunidades": [\n      { "codigo": "1234-56-LE26", "relevancia_score": 0.95, "motivos_relevancia": ["Coincidencia de rubro UNSPSC"] }\n    ]\n  }\n}',
+    errorCodes: ['400 RUT inválido', '401 Unauthorized'],
+  },
+  {
+    method: 'GET', path: '/api/v1/mercado-publico/benchmarks', color: '#F59E0B',
+    description: 'Benchmarks B2G agregados por rubro UNSPSC y región: volumen total, medianas, percentiles p25/p75 y concentración.',
+    params: [
+      { name: 'unspsc', type: 'string', required: false, description: 'Código UNSPSC del rubro (ej: 43232200)' },
+      { name: 'region', type: 'string', required: false, description: 'Código de región Chile (ej: 13 para RM)' },
+    ],
+    responseExample: '{\n  "data": {\n    "volumen": { "licitaciones_publicadas": 342, "monto_total_ocs_clp": 4850000000 },\n    "proveedores": { "activos_en_periodo": 78, "monto_mediana_clp": 15000000 }\n  }\n}',
+    errorCodes: ['401 Unauthorized'],
+  },
+  {
+    method: 'GET', path: '/api/v1/mercado-publico/metricas/:rut', color: '#F59E0B',
+    description: 'Métricas consolidadas M1 a M10 de Mercado Público pre-calculadas para una empresa (volúmenes, ticket promedio, PMO de pago).',
+    params: [
+      { name: 'rut', type: 'string', required: true, description: 'RUT de la empresa (ej: 76.086.428-5)' },
+    ],
+    responseExample: '{\n  "rut": "76086428-5",\n  "metricas": { "m1_volumen_anual": 125000000, "m4_ticket_promedio": 8900000, "m8_pmo_pago_dias": 34 }\n}',
+    errorCodes: ['400 RUT inválido', '404 Sin métricas calculadas'],
+  },
 
-  // Datos Económicos
+  // ── Datos Económicos ──────────────────────────────────────────────────
   {
     method: 'GET', path: '/api/v1/data/economy', color: '#2DD4BF',
     description: 'Retorna un snapshot macroeconómico consolidado de Chile: UF, IPC, USD/CLP, TPM, PIB y Desempleo en tiempo real.',
@@ -97,7 +151,7 @@ export const API_DOCS: EndpointDoc[] = [
     errorCodes: ['401 Unauthorized', '503 Data source unavailable'],
   },
 
-  // GraphRAG & Bralidus Intelligence
+  // ── GraphRAG & Bralidus Intelligence ─────────────────────────────────
   {
     method: 'POST', path: '/api/v1/intel/query', color: '#8B5CF6',
     description: 'GraphRAG unificado Bralidus: consulta semántica que fusiona datos macroeconómicos, doctrina regulatoria y contexto de mercado.',
@@ -110,7 +164,7 @@ export const API_DOCS: EndpointDoc[] = [
     errorCodes: ['401 Unauthorized', '422 Invalid query', '500 Engine error'],
   },
 
-  // RAG & Vault
+  // ── RAG & Vault ──────────────────────────────────────────────────────
   {
     method: 'POST', path: '/api/v1/rag/query', color: '#0EB5C6',
     description: 'Consulta semántica vectorial HNSW (pgvector) sobre la base de conocimiento pública o del espacio privado del tenant.',
@@ -131,7 +185,7 @@ export const API_DOCS: EndpointDoc[] = [
     errorCodes: ['400 Text too long', '401 Unauthorized'],
   },
 
-  // Webhooks
+  // ── Webhooks ──────────────────────────────────────────────────────────
   {
     method: 'POST', path: '/api/v1/webhooks', color: '#F59E0B',
     description: 'Registra una URL HTTPS para recibir eventos asíncronos en tiempo real (alertas de Radar, licitaciones relevantes).',
@@ -162,6 +216,13 @@ export const ENDPOINTS: readonly PlaygroundEndpoint[] = [
   },
   {
     method: 'GET',
+    path: '/api/v1/mercado-publico/compra-agil',
+    label: 'Mercado Público — Oportunidades Compra Ágil',
+    color: '#F59E0B',
+    defaultBody: '',
+  },
+  {
+    method: 'GET',
     path: '/api/v1/mercado-publico/ordenes-compra?rut_proveedor=76086428-5',
     label: 'Mercado Público — Listado de Órdenes de Compra',
     color: '#F59E0B',
@@ -183,8 +244,29 @@ export const ENDPOINTS: readonly PlaygroundEndpoint[] = [
   },
   {
     method: 'GET',
+    path: '/api/v1/mercado-publico/proveedores/76086428-5/oportunidades',
+    label: 'Mercado Público — Licitaciones Recomendadas para Proveedor',
+    color: '#F59E0B',
+    defaultBody: '',
+  },
+  {
+    method: 'GET',
     path: '/api/v1/mercado-publico/organismos?nombre=MINEDUC',
     label: 'Mercado Público — Directorio de Organismos',
+    color: '#F59E0B',
+    defaultBody: '',
+  },
+  {
+    method: 'GET',
+    path: '/api/v1/mercado-publico/benchmarks',
+    label: 'Mercado Público — Benchmarks Sectoriales B2G',
+    color: '#F59E0B',
+    defaultBody: '',
+  },
+  {
+    method: 'GET',
+    path: '/api/v1/mercado-publico/metricas/76086428-5',
+    label: 'Mercado Público — Métricas Consolidadas M1-M10',
     color: '#F59E0B',
     defaultBody: '',
   },
