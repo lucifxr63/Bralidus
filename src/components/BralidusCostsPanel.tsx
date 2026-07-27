@@ -85,10 +85,10 @@ export function BralidusCostsPanel({ totalTokens = 1250000, className = '' }: Br
 
       // Expert breakdown distribution
       setExpertData([
-        { name: 'Macroeconomía (BCCh/FRED)', value: 45, color: '#0EB5C6' },
-        { name: 'Unit Economics SaaS',       value: 25, color: '#2DD4BF' },
-        { name: 'Doctrina Legal Chile',      value: 18, color: '#F59E0B' },
-        { name: 'Licitus B2G Radar',          value: 12, color: '#EC4899' },
+        { name: 'Mercado Público B2G',       value: 42, color: '#F59E0B' },
+        { name: 'Macroeconomía (BCCh/FRED)', value: 30, color: '#0EB5C6' },
+        { name: 'Doctrina Legal Chile',      value: 18, color: '#2DD4BF' },
+        { name: 'GraphRAG & Vault Vector',   value: 10, color: '#8B5CF6' },
       ]);
 
       // API Key rows
@@ -101,7 +101,7 @@ export function BralidusCostsPanel({ totalTokens = 1250000, className = '' }: Br
           return {
             keyPrefix: `val_live_${emailPrefix.slice(0, 5)}...`,
             name: `${emailPrefix} (Main App)`,
-            endpoint: idx % 2 === 0 ? '/api/v1/intel/query' : '/api/v1/data/economy',
+            endpoint: idx % 2 === 0 ? '/api/v1/mercado-publico/licitaciones' : '/api/v1/data/economy',
             invocations: reqs,
             tokens: tkns,
             hitRate: `${88 - idx * 4}%`,
@@ -112,10 +112,10 @@ export function BralidusCostsPanel({ totalTokens = 1250000, className = '' }: Br
       } else {
         // Fallback default rows
         setApiKeyRows([
-          { keyPrefix: 'val_live_9f82a...', name: 'Scouttech App Main', endpoint: '/api/v1/intel/query', invocations: 1420, tokens: 482000, hitRate: '88%', costUSD: '$1.37' },
+          { keyPrefix: 'val_live_9f82a...', name: 'Scouttech B2G Portal', endpoint: '/api/v1/mercado-publico/licitaciones', invocations: 1420, tokens: 482000, hitRate: '88%', costUSD: '$1.37' },
           { keyPrefix: 'val_live_3k11c...', name: 'Fintech Dashboard', endpoint: '/api/v1/data/economy', invocations: 890, tokens: 210000, hitRate: '92%', costUSD: '$0.60' },
-          { keyPrefix: 'val_live_7a04x...', name: 'Licitus B2G Radar', endpoint: '/api/v1/data/licitus/proveedor', invocations: 410, tokens: 165000, hitRate: '76%', costUSD: '$0.47' },
-          { keyPrefix: 'val_live_2m88p...', name: 'S-Pulse Graph Demo', endpoint: '/api/v1/data/spulse/companies', invocations: 310, tokens: 98000, hitRate: '81%', costUSD: '$0.28' },
+          { keyPrefix: 'val_live_7a04x...', name: 'B2G Supplier Monitor', endpoint: '/api/v1/mercado-publico/proveedores/76086428-5', invocations: 410, tokens: 165000, hitRate: '76%', costUSD: '$0.47' },
+          { keyPrefix: 'val_live_2m88p...', name: 'GraphRAG Intelligence', endpoint: '/api/v1/intel/query', invocations: 310, tokens: 98000, hitRate: '81%', costUSD: '$0.28' },
         ]);
       }
 

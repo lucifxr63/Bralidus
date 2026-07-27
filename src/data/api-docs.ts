@@ -14,120 +14,133 @@ export interface EndpointDoc {
 }
 
 export const API_DOCS: EndpointDoc[] = [
+  // Mercado Público (B2G Canónico)
   {
-    method: 'POST', path: '/api/v1/rag/query', color: '#0EB5C6',
-    description: 'Consulta semántica al corpus de conocimiento de Validus. Devuelve los fragmentos más relevantes con scores de similitud coseno.',
+    method: 'GET', path: '/api/v1/mercado-publico/licitaciones', color: '#F59E0B',
+    description: 'Obtiene un listado paginado de licitaciones públicas de ChileCompra con filtros por rango de fechas, estado u organismo comprador.',
     params: [
-      { name: 'query', type: 'string', required: true, description: 'Pregunta o texto de búsqueda (máx. 2000 chars)' },
-      { name: 'filters', type: 'object', required: false, description: 'Filtros opcionales: { industry?, category?, date_from? }' },
+      { name: 'fecha_inicio', type: 'string', required: false, description: 'Fecha de inicio (YYYY-MM-DD)' },
+      { name: 'fecha_fin', type: 'string', required: false, description: 'Fecha de término (YYYY-MM-DD)' },
+      { name: 'estado', type: 'string', required: false, description: 'Estado: publicada | cerrada | adjudicada | desierta' },
+      { name: 'codigo_organismo', type: 'string', required: false, description: 'Código o RUT del organismo comprador' },
+      { name: 'q', type: 'string', required: false, description: 'Término de búsqueda en título' },
+      { name: 'page', type: 'number', required: false, description: 'Página (default: 1)' },
+      { name: 'page_size', type: 'number', required: false, description: 'Límite (default: 20, máx: 100)' },
     ],
-    responseExample: '{\n  "results": [\n    { "content": "...", "score": 0.92, "source": "normativa_cmf" }\n  ],\n  "query_id": "q_abc123",\n  "latency_ms": 234\n}',
-    errorCodes: ['401 Unauthorized', '429 Rate limit exceeded', '500 RAG pipeline error'],
+    responseExample: '{\n  "data": [\n    { "id": "...", "external_code": "1234-56-LE26", "title": "Servicios TI", "status_code": "publicada", "published_at": "2026-07-25T10:00:00Z" }\n  ],\n  "meta": { "page": 1, "page_size": 20, "total": 142, "source": "mercado_publico" }\n}',
+    errorCodes: ['401 Unauthorized', '429 Rate limit exceeded'],
   },
   {
-    method: 'GET', path: '/api/v1/data/economy', color: '#2DD4BF',
-    description: 'Retorna indicadores económicos de Chile en tiempo real: UF, IPC, UTM, tipo de cambio USD/CLP y más. Sin body requerido.',
-    params: [],
-    responseExample: '{\n  "uf": { "value": 37842.15, "date": "2026-06-08" },\n  "ipc": { "value": 0.3, "period": "2026-05" },\n  "utm": { "value": 68264, "year": 2026 }\n}',
-    errorCodes: ['401 Unauthorized', '503 Data source unavailable'],
-  },
-  {
-    method: 'POST', path: '/api/v1/webhooks', color: '#F59E0B',
-    description: 'Registra una URL HTTPS para recibir notificaciones cuando eventos de Validus ocurran (validación completada, análisis listo, etc.).',
+    method: 'GET', path: '/api/v1/mercado-publico/licitaciones/:codigo_externo', color: '#F59E0B',
+    description: 'Obtiene el detalle completo de una licitación específica (ej. 1234-56-LE26), incluyendo fechas clave e ítems.',
     params: [
-      { name: 'url', type: 'string', required: true, description: 'URL HTTPS que recibirá el POST' },
-      { name: 'event', type: 'string', required: true, description: 'validation.complete | analysis.ready | profile.updated' },
+      { name: 'codigo_externo', type: 'string', required: true, description: 'Código único de la licitación (ej: 1234-56-LE26)' },
     ],
-    responseExample: '{\n  "id": "wh_xyz789",\n  "url": "https://mi-sistema.cl/webhook",\n  "event": "validation.complete",\n  "created_at": "2026-06-08T14:00:00Z"\n}',
-    errorCodes: ['400 Invalid URL', '401 Unauthorized'],
+    responseExample: '{\n  "data": {\n    "external_code": "1234-56-LE26",\n    "title": "Adquisición de Servidores",\n    "buyer_name": "Hospital San José",\n    "items": [...]\n  }\n}',
+    errorCodes: ['401 Unauthorized', '404 Licitación no encontrada'],
   },
   {
-    method: 'GET', path: '/api/v1/webhooks', color: '#F59E0B',
-    description: 'Lista todos los webhooks registrados para tu cuenta con su estado de última entrega.',
-    params: [],
-    responseExample: '{\n  "webhooks": [\n    { "id": "wh_xyz789", "url": "https://...", "event": "validation.complete", "last_delivery": "ok" }\n  ]\n}',
+    method: 'GET', path: '/api/v1/mercado-publico/ordenes-compra', color: '#F59E0B',
+    description: 'Transacciones reales de compra emitidas por organismos del Estado. Permite filtrar por fecha o RUT del proveedor adjudicado.',
+    params: [
+      { name: 'fecha', type: 'string', required: false, description: 'Fecha específica (YYYY-MM-DD)' },
+      { name: 'rut_proveedor', type: 'string', required: false, description: 'RUT del proveedor adjudicado (ej: 76.086.428-5)' },
+      { name: 'estado', type: 'string', required: false, description: 'Estado: enviada | aceptada | recepcion_conforme' },
+    ],
+    responseExample: '{\n  "data": [\n    { "external_code": "1234-56-SE26", "supplier_name": "Scouttech SpA", "total": 45000000, "currency": "CLP", "issued_at": "2026-07-20T15:30:00Z" }\n  ]\n}',
+    errorCodes: ['401 Unauthorized', '429 Rate limit exceeded'],
+  },
+  {
+    method: 'GET', path: '/api/v1/mercado-publico/ordenes-compra/:codigo_oc', color: '#F59E0B',
+    description: 'Detalle completo de la orden de compra con precios unitarios, productos/servicios contratados y proveedor.',
+    params: [
+      { name: 'codigo_oc', type: 'string', required: true, description: 'Código único de la OC (ej: 1234-56-SE26)' },
+    ],
+    responseExample: '{\n  "data": {\n    "external_code": "1234-56-SE26",\n    "supplier_name": "Empresa SpA",\n    "total": 12500000,\n    "products": [...]\n  }\n}',
+    errorCodes: ['401 Unauthorized', '404 Orden no encontrada'],
+  },
+  {
+    method: 'GET', path: '/api/v1/mercado-publico/organismos', color: '#F59E0B',
+    description: 'Busca y lista todas las instituciones compradoras del Estado (Ministerios, Municipalidades, Hospitales).',
+    params: [
+      { name: 'nombre', type: 'string', required: false, description: 'Nombre o parte del nombre de la institución (ej: MINEDUC)' },
+      { name: 'rut', type: 'string', required: false, description: 'RUT o código de la institución' },
+    ],
+    responseExample: '{\n  "data": [\n    { "buyer_org_code": "6921", "buyer_name": "Ministerio de Educación" }\n  ]\n}',
     errorCodes: ['401 Unauthorized'],
   },
   {
-    method: 'POST', path: '/api/v1/rag/ingest/text', color: '#EC4899',
-    description: 'Vectoriza e ingesta texto plano al knowledge base. El contenido queda disponible para consultas RAG de forma inmediata.',
+    method: 'GET', path: '/api/v1/mercado-publico/proveedores/:rut', color: '#F59E0B',
+    description: 'Perfil B2G público de una empresa: órdenes de compra adjudicadas, ticket promedio, buyer intelligence y B2G Maturity Score (0-100).',
     params: [
-      { name: 'text', type: 'string', required: true, description: 'Texto a vectorizar (máx. 50.000 caracteres)' },
-      { name: 'metadata', type: 'object', required: false, description: 'Metadatos: { source?, industry?, category? }' },
+      { name: 'rut', type: 'string', required: true, description: 'RUT de la empresa (ej: 76.086.428-5)' },
     ],
-    responseExample: '{\n  "chunks_created": 4,\n  "doc_id": "doc_abc456",\n  "latency_ms": 1200\n}',
-    errorCodes: ['400 Text too long', '401 Unauthorized', '429 Rate limit exceeded'],
+    responseExample: '{\n  "data": {\n    "rut": "76086428-5",\n    "nombre_empresa": "Scouttech SpA",\n    "actividad_ocs": { "ocs_ganadas_12m": 14, "monto_total_adjudicado_clp": 125800000 },\n    "b2g_maturity": { "b2g_maturity_score": 72, "nivel": "alto" }\n  }\n}',
+    errorCodes: ['400 RUT inválido', '401 Unauthorized', '503 Datos no disponibles'],
   },
   {
-    method: 'POST', path: '/functions/v1/assemble-mega-prompt', color: '#0EB5C6',
-    description: 'Genera un análisis de due diligence completo con 16 dimensiones RAG usando IA. Sprint 7: incluye Riesgo Regulatorio (Ley 21.719 Datos, Ley 21.521 Fintech, Ley Marco Ciberseguridad), Eficiencia de Capital (Burn Rate, Runway, Burn Multiple), Retención (NRR, Gross Churn) y Riesgo Conductual (sesgos del fundador).',
+    method: 'GET', path: '/api/v1/mercado-publico/proveedores/:rut/vs-mercado', color: '#F59E0B',
+    description: 'Comparativa de facturación B2G y ticket promedio del proveedor contra los cuartiles p25/p50/p75 de su rubro UNSPSC.',
     params: [
-      { name: 'validation_id', type: 'string (UUID)', required: true, description: 'ID de la validación a analizar' },
-      { name: 'capital_efficiency', type: 'object', required: false, description: '{ monthly_burn_usd?, runway_months?, nrr_pct?, gross_churn_pct?, burn_multiple? }' },
+      { name: 'rut', type: 'string', required: true, description: 'RUT del proveedor (ej: 76.086.428-5)' },
     ],
-    responseExample: '{\n  "analysis": {\n    "market": "...", "team": "...", "risks": "...",\n    "capital_efficiency": { "monthly_burn_usd": 8500, "runway_months": 14 },\n    "regulatory_risk": "medium"\n  },\n  "score": 0.78,\n  "rag_dimensions": 16\n}',
-    errorCodes: ['400 Invalid validation_id', '401 Unauthorized', '404 Validation not found'],
+    responseExample: '{\n  "data": {\n    "comparativa": {\n      "facturacion": { "proveedor_clp": 125800000, "mercado_mediana_clp": 15000000, "posicion": "sobre_p75" }\n    }\n  }\n}',
+    errorCodes: ['400 RUT inválido', '401 Unauthorized'],
   },
+
+  // Datos Económicos
+  {
+    method: 'GET', path: '/api/v1/data/economy', color: '#2DD4BF',
+    description: 'Retorna un snapshot macroeconómico consolidado de Chile: UF, IPC, USD/CLP, TPM, PIB y Desempleo en tiempo real.',
+    params: [],
+    responseExample: '{\n  "data": {\n    "BCCH": {\n      "uf": { "value": 37842.15, "date": "2026-07-27" },\n      "usd_clp": { "value": 942.5 }\n    }\n  }\n}',
+    errorCodes: ['401 Unauthorized', '503 Data source unavailable'],
+  },
+
+  // GraphRAG & Bralidus Intelligence
   {
     method: 'POST', path: '/api/v1/intel/query', color: '#8B5CF6',
-    description: 'Intel — GraphRAG unificado (macro + S-Pulse + Licitus). Consulta semántica al grafo de conocimiento de Bralidus con contexto enriquecido.',
+    description: 'GraphRAG unificado Bralidus: consulta semántica que fusiona datos macroeconómicos, doctrina regulatoria y contexto de mercado.',
     params: [
       { name: 'query', type: 'string', required: true, description: 'Consulta en lenguaje natural' },
       { name: 'startup_context', type: 'object', required: false, description: '{ industry?, stage?, geography?, company_rut? }' },
-      { name: 'top_k', type: 'number', required: false, description: 'Número de resultados (default: 5)' },
+      { name: 'top_k', type: 'number', required: false, description: 'Número de resultados (default: 5, máx: 25)' },
     ],
-    responseExample: '{\n  "answer": "...",\n  "sources": [...],\n  "graph_path": "GRAPH",\n  "entities_activated": 43\n}',
-    errorCodes: ['401 Unauthorized', '422 Invalid query', '500 MoE engine error'],
+    responseExample: '{\n  "query": "...",\n  "context_for_llm": "## Contexto Macroeconómico\\n...",\n  "total_hits": 7,\n  "graph_hits": 3,\n  "vector_hits": 4\n}',
+    errorCodes: ['401 Unauthorized', '422 Invalid query', '500 Engine error'],
+  },
+
+  // RAG & Vault
+  {
+    method: 'POST', path: '/api/v1/rag/query', color: '#0EB5C6',
+    description: 'Consulta semántica vectorial HNSW (pgvector) sobre la base de conocimiento pública o del espacio privado del tenant.',
+    params: [
+      { name: 'query', type: 'string', required: true, description: 'Texto de búsqueda' },
+    ],
+    responseExample: '{\n  "nodes": [\n    { "document_title": "Ley 21.719", "content": "...", "relevance": 0.89 }\n  ]\n}',
+    errorCodes: ['401 Unauthorized', '429 Rate limit exceeded'],
   },
   {
-    method: 'GET', path: '/api/v1/data/licitus/proveedor/:rut', color: '#F59E0B',
-    description: 'Licitus — Histórico de órdenes de compra, buyer intelligence y Madurez B2G (b2g_maturity_score 0-100) para un proveedor del Estado.',
+    method: 'POST', path: '/api/v1/rag/ingest/text', color: '#EC4899',
+    description: 'Vectoriza e ingesta texto plano en el Vault privado del cliente para consultas RAG personalizadas.',
     params: [
-      { name: 'periodo_meses', type: 'number', required: false, description: 'Ventana de tiempo en meses (default: 12, máx: 24)' },
+      { name: 'text', type: 'string', required: true, description: 'Texto a vectorizar' },
+      { name: 'title', type: 'string', required: true, description: 'Título identificador' },
     ],
-    responseExample: '{\n  "data": {\n    "rut": "76086428-5",\n    "nombre_empresa": "Empresa SpA",\n    "actividad_ocs": { "ocs_ganadas_12m": 14, "monto_total_adjudicado_clp": 125800000 },\n    "b2g_maturity": { "b2g_maturity_score": 72, "nivel": "alto", "senales": ["..."] }\n  }\n}',
-    errorCodes: ['400 RUT inválido', '401 Unauthorized', '503 Licitus no disponible o sin datos'],
+    responseExample: '{\n  "status": "success",\n  "doc_id": "doc_abc456"\n}',
+    errorCodes: ['400 Text too long', '401 Unauthorized'],
   },
+
+  // Webhooks
   {
-    method: 'GET', path: '/api/v1/data/licitus/proveedor/:rut/vs-mercado', color: '#F59E0B',
-    description: 'Licitus — Comparativa de facturación, ticket promedio y concentración del proveedor vs. percentiles de su rubro UNSPSC.',
+    method: 'POST', path: '/api/v1/webhooks', color: '#F59E0B',
+    description: 'Registra una URL HTTPS para recibir eventos asíncronos en tiempo real (alertas de Radar, licitaciones relevantes).',
     params: [
-      { name: 'periodo_meses', type: 'number', required: false, description: 'Ventana de tiempo en meses (default: 12)' },
+      { name: 'url', type: 'string', required: true, description: 'URL HTTPS del webhook' },
+      { name: 'event', type: 'string', required: true, description: 'Nombre del evento' },
     ],
-    responseExample: '{\n  "data": {\n    "rut": "76086428-5",\n    "b2g_maturity": { "b2g_maturity_score": 72, "nivel": "alto" },\n    "comparativa": {\n      "facturacion": { "proveedor_clp": 125800000, "mercado_mediana_clp": 15000000, "posicion": "sobre_p75" }\n    }\n  }\n}',
-    errorCodes: ['400 RUT inválido', '401 Unauthorized', '503 Sin datos'],
-  },
-  {
-    method: 'GET', path: '/api/v1/data/licitus/proveedor/:rut/oportunidades', color: '#F59E0B',
-    description: 'Licitus — Licitaciones públicas abiertas rankeadas por score de relevancia para el perfil del proveedor.',
-    params: [
-      { name: 'limit', type: 'number', required: false, description: 'Máximo de resultados (default: 10, máx: 50)' },
-    ],
-    responseExample: '{\n  "data": {\n    "total_encontradas": 4,\n    "oportunidades": [\n      { "codigo": "1234-56-LE26", "nombre": "...", "relevancia_score": 0.9, "motivos_relevancia": ["Coincidencia de rubro UNSPSC"] }\n    ]\n  }\n}',
-    errorCodes: ['400 RUT inválido', '401 Unauthorized'],
-  },
-  {
-    method: 'GET', path: '/api/v1/data/licitus/mercado/benchmarks', color: '#F59E0B',
-    description: 'Licitus — Benchmarks B2G agregados por rubro UNSPSC y región: volumen total, medianas, percentiles p25/p75 y concentración.',
-    params: [
-      { name: 'unspsc', type: 'string', required: false, description: 'Código UNSPSC del rubro (ej: 43232200)' },
-      { name: 'region', type: 'string', required: false, description: 'Código de región Chile (ej: 13 para RM)' },
-      { name: 'periodo_meses', type: 'number', required: false, description: 'Ventana en meses (default: 12)' },
-    ],
-    responseExample: '{\n  "data": {\n    "volumen": { "licitaciones_publicadas": 342, "monto_total_ocs_clp": 4850000000 },\n    "proveedores": { "activos_en_periodo": 78, "monto_mediana_clp": 15000000 }\n  }\n}',
-    errorCodes: ['401 Unauthorized'],
-  },
-  {
-    method: 'GET', path: '/api/v1/data/licitus/mercado/activas', color: '#F59E0B',
-    description: 'Licitus — Licitaciones públicas vigentes en Mercado Público con cierre próximo.',
-    params: [
-      { name: 'unspsc', type: 'string', required: false, description: 'Filtrar por rubro UNSPSC' },
-      { name: 'region', type: 'string', required: false, description: 'Filtrar por región (ej: 13)' },
-      { name: 'monto_min', type: 'number', required: false, description: 'Monto mínimo estimado en CLP' },
-      { name: 'limit', type: 'number', required: false, description: 'Límite de resultados (default: 20)' },
-    ],
-    responseExample: '{\n  "data": [\n    { "codigo": "1234-56-LE26", "nombre": "...", "monto_estimado_clp": 45000000, "fecha_cierre": "2026-07-28T18:00:00" }\n  ]\n}',
-    errorCodes: ['401 Unauthorized'],
+    responseExample: '{\n  "id": "wh_xyz789",\n  "url": "https://mi-sistema.cl/webhook",\n  "event": "radar.signal"\n}',
+    errorCodes: ['400 Invalid URL', '401 Unauthorized'],
   },
 ];
 
@@ -141,92 +154,71 @@ export interface PlaygroundEndpoint {
 
 export const ENDPOINTS: readonly PlaygroundEndpoint[] = [
   {
-    method: 'POST',
-    path: '/api/v1/rag/query',
-    label: 'RAG — Consulta semántica al Knowledge Graph',
-    color: '#0EB5C6',
-    defaultBody: JSON.stringify({ query: '¿Qué es la Ley Fintech 21.521 y cómo afecta a las startups chilenas?', filters: { industry: 'fintech' } }, null, 2),
+    method: 'GET',
+    path: '/api/v1/mercado-publico/licitaciones?estado=publicada',
+    label: 'Mercado Público — Buscador de Licitaciones',
+    color: '#F59E0B',
+    defaultBody: '',
+  },
+  {
+    method: 'GET',
+    path: '/api/v1/mercado-publico/ordenes-compra?rut_proveedor=76086428-5',
+    label: 'Mercado Público — Listado de Órdenes de Compra',
+    color: '#F59E0B',
+    defaultBody: '',
+  },
+  {
+    method: 'GET',
+    path: '/api/v1/mercado-publico/proveedores/76086428-5',
+    label: 'Mercado Público — Perfil B2G del Proveedor',
+    color: '#F59E0B',
+    defaultBody: '',
+  },
+  {
+    method: 'GET',
+    path: '/api/v1/mercado-publico/proveedores/76086428-5/vs-mercado',
+    label: 'Mercado Público — Comparativa Proveedor vs Mercado',
+    color: '#F59E0B',
+    defaultBody: '',
+  },
+  {
+    method: 'GET',
+    path: '/api/v1/mercado-publico/organismos?nombre=MINEDUC',
+    label: 'Mercado Público — Directorio de Organismos',
+    color: '#F59E0B',
+    defaultBody: '',
   },
   {
     method: 'GET',
     path: '/api/v1/data/economy',
-    label: 'Economy — Indicadores macro Chile (UF, IPC, TPM)',
+    label: 'Economy — Snapshot Macroeconómico Chile',
     color: '#2DD4BF',
     defaultBody: '',
   },
   {
     method: 'POST',
-    path: '/api/v1/rag/ingest/text',
-    label: 'RAG Ingest — Vectorizar texto al Knowledge Base',
-    color: '#EC4899',
-    defaultBody: JSON.stringify({ text: 'Texto de ejemplo para ingestar al knowledge base de Bralidus.', metadata: { source: 'mi-sistema', industry: 'fintech' } }, null, 2),
-  },
-  {
-    method: 'POST',
-    path: '/functions/v1/assemble-mega-prompt',
-    label: 'MegaPrompt — Due Diligence 16 dimensiones RAG',
-    color: '#0EB5C6',
-    defaultBody: JSON.stringify({ validation_id: 'val_abc123', capital_efficiency: { monthly_burn_usd: 8500, runway_months: 14, nrr_pct: 112 } }, null, 2),
-  },
-  {
-    method: 'POST',
     path: '/api/v1/intel/query',
-    label: 'Intel — GraphRAG unificado (macro + S-Pulse + Licitus)',
+    label: 'Intel — GraphRAG Unificado (Macro + Normativa)',
     color: '#8B5CF6',
     defaultBody: JSON.stringify({
-      query: '¿Qué tan atractivo es el mercado de insumos médicos para el Estado chileno?',
-      startup_context: { industry: 'healthtech', stage: 'seed', geography: 'chile', company_rut: '76086428-5' },
+      query: '¿Cómo afecta la tasa de la Fed a las startups de crédito en Chile?',
+      startup_context: { industry: 'fintech', stage: 'seed', geography: 'chile' },
       top_k: 5,
     }, null, 2),
   },
   {
-    method: 'GET',
-    path: '/api/v1/data/licitus/proveedor/76086428-5',
-    label: 'Licitus — Ficha B2G (OCs + Madurez B2G)',
-    color: '#F59E0B',
-    defaultBody: '',
+    method: 'POST',
+    path: '/api/v1/rag/query',
+    label: 'RAG — Búsqueda Semántica Vectorial pgvector',
+    color: '#0EB5C6',
+    defaultBody: JSON.stringify({ query: '¿Qué exige la Ley 21.719 de datos personales en Chile?' }, null, 2),
   },
   {
-    method: 'GET',
-    path: '/api/v1/data/licitus/proveedor/76086428-5/vs-mercado',
-    label: 'Licitus — Comparativa Proveedor vs Mercado',
-    color: '#F59E0B',
-    defaultBody: '',
-  },
-  {
-    method: 'GET',
-    path: '/api/v1/data/licitus/proveedor/76086428-5/oportunidades',
-    label: 'Licitus — Licitaciones activas relevantes',
-    color: '#F59E0B',
-    defaultBody: '',
-  },
-  {
-    method: 'GET',
-    path: '/api/v1/data/licitus/mercado/benchmarks',
-    label: 'Licitus — Benchmarks de Mercado Público',
-    color: '#F59E0B',
-    defaultBody: '',
-  },
-  {
-    method: 'GET',
-    path: '/api/v1/data/licitus/mercado/activas',
-    label: 'Licitus — Licitaciones abiertas vigentes',
-    color: '#F59E0B',
-    defaultBody: '',
-  },
-  {
-    method: 'GET',
-    path: '/api/v1/data/spulse/companies/search?q=falabella',
-    label: 'S-Pulse — Buscar empresa en el grafo societario',
-    color: '#6366F1',
-    defaultBody: '',
-  },
-  {
-    method: 'GET',
-    path: '/api/v1/data/spulse/companies/76086428-5/profile',
-    label: 'S-Pulse — Ficha 360° (socios + trazabilidad)',
-    color: '#6366F1',
-    defaultBody: '',
+    method: 'POST',
+    path: '/api/v1/rag/ingest/text',
+    label: 'Vault — Indexar Texto al Espacio Privado',
+    color: '#EC4899',
+    defaultBody: JSON.stringify({ text: 'Información corporativa privada para consultas RAG.', title: 'Doc 01' }, null, 2),
   },
 ] as const;
 
@@ -237,9 +229,9 @@ export const METHOD_COLORS: Record<string, string> = {
 };
 
 export const WEBHOOK_EVENTS = [
-  { value: 'validation.complete', label: 'Validación completada' },
-  { value: 'analysis.ready',      label: 'Análisis IA listo' },
-  { value: 'profile.updated',     label: 'Perfil actualizado' },
+  { value: 'radar.signal',       label: 'Señal del Radar Forense' },
+  { value: 'tender.published',   label: 'Nueva Licitación Publicada' },
+  { value: 'po.created',          label: 'Nueva Orden de Compra Adjudicada' },
 ];
 
 export const LOGS_PER_PAGE = 15;
