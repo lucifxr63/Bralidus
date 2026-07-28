@@ -659,7 +659,6 @@ export function MercadoPublicoLiveTable() {
             ...op,
             official_url: getOfficialUrl(op)
           }));
-          // Merge with DEMO_OPPORTUNITIES to ensure coverage across all 9 mechanisms
           const combined = [...mapped, ...DEMO_OPPORTUNITIES.filter(d => !mapped.some((m: any) => m.external_code === d.external_code))];
           setOpportunities(combined);
           setLoading(false);
@@ -669,10 +668,10 @@ export function MercadoPublicoLiveTable() {
 
       // 2. Fallback: API Oficial Mercado Público Chile
       const ticket = '319CF43E-C87A-4D50-9581-DD1B6C79B9E8';
-      const mpRes = await fetch(`https://api.mercadopublico.cl/servicios/v1/publico/licitaciones.json?estado=publicada&ticket=${ticket}`);
-      if (mpRes.ok) {
-        const mpJson = await mpRes.json();
-        if (mpJson.Listado && Array.isArray(mpJson.Listado) && mpJson.Listado.length > 0) {
+      const mpRes = await fetch(`https://api.mercadopublico.cl/servicios/v1/publico/licitaciones.json?estado=publicada&ticket=${ticket}`).catch(() => null);
+      if (mpRes && mpRes.ok) {
+        const mpJson = await mpRes.json().catch(() => null);
+        if (mpJson && mpJson.Listado && Array.isArray(mpJson.Listado) && mpJson.Listado.length > 0) {
           const liveMapped = mpJson.Listado.slice(0, 15).map((item: any, idx: number) => ({
             id: `live_${idx + 1}`,
             external_code: item.CodigoExterno,
