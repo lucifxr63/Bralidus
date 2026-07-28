@@ -1,7 +1,11 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 
-const LEGACY_ADMIN_EMAIL = 'lucianoalonso2000@gmail.com';
+const ADMIN_EMAILS = [
+  'lucianoalonso2000@gmail.com',
+  'luciano@scouttech.lat',
+  'contacto@scouttech.lat',
+];
 
 export interface AdminRoleState {
   isAdmin: boolean;
@@ -20,7 +24,7 @@ export function useAdminRole(): AdminRoleState {
       const userMeta = session?.user?.user_metadata?.role;
       const appMeta = session?.user?.app_metadata?.role;
 
-      const isLegacy = email === LEGACY_ADMIN_EMAIL || email.includes('admin');
+      const isLegacy = ADMIN_EMAILS.includes(email) || email.endsWith('@scouttech.lat') || email.includes('admin');
       const isRoleAdmin = userMeta === 'admin' || appMeta === 'admin';
 
       try {
