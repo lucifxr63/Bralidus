@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { ShieldCheck, Zap, ArrowUpRight, Check, ChevronDown, ChevronRight, Search, Layers } from 'lucide-react';
+import { DevCreditPricingCalculator } from './DevCreditPricingCalculator';
 
 export interface QuotasTabProps {
   usageCount?: number;
@@ -381,6 +382,9 @@ export function QuotasTab({ usageCount }: QuotasTabProps) {
           })}
         </div>
       </div>
+
+      {/* ── Dev-Only Credit Pricing & Unit Economics Calculator ──────────────── */}
+      <DevCreditPricingCalculator />
 
     </div>
   );
