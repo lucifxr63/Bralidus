@@ -305,28 +305,28 @@ export function CorporateMeshLiveExplorer() {
             {mesh.map((node, idx) => (
               <div key={idx} style={{ background: '#0B0B1D', border: '1px solid rgba(45,212,191,0.2)', borderRadius: 16, padding: 20, position: 'relative' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 100, background: node.partner_type === 'person' ? 'rgba(139,92,246,0.15)' : 'rgba(59,130,246,0.15)', color: node.partner_type === 'person' ? '#C4B5FD' : '#60A5FA' }}>
-                    {node.partner_type === 'person' ? <Users style={{ width: 12, height: 12 }} /> : <Building2 style={{ width: 12, height: 12 }} />}
-                    {node.partner_type === 'person' ? 'Persona Natural' : 'Sociedad Persona Jurídica'}
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 100, background: (node.partner_type || 'person') === 'person' ? 'rgba(139,92,246,0.15)' : 'rgba(59,130,246,0.15)', color: (node.partner_type || 'person') === 'person' ? '#C4B5FD' : '#60A5FA' }}>
+                    {(node.partner_type || 'person') === 'person' ? <Users style={{ width: 12, height: 12 }} /> : <Building2 style={{ width: 12, height: 12 }} />}
+                    {(node.partner_type || 'person') === 'person' ? 'Persona Natural' : 'Sociedad Persona Jurídica'}
                   </span>
-                  {node.ownership_percentage > 0 && (
+                  {(node.ownership_percentage ?? 0) > 0 && (
                     <span style={{ fontSize: 14, fontWeight: 800, color: '#2DD4BF' }}>
                       {node.ownership_percentage}% Participación
                     </span>
                   )}
                 </div>
 
-                <h4 style={{ fontSize: 15, fontWeight: 800, color: '#F1F5F9', margin: '0 0 6px 0' }}>{node.partner_name}</h4>
-                <p style={{ fontSize: 12, color: '#94A3B8', margin: '0 0 14px 0' }}>RUT: {node.partner_rut}</p>
+                <h4 style={{ fontSize: 15, fontWeight: 800, color: '#F1F5F9', margin: '0 0 6px 0' }}>{node.partner_name || 'Socio / Accionista'}</h4>
+                <p style={{ fontSize: 12, color: '#94A3B8', margin: '0 0 14px 0' }}>RUT: {node.partner_rut || 'N/A'}</p>
 
                 <div style={{ background: '#05050F', padding: 12, borderRadius: 10, border: '1px solid rgba(255,255,255,0.05)', fontSize: 11.5 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
                     <span style={{ color: '#64748B' }}>Rol registrado:</span>
-                    <span style={{ color: '#F3F4F6', fontWeight: 700 }}>{node.role.toUpperCase()}</span>
+                    <span style={{ color: '#F3F4F6', fontWeight: 700 }}>{(node.role || 'ACCIONISTA').toUpperCase()}</span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                     <span style={{ color: '#64748B' }}>Fecha de ingreso:</span>
-                    <span style={{ color: '#94A3B8' }}>{node.entry_date}</span>
+                    <span style={{ color: '#94A3B8' }}>{node.entry_date || 'Vigente'}</span>
                   </div>
                 </div>
               </div>
