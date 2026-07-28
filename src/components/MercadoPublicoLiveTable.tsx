@@ -651,8 +651,8 @@ export function MercadoPublicoLiveTable() {
       // 1. Intentar API Gateway Bralidus
       const res = await fetch(`${BASE}/data/b2g/licitaciones/activas`, {
         headers: { 'Authorization': 'Bearer demo_public_key' }
-      });
-      if (res.ok) {
+      }).catch(() => null);
+      if (res && res.ok) {
         const json = await res.json();
         if (json.data && Array.isArray(json.data) && json.data.length > 0) {
           const mapped = json.data.map((op: any) => ({
