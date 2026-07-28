@@ -517,6 +517,66 @@ export const API_DOCS: EndpointDoc[] = [
   },
   {
     section: 'Datos Económicos & Macro',
+    method: 'GET', path: '/api/v1/data/companies/:rut/profile', color: '#2DD4BF',
+    description: 'S-Pulse: Perfil societario canónico (RUT, Razón Social, Fecha Constitución Diario Oficial, Capital Social).',
+    params: [
+      { name: 'rut', type: 'string', required: true, description: 'RUT de la empresa' }
+    ],
+    responseExample: '{\n  "data": { "legal_name": "Electromedicina Chile SpA", "company_type": "SpA", "social_capital_clp": 150000000 }\n}',
+    errorCodes: ['401 Unauthorized', '400 Invalid RUT']
+  },
+  {
+    section: 'Datos Económicos & Macro',
+    method: 'GET', path: '/api/v1/data/companies/:rut/ownership-mesh', color: '#2DD4BF',
+    description: 'S-Pulse: Malla societaria completa (Nodos de personas/sociedades y % de participación accionararia).',
+    params: [
+      { name: 'rut', type: 'string', required: true, description: 'RUT de la empresa' }
+    ],
+    responseExample: '{\n  "data": [ { "partner_name": "Luciano Alonso Larraín", "ownership_percentage": 60.0, "role": "shareholder" } ]\n}',
+    errorCodes: ['401 Unauthorized']
+  },
+  {
+    section: 'Datos Económicos & Macro',
+    method: 'GET', path: '/api/v1/data/companies/:rut/legal-representatives', color: '#2DD4BF',
+    description: 'S-Pulse: Lista de representantes legales vigentes y facultades de administración inscritas.',
+    params: [
+      { name: 'rut', type: 'string', required: true, description: 'RUT de la empresa' }
+    ],
+    responseExample: '{\n  "data": [ { "name": "Luciano Alonso Larraín", "role": "Representante Legal Principal", "powers": ["Firma Bancaria"] } ]\n}',
+    errorCodes: ['401 Unauthorized']
+  },
+  {
+    section: 'Datos Económicos & Macro',
+    method: 'GET', path: '/api/v1/data/companies/:rut/related-parties', color: '#2DD4BF',
+    description: 'S-Pulse: Red de sociedades relacionadas (matrices, filiales y empresas hermanas con socios compartidos).',
+    params: [
+      { name: 'rut', type: 'string', required: true, description: 'RUT de la empresa' }
+    ],
+    responseExample: '{\n  "data": [ { "company_name": "Inversiones Médicas del Sur SpA", "relationship_type": "matriz" } ]\n}',
+    errorCodes: ['401 Unauthorized']
+  },
+  {
+    section: 'Datos Económicos & Macro',
+    method: 'POST', path: '/api/v1/data/companies/:rut/b2g-conflicts', color: '#2DD4BF',
+    description: 'S-Pulse: Detector de conflictos de interés B2G y cruzamiento de socios en licitaciones de Mercado Público.',
+    params: [
+      { name: 'rut', type: 'string', required: true, description: 'RUT de la empresa' }
+    ],
+    responseExample: '{\n  "data": { "conflict_detected": false, "risk_level": "LOW", "pep_matches": [] }\n}',
+    errorCodes: ['401 Unauthorized']
+  },
+  {
+    section: 'Datos Económicos & Macro',
+    method: 'GET', path: '/api/v1/data/companies/search', color: '#2DD4BF',
+    description: 'S-Pulse: Buscador predictivo de empresas por RUT o Razón Social.',
+    params: [
+      { name: 'q', type: 'string', required: true, description: 'Término de búsqueda (RUT o Razón Social)' }
+    ],
+    responseExample: '{\n  "data": [ { "rut": "76.543.210-K", "legal_name": "Electromedicina Chile SpA" } ]\n}',
+    errorCodes: ['401 Unauthorized']
+  },
+  {
+    section: 'Datos Económicos & Macro',
     method: 'GET', path: '/api/v1/data/labor', color: '#2DD4BF',
     description: 'Snapshot del mercado laboral chileno.',
     params: [],
