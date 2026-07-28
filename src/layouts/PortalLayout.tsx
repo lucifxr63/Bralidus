@@ -4,9 +4,10 @@ import { supabase } from '@/lib/supabase';
 import {
   Activity, Zap, Database, ShieldCheck, TrendingDown, Radio,
   Brain, Play, Search, Key, Server, BookOpen, ShoppingBag,
-  Plus, Menu, X, ChevronDown, ChevronRight, LogOut,
+  Plus, Menu, X, ChevronDown, ChevronRight, LogOut, User,
 } from 'lucide-react';
 import type { Tab } from '@/types/portal';
+import { ProfileDropdown } from '@/components/layout/ProfileDropdown';
 
 interface NavItem {
   id: Tab;
@@ -23,14 +24,9 @@ interface NavSection {
 
 const NAV_SECTIONS: NavSection[] = [
   {
-    title: '',
-    items: [
-      { id: 'overview', label: 'Resumen', icon: Activity },
-    ],
-  },
-  {
     title: 'Mercado Público (B2G)',
     items: [
+      { id: 'overview',  label: 'Resumen',            icon: Activity },
       { id: 'fase2',     label: 'Fase 2 Comercial',   icon: ShoppingBag,  badge: 'v2.0', badgeColor: '#F59E0B' },
       { id: 'fase3',     label: 'Fase 3 IA Predictiva', icon: Brain,     badge: 'v3.0', badgeColor: '#C084FC' },
     ],
@@ -39,7 +35,7 @@ const NAV_SECTIONS: NavSection[] = [
     title: 'Analítica',
     items: [
       { id: 'costs',     label: 'Costos RaaS',        icon: Zap,          badge: 'MoE',  badgeColor: '#0EB5C6' },
-      { id: 'evidences', label: 'Muro Evidencias',    icon: Database,     badge: 'MoE',  badgeColor: '#8B5CF6' },
+      { id: 'evidences', label: 'Muro Evidencias',    icon: Database,     badge: 'MoP',  badgeColor: '#8B5CF6' },
       { id: 'macro',     label: 'Intel Macro',        icon: TrendingDown, badge: 'FRED', badgeColor: '#F59E0B' },
       { id: 'forensic',  label: 'Radar Forense',      icon: Radio },
       { id: 'graph',     label: 'Knowledge Graph',    icon: Brain },
@@ -50,6 +46,7 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { id: 'apikeys',   label: 'API Keys & Webhooks', icon: Key },
       { id: 'quotas',    label: 'Cuotas & Tiers',      icon: ShieldCheck },
+      { id: 'profile',   label: 'Mi Perfil & Cuenta',  icon: User },
     ],
   },
   {
@@ -374,20 +371,39 @@ export function PortalLayout({ activeTab, setActiveTab, onNewKey, children }: Po
 
         {/* Page Content */}
         <main style={{ flex: 1, overflowY: 'auto', padding: '28px 24px 48px' }}>
-          {/* Breadcrumb header */}
-          <div style={{ marginBottom: 24 }}>
-            <h1
-              style={{
-                fontFamily: "'Space Grotesk', sans-serif",
-                fontSize: 22, fontWeight: 800, color: '#E8E7F5',
-                letterSpacing: '-0.4px', margin: 0, lineHeight: 1.2,
-              }}
-            >
-              {getTabTitle(activeTab)}
-            </h1>
-            <p style={{ color: '#5A5A78', fontSize: 13, marginTop: 4, margin: '4px 0 0' }}>
-              {getTabSubtitle(activeTab)}
-            </p>
+          {/* Breadcrumb header with Topbar Profile Action */}
+          <div style={{ marginBottom: 24, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
+            <div>
+              <h1
+                style={{
+                  fontFamily: "'Space Grotesk', sans-serif",
+                  fontSize: 22, fontWeight: 800, color: '#E8E7F5',
+                  letterSpacing: '-0.4px', margin: 0, lineHeight: 1.2,
+                }}
+              >
+                {getTabTitle(activeTab)}
+              </h1>
+              <p style={{ color: '#5A5A78', fontSize: 13, marginTop: 4, margin: '4px 0 0' }}>
+                {getTabSubtitle(activeTab)}
+              </p>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <button
+                onClick={onNewKey}
+                style={{
+                  background: 'linear-gradient(135deg, #6C3CE1, #5B30C4)',
+                  border: 'none', borderRadius: 9, padding: '8px 16px',
+                  cursor: 'pointer', color: '#fff', fontSize: 12.5, fontWeight: 700,
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  boxShadow: '0 4px 14px rgba(108,60,225,0.3)',
+                }}
+              >
+                <Plus style={{ width: 14, height: 14 }} />
+                Nueva Key
+              </button>
+              <ProfileDropdown onNavigateTab={(tab) => setActiveTab(tab as Tab)} />
+            </div>
           </div>
 
           {children}
@@ -413,6 +429,7 @@ function getTabTitle(tab: Tab): string {
     apikeys:    'API Keys & Webhooks',
     services:   'Estado de Microservicios',
     docs:       'Documentación API v1',
+    profile:    'Mi Perfil & Organización',
   };
   return titles[tab] ?? 'Developer Portal';
 }
@@ -421,18 +438,19 @@ function getTabSubtitle(tab: Tab): string {
   const subtitles: Record<Tab, string> = {
     overview:   'Estado del sistema Animus, estadísticas y actividad reciente.',
     fase2:      'Analítica de precios, perfil 360° de compradores/proveedores, webhooks y exportaciones masivas.',
-    fase3:      'Convenios Marco, Grandes Compras, Tratos Directos, Scoring de Oportunidades y Motor de Predicción de Adjudicación AI.',
-    costs:      'Telemetría en tiempo real del motor Mixture of Experts (MoE).',
-    evidences:  'Evidencias verificadas de indicadores macroeconómicos y doctrina regulatoria.',
+    fase3:      'Scoring de compatibilidad, predicción Win Probability %, recomendador algorítmico y modalidades B2G.',
+    costs:      'Detalle de consumo de tokens y créditos del motor Mixture of Experts (MoE).',
+    evidences:  'Log de evidencias RAG y citas de procedencia procesadas.',
     quotas:     'Consumo vs límites por tier. Alertas y upgrades de plan.',
-    macro:      'Indicadores económicos de Chile en tiempo real: UF, IPC, TPM, USD/CLP.',
-    forensic:   'Señales de alto impacto: CMF, BCCH, SEIA, Concursal y Empleo.',
-    graph:      'Explorador visual del grafo de conocimiento (687 nodos).',
-    playground: 'Prueba los endpoints de la API con tu API key en tiempo real.',
-    audit:      'Precisión, hit rate y latencia del pipeline RAG.',
-    apikeys:    'Administra llaves de acceso y webhooks de notificación.',
-    services:   'Uptime y latencia de los microservicios del ecosistema Animus.',
-    docs:       'Referencia completa de endpoints, parámetros y ejemplos de código.',
+    macro:      'Indicadores del Banco Central de Chile y series macroeconómicas FRED.',
+    forensic:   'Auditoría y detección de patrones de conflicto o duplicidad.',
+    graph:      'Visualización de relaciones en la base de conocimiento.',
+    playground: 'Prueba endpoints interactivamente con tu API Key.',
+    audit:      'Rastreo de consultas RAG, calidad de recuperación y métricas de latencia.',
+    apikeys:    'Gestión de llaves de acceso, permisos y firma de webhooks.',
+    services:   'Monitoreo en tiempo real de infraestructura, Edge Gateway y conectores.',
+    docs:       'Catálogo interactivo con especificaciones OpenAPI v1 y cURL snippets.',
+    profile:    'Gestiona tu perfil de usuario, RUT corporativo, seguridad y alertas B2G.',
   };
   return subtitles[tab] ?? '';
 }

@@ -14,7 +14,8 @@ export type Tab =
   | 'services'
   | 'fase2'
   | 'fase3'
-  | 'docs';
+  | 'docs'
+  | 'profile';
 
 export interface ApiKey {
   id: string;
