@@ -13,14 +13,14 @@ info:
     ```
     Authorization: Bearer val_live_XXXX...
     ```
-    Genera y gestiona tus llaves en el [Portal de Desarrolladores](https://bralidus.scouttech.lat/developers).
+    Genera y gestiona tus llaves en el [Portal de Desarrolladores](https://animus.scouttech.lat/developers).
 
     ## Rate Limiting
     - 100 requests/minuto por API Key.
     - Headers de control: `X-RateLimit-Remaining`, `X-RateLimit-Reset`.
   contact:
     name: Validus / Bralidus
-    url: https://bralidus.scouttech.lat
+    url: https://animus.scouttech.lat
   license:
     name: Propietario
 servers:
