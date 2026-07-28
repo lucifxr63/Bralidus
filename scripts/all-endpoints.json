@@ -1,0 +1,494 @@
+[
+  {
+    "method": "GET",
+    "path": "/api/v1/mercado-publico/health"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/mercado-publico/opportunities"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/mercado-publico/licitaciones"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/mercado-publico/licitaciones/:codigo_externo"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/mercado-publico/compra-agil"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/mercado-publico/ordenes-compra"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/mercado-publico/ordenes-compra/:codigo_oc"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/mercado-publico/organismos"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/mercado-publico/organismos/:id"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/mercado-publico/proveedores/:rut"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/mercado-publico/proveedores/:rut/vs-mercado"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/mercado-publico/proveedores/:rut/oportunidades"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/mercado-publico/benchmarks"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/mercado-publico/metricas/:rut"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/mercado-publico/analitica/precios"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/mercado-publico/compradores/:rut/historial"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/mercado-publico/proveedores/:rut/perfil-competitivo"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/mercado-publico/busquedas/guardadas"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/mercado-publico/alertas"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/mercado-publico/webhooks"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/mercado-publico/exportaciones"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/mercado-publico/convenio-marco"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/mercado-publico/grandes-compras"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/mercado-publico/consultas-mercado"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/mercado-publico/tratos-directos"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/mercado-publico/ai/scoring-oportunidad"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/mercado-publico/ai/prediccion-adjudicacion"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/mercado-publico/ai/recomendaciones/:rut"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/data/economy/chile/snapshot"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/data/economy/chile/uf"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/data/economy/chile/ipc"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/data/economy/chile/tpm"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/data/economy/chile/imacec"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/data/economy/chile/gdp"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/data/economy/chile/exchange-rates"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/data/economy/chile/trade-balance"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/data/economy/chile/ipom"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/data/economy/indicators"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/data/economy/releases"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/data/economy/calendar"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/data/economy/series/:series_id"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/data/economy/global/snapshot"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/data/commodities"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/data/commodities/snapshot"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/data/commodities/copper"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/data/markets"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/data/markets/chile/ipsa"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/data/financial-system/entities"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/data/companies/insolvencies"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/data/companies/:rut/insolvency-status"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/data/companies/:rut/economic-profile"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/data/companies/:rut/public-procurement/metrics"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/data/companies/:rut/profile"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/data/companies/:rut/ownership-mesh"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/data/companies/:rut/legal-representatives"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/data/companies/:rut/related-parties"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/data/companies/:rut/b2g-conflicts"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/data/companies/search"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/data/labor"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/data/labor/unemployment"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/data/labor/wages"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/data/investment-projects"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/data/company-events/constitutions"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/data/analytics/correlations"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/data/insights/macro-brief"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/data/insights/scenario-analysis"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/data/exports"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/intel/query"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/intel/experts"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/intel/experts/:expert_id/query"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/intel/assessments/tender-fit"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/intel/assessments/company-risk"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/intel/assessments/macro-impact"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/intel/assessments/win-probability"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/intel/assessments/buyer-profile"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/intel/assessments/legal-basis"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/intel/assessments/regulatory-compliance"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/intel/reports"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/intel/jobs/:job_id"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/intel/reports/:report_id"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/intel/citations/:citation_id"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/intel/citations/:citation_id/verify"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/intel/graph/entities"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/intel/graph/entities/:entity_id/neighbors"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/intel/graph/paths"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/intel/sessions"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/intel/sessions/:session_id/messages"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/intel/estimate"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/rag/query"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/rag/vaults"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/rag/vaults"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/rag/vaults/:vault_id/stats"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/rag/vaults/:vault_id/collections"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/rag/documents/text"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/rag/documents/file"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/rag/uploads"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/rag/batches"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/rag/documents"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/rag/documents/:document_id"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/rag/documents/:document_id/chunks"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/rag/context"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/rag/embedding-profiles"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/rag/estimate"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/data/spulse/companies/search"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/data/spulse/companies/:rut/profile"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/data/spulse/companies/:rut/network"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/data/spulse/relationships/:rel_id/source"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/validate"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/webhooks"
+  },
+  {
+    "method": "GET",
+    "path": "/health/services"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/mercado-publico/licitaciones?estado=publicada"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/mercado-publico/ordenes-compra?rut_proveedor=76086428-5"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/mercado-publico/proveedores/76086428-5"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/mercado-publico/proveedores/76086428-5/vs-mercado"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/mercado-publico/proveedores/76086428-5/oportunidades"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/mercado-publico/organismos?nombre=MINEDUC"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/mercado-publico/metricas/76086428-5"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/data/economy"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/data/macro"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/intel/query/moe"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/rag/ingest/text"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/data/spulse/companies/search?q=Scouttech"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/data/spulse/companies/76123456K/profile"
+  }
+]
