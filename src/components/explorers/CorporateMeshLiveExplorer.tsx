@@ -148,17 +148,37 @@ export function CorporateMeshLiveExplorer() {
         </div>
 
         {/* Company Selector & Search Bar */}
-        <div style={{ marginTop: 20, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (searchQuery.trim()) fetchCompanyData(searchQuery.trim());
+          }}
+          style={{ marginTop: 20, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}
+        >
           <div style={{ position: 'relative', flex: 1, minWidth: 260 }}>
             <Search style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', width: 16, height: 16, color: '#64748B' }} />
             <input
               type="text"
-              placeholder="Buscar por RUT o Razón Social (ej: 76.543.210-K)..."
+              placeholder="Ingresa cualquier RUT chileno (ej: 78.464.421-9) y presiona Enter..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              style={{ width: '100%', background: '#05050C', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 12, padding: '10px 14px 10px 38px', color: '#E8E7F5', fontSize: 13, outline: 'none' }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && searchQuery.trim()) {
+                  e.preventDefault();
+                  fetchCompanyData(searchQuery.trim());
+                }
+              }}
+              style={{ width: '100%', background: '#05050C', border: '1px solid rgba(45,212,191,0.3)', borderRadius: 12, padding: '10px 14px 10px 38px', color: '#E8E7F5', fontSize: 13, outline: 'none' }}
             />
           </div>
+
+          <button
+            type="submit"
+            disabled={loading || !searchQuery.trim()}
+            style={{ background: searchQuery.trim() ? '#2DD4BF' : 'rgba(45,212,191,0.2)', border: 'none', color: searchQuery.trim() ? '#05050C' : '#64748B', padding: '10px 20px', borderRadius: 12, fontSize: 13, fontWeight: 800, cursor: searchQuery.trim() ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}
+          >
+            <Search style={{ width: 15, height: 15 }} /> Consultar RUT
+          </button>
 
           <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4 }}>
             {PRESET_COMPANIES.map(comp => (
@@ -171,7 +191,7 @@ export function CorporateMeshLiveExplorer() {
               </button>
             ))}
           </div>
-        </div>
+        </form>
       </div>
 
       {/* Target Profile Card */}
