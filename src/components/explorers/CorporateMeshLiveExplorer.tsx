@@ -47,7 +47,7 @@ export function CorporateMeshLiveExplorer() {
   const [activeTab, setActiveTab] = useState<'mesh' | 'representatives' | 'conflicts' | 'json'>('mesh');
   const [copied, setCopied] = useState(false);
 
-  const [profile] = useState<CompanyProfile>({
+  const [profile, setProfile] = useState<CompanyProfile>({
     rut: '76.543.210-K',
     legal_name: 'Electromedicina Chile SpA',
     fantasy_name: 'Electromedicina CL',
@@ -65,7 +65,7 @@ export function CorporateMeshLiveExplorer() {
     { target_rut: '76.543.210-K', partner_rut: '76.999.000-8', partner_name: 'Inversiones Médicas del Sur SpA', partner_type: 'company', ownership_percentage: 40.0, role: 'shareholder', entry_date: '2019-11-15' }
   ]);
 
-  const [conflicts] = useState<B2GConflictReport>({
+  const [conflicts, setConflicts] = useState<B2GConflictReport>({
     target_rut: '76.543.210-K',
     conflict_detected: false,
     risk_level: 'LOW',
@@ -80,14 +80,24 @@ export function CorporateMeshLiveExplorer() {
     setLoading(true);
     setSelectedRut(rut);
     try {
-      const res = await fetch(`${BASE}/data/companies/${encodeURIComponent(rut)}/ownership-mesh`, {
-        headers: { 'Authorization': 'Bearer demo_public_key' }
-      });
-      if (res.ok) {
-        const json = await res.json();
-        if (json.data && Array.isArray(json.data)) {
-          setMesh(json.data);
-        }
+      const headers = { 'Authorization': 'Bearer demo_public_key' };
+      const [resProfile, resMesh, resConflicts] = await Promise.all([
+        fetch(`${BASE}/data/companies/${encodeURIComponent(rut)}/profile`, { headers }).catch(() => null),
+        fetch(`${BASE}/data/companies/${encodeURIComponent(rut)}/ownership-mesh`, { headers }).catch(() => null),
+        fetch(`${BASE}/data/companies/${encodeURIComponent(rut)}/b2g-conflicts`, { method: 'POST', headers }).catch(() => null)
+      ]);
+
+      if (resProfile && resProfile.ok) {
+        const jsonP = await resProfile.json();
+        if (jsonP.data) setProfile(jsonP.data);
+      }
+      if (resMesh && resMesh.ok) {
+        const jsonM = await resMesh.json();
+        if (jsonM.data && Array.isArray(jsonM.data)) setMesh(jsonM.data);
+      }
+      if (resConflicts && resConflicts.ok) {
+        const jsonC = await resConflicts.json();
+        if (jsonC.data) setConflicts(jsonC.data);
       }
     } catch {
       // Keep state

@@ -1,8 +1,15 @@
 import pg from 'pg';
+import { config } from 'dotenv';
+config({ path: new URL('../.env.local', import.meta.url) });
+
 const { Client } = pg;
 
+if (!process.env.DATABASE_URL) {
+  throw new Error('DATABASE_URL is not set. Add it to .env.local');
+}
+
 const client = new Client({
-  connectionString: 'postgresql://postgres.szzibobuwgcopewmnkkl:xuX8tjlNBTuG67gP@aws-1-us-east-2.pooler.supabase.com:6543/postgres',
+  connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false }
 });
 

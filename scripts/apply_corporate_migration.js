@@ -2,16 +2,23 @@ import fs from 'fs';
 import path from 'path';
 import pg from 'pg';
 import { fileURLToPath } from 'url';
+import { config } from 'dotenv';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+config({ path: path.resolve(__dirname, '../.env.local') });
 
 const sqlPath = path.resolve(__dirname, '../../validateai/supabase/migrations/20260727000001_create_company_ownership_tables.sql');
 const sql = fs.readFileSync(sqlPath, 'utf8');
 
 const { Client } = pg;
+
+if (!process.env.DATABASE_URL) {
+  throw new Error('DATABASE_URL is not set. Add it to .env.local');
+}
+
 const client = new Client({
-  connectionString: 'postgresql://postgres.szzibobuwgcopewmnkkl:xuX8tjlNBTuG67gP@aws-1-us-east-2.pooler.supabase.com:6543/postgres',
+  connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false }
 });
 
