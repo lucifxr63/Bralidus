@@ -1098,6 +1098,17 @@ export const API_DOCS: EndpointDoc[] = [
     responseExample: '{\n  "status": "healthy",\n  "services": { "database": "ok", "railway_worker": "ok" }\n}',
     errorCodes: [],
   },
+  {
+    section: 'Animus MCP Server (Model Context Protocol)',
+    method: 'POST', path: '/mcp/v1/tools/call', color: '#8B5CF6',
+    description: 'Protocolo agéntico MCP: ejecución remota de herramientas para asistentes IA (Claude Desktop, Antigravity, Cursor, LangChain). Herramientas: animus_search_b2g_tenders, animus_get_corporate_mesh, animus_get_macro_indicators, animus_query_moe_graphrag, animus_predict_win_probability.',
+    params: [
+      { name: 'name', type: 'string', required: true, description: 'Nombre de la herramienta MCP (ej. animus_query_moe_graphrag)' },
+      { name: 'arguments', type: 'object', required: true, description: 'Parámetros de entrada de la herramienta' }
+    ],
+    responseExample: '{\n  "content": [\n    {\n      "type": "text",\n      "text": "Score de Oportunidad Animus v3: 92 (ALTO FIT). Requisito de boleta de garantía cumplido."\n    }\n  ]\n}',
+    errorCodes: ['401 Unauthorized', '400 Unknown MCP Tool', '429 Rate limit exceeded']
+  },
 ];
 
 export interface PlaygroundEndpoint {
@@ -1234,6 +1245,13 @@ export const ENDPOINTS: readonly PlaygroundEndpoint[] = [
     label: 'S-Pulse — Ficha 360° Societaria y Malla',
     color: '#3B82F6',
     defaultBody: '',
+  },
+  {
+    method: 'POST',
+    path: '/mcp/v1/tools/call',
+    label: 'Animus MCP Server — Ejecutar Herramienta Agéntica',
+    color: '#8B5CF6',
+    defaultBody: JSON.stringify({ name: 'animus_query_moe_graphrag', arguments: { query: '¿Cuál es la TPM actual del Banco Central de Chile?' } }, null, 2),
   },
 ] as const;
 
