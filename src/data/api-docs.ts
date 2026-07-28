@@ -1,7 +1,12 @@
 // ─── Bralidus API Docs & Endpoint Constants ────────────────────────────────
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL ?? 'https://fcdhcntyvsydnvjwopfe.supabase.co';
-export const BASE = `${SUPABASE_URL}/functions/v1/api-v1`;
+const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+// Proyecto Supabase Bralidus Knowledge Vault (Motor & API Gateway)
+const BRALIDUS_SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL ?? 'https://szzibobuwgcopewmnkkl.supabase.co';
+
+export const BASE = isLocal
+  ? '/supabase-api/api-v1'
+  : `${BRALIDUS_SUPABASE_URL}/functions/v1/api-v1`;
 
 export interface EndpointDoc {
   section: string;

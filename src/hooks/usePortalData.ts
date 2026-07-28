@@ -54,11 +54,10 @@ export function usePortalData() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token ?? import.meta.env.VITE_SUPABASE_ANON_KEY;
-      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL ?? 'https://fcdhcntyvsydnvjwopfe.supabase.co';
-      const res = await fetch(`${SUPABASE_URL}/functions/v1/api-v1/health/services`, {
+      const res = await fetch(`${BASE}/health/services`, {
         headers: { 'Authorization': `Bearer ${token}` },
-      });
-      if (!res.ok) return;
+      }).catch(() => null);
+      if (!res || !res.ok) return;
       const data = await res.json() as { services?: ServiceInfo[]; checked_at?: string };
       setServices(data.services ?? []);
       setServicesCheckedAt(data.checked_at ?? null);

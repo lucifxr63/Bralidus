@@ -126,7 +126,8 @@ export function CorporateMeshLiveExplorer() {
 
     // 2. Intentar actualización asíncrona en vivo si la API remota responde
     try {
-      const headers = { 'Authorization': 'Bearer demo_public_key' };
+      const userApiKey = (typeof window !== 'undefined' && localStorage.getItem('bralidus_api_key')) || import.meta.env.VITE_SUPABASE_ANON_KEY || 'demo_public_key';
+      const headers = { 'Authorization': `Bearer ${userApiKey}`, 'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY || '' };
       const [resProfile, resMesh, resConflicts] = await Promise.all([
         fetch(`${BASE}/data/companies/${encodeURIComponent(cleanRut)}/profile`, { headers }).catch(() => null),
         fetch(`${BASE}/data/companies/${encodeURIComponent(cleanRut)}/ownership-mesh`, { headers }).catch(() => null),
