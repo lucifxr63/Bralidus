@@ -6,21 +6,35 @@ interface QuotasTabProps {
 }
 
 const TIER_SPECS = [
-  { name: 'Basic', credits: 1000, burst: 60, price: '$19/mes', accent: '#0EB5C6', desc: 'Ideal para MVPs y prototipos de integración' },
-  { name: 'Pro', credits: 15000, burst: 180, price: '$79/mes', accent: '#8B5CF6', desc: 'Para aplicaciones SaaS en producción y GraphRAG activo', popular: true },
-  { name: 'Premium', credits: 100000, burst: 300, price: '$299/mes', accent: '#EC4899', desc: 'Alto rendimiento con soporte prioritario y SLAs' },
-  { name: 'Enterprise', credits: 1000000, burst: 600, price: 'Custom', accent: '#F59E0B', desc: 'Cuota personalizada con infraestructura dedicada' },
+  { name: 'Basic', credits: 1000, burst: 60, price: '$19/mes', accent: '#0EB5C6', desc: 'Ideal para MVPs, prototipos REST y consultas macroeconómicas' },
+  { name: 'Pro', credits: 15000, burst: 180, price: '$79/mes', accent: '#8B5CF6', desc: 'Para aplicaciones SaaS en producción, Animus MCP Server y GraphRAG MoE activo', popular: true },
+  { name: 'Premium', credits: 100000, burst: 300, price: '$299/mes', accent: '#EC4899', desc: 'Alto rendimiento B2G, IA predictiva de adjudicación, MCP ilimitado y SLAs' },
+  { name: 'Enterprise', credits: 1000000, burst: 600, price: 'Custom', accent: '#F59E0B', desc: 'Cuota personalizada con infraestructura dedicada e integraciones agénticas custom' },
 ];
 
 const ENDPOINT_COSTS = [
   { endpoint: 'GET /api/v1/data/economy', category: 'Macro Data', cost: 1, type: 'Lectura Caché' },
   { endpoint: 'GET /api/v1/data/spulse/companies/*', category: 'Grafo Societario', cost: 2, type: 'Consulta DB' },
-  { endpoint: 'GET /api/v1/data/licitus/proveedor/*', category: 'Licitus B2G', cost: 3, type: 'Inteligencia B2G' },
-  { endpoint: 'GET /api/v1/data/licitus/proveedor/*/vs-mercado', category: 'Licitus Benchmarks', cost: 4, type: 'Cruce Completo' },
+  { endpoint: 'GET /api/v1/mercado-publico/opportunities', category: 'Mercado Público B2G', cost: 25, type: 'Buscador Unificado' },
+  { endpoint: 'GET /api/v1/mercado-publico/licitaciones', category: 'Mercado Público B2G', cost: 25, type: 'Licitaciones Públicas' },
+  { endpoint: 'GET /api/v1/mercado-publico/compra-agil', category: 'Mercado Público B2G', cost: 25, type: 'Cotización Expédita' },
+  { endpoint: 'GET /api/v1/mercado-publico/compradores/*/historial', category: 'Fase 2 Commercial', cost: 35, type: 'Historial 360° Comprador' },
+  { endpoint: 'GET /api/v1/mercado-publico/proveedores/*/perfil-competitivo', category: 'Fase 2 Commercial', cost: 40, type: 'Perfil Competidor B2G' },
+  { endpoint: 'GET /api/v1/mercado-publico/proveedores/*/vs-mercado', category: 'Fase 2 Commercial', cost: 45, type: 'Benchmark Competitivo' },
+  { endpoint: 'GET /api/v1/mercado-publico/analitica/precios', category: 'Fase 2 Commercial', cost: 50, type: 'Precios UNSPSC P10-P90' },
+  { endpoint: 'POST /api/v1/mercado-publico/ai/scoring', category: 'Fase 3 IA Predictiva', cost: 25, type: 'Score Compatibilidad B2G' },
+  { endpoint: 'POST /api/v1/mercado-publico/ai/prediccion', category: 'Fase 3 IA Predictiva', cost: 40, type: 'Win Probability %' },
+  { endpoint: 'POST /api/v1/mercado-publico/ai/recomendaciones', category: 'Fase 3 IA Predictiva', cost: 30, type: 'Estrategia Oferta Algorítmica' },
   { endpoint: 'POST /api/v1/rag/query', category: 'Búsqueda Vectorial', cost: 5, type: 'pgvector HNSW' },
   { endpoint: 'POST /api/v1/rag/ingest/text', category: 'Ingesta RAG', cost: 10, type: 'Vectorización' },
   { endpoint: 'POST /api/v1/intel/query', category: 'GraphRAG Unificado', cost: 15, type: 'GraphRAG + 1 LLM' },
-  { endpoint: 'POST /api/v1/intel/query/moe', category: 'Mixture of Experts', cost: 35, type: 'Gating + 3 Expertos' },
+  { endpoint: 'POST /api/v1/intel/query/moe', category: 'Mixture of Experts', cost: 35, type: 'Gating + 5 Expertos' },
+  { endpoint: 'MCP Tool: animus_search_b2g_tenders', category: 'Animus MCP Server', cost: 25, type: 'MCP Agéntico B2G' },
+  { endpoint: 'MCP Tool: animus_get_corporate_mesh', category: 'Animus MCP Server', cost: 10, type: 'MCP Agéntico S-Pulse' },
+  { endpoint: 'MCP Tool: animus_get_macro_indicators', category: 'Animus MCP Server', cost: 1, type: 'MCP Agéntico Macro' },
+  { endpoint: 'MCP Tool: animus_query_moe_graphrag', category: 'Animus MCP Server', cost: 35, type: 'MCP Agéntico GraphRAG MoE' },
+  { endpoint: 'MCP Tool: animus_predict_win_probability', category: 'Animus MCP Server', cost: 40, type: 'MCP Agéntico IA Predictiva' },
+  { endpoint: 'POST /mcp/v1/tools/call', category: 'Animus MCP Server', cost: 1, type: 'Invocación remota MCP' },
   { endpoint: 'POST /functions/v1/assemble-mega-prompt', category: 'Due Diligence', cost: 120, type: 'MegaPrompt 16 Dims' },
 ];
 
