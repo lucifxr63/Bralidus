@@ -70,12 +70,11 @@ export function usePortalData() {
     try {
       const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
       const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token ?? anonKey;
-      if (!token) { setWebhooksLoading(false); return; }
+      const token = session?.access_token ?? anonKey ?? 'demo_public_key';
       const res = await fetch(`${BASE}/webhooks`, {
         headers: { 'Authorization': `Bearer ${token}`, 'apikey': anonKey || '' },
-      });
-      if (!res.ok) return;
+      }).catch(() => null);
+      if (!res || !res.ok) return;
       const data = await res.json() as { webhooks?: WebhookSub[] };
       setWebhooks(data.webhooks ?? []);
     } catch { /* not available */ }

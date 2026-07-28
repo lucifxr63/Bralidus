@@ -13,7 +13,7 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/supabase-api': {
-        target: 'https://szzibobuwgcopewmnkkl.supabase.co/functions/v1',
+        target: 'https://fcdhcntyvsydnvjwopfe.supabase.co/functions/v1',
         changeOrigin: true,
         secure: false,
         rewrite: (p) => p.replace(/^\/supabase-api/, ''),
