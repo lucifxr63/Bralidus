@@ -22,6 +22,7 @@ import { ServicesTab }   from '@/features/services/ServicesTab';
 import { DocsTab }       from '@/features/docs/DocsTab';
 import { Fase2CommercialTab } from '@/features/fase2/Fase2CommercialTab';
 import { Fase3PredictiveTab } from '@/features/fase3/Fase3PredictiveTab';
+import { BcnTab } from '@/features/bcn/BcnTab';
 import { ProfileTab } from '@/features/profile/ProfileTab';
 
 import type { Tab } from '@/types/portal';
@@ -61,6 +62,10 @@ export function DeveloperPortal() {
 
       {activeTab === 'fase3' && (
         <Fase3PredictiveTab />
+      )}
+
+      {activeTab === 'bcn' && (
+        <BcnTab />
       )}
 
       {activeTab === 'costs' && (

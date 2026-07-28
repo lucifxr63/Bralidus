@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase';
 import {
   Activity, Zap, Database, ShieldCheck, TrendingDown, Radio,
   Brain, Play, Search, Key, Server, BookOpen, ShoppingBag,
-  Plus, Menu, X, ChevronDown, ChevronRight, LogOut, User,
+  Plus, Menu, X, ChevronDown, ChevronRight, LogOut, User, Scale,
 } from 'lucide-react';
 import type { Tab } from '@/types/portal';
 import { ProfileDropdown } from '@/components/layout/ProfileDropdown';
@@ -34,8 +34,9 @@ const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
-    title: 'Analítica',
+    title: 'Analítica & Normativa',
     items: [
+      { id: 'bcn',       label: 'Ley Chile BCN',      icon: Scale,        badge: 'BCN',  badgeColor: '#10B981' },
       { id: 'costs',     label: 'Costos RaaS',        icon: Zap,          badge: 'MoE',  badgeColor: '#0EB5C6' },
       { id: 'evidences', label: 'Muro Evidencias',    icon: Database,     badge: 'MoP',  badgeColor: '#8B5CF6' },
       { id: 'macro',     label: 'Intel Macro',        icon: TrendingDown, badge: 'FRED', badgeColor: '#F59E0B' },
@@ -439,6 +440,7 @@ function getTabTitle(tab: Tab): string {
     overview:   'Resumen del Portal',
     fase2:      'Mercado Público · Fase 2 Comercial',
     fase3:      'Mercado Público · Fase 3 IA Predictiva & Modalidades',
+    bcn:        'Ley Chile · Biblioteca del Congreso Nacional (BCN)',
     costs:      'Costos RaaS · MoE',
     evidences:  'Muro de Evidencias',
     quotas:     'Cuotas & Tiers',
@@ -460,6 +462,7 @@ function getTabSubtitle(tab: Tab): string {
     overview:   'Estado del sistema Animus, estadísticas y actividad reciente.',
     fase2:      'Analítica de precios, perfil 360° de compradores/proveedores, webhooks y exportaciones masivas.',
     fase3:      'Scoring de compatibilidad, predicción Win Probability %, recomendador algorítmico y modalidades B2G.',
+    bcn:        'Buscador jurídico, estructura JSON de normas, alertas regulatorias e historial de versiones BCN.',
     costs:      'Detalle de consumo de tokens y créditos del motor Mixture of Experts (MoE).',
     evidences:  'Log de evidencias RAG y citas de procedencia procesadas.',
     quotas:     'Consumo vs límites por tier. Alertas y upgrades de plan.',

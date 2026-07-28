@@ -14,6 +14,7 @@ export type Tab =
   | 'services'
   | 'fase2'
   | 'fase3'
+  | 'bcn'
   | 'docs'
   | 'profile';
 
