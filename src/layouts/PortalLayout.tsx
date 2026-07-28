@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { useAdminRole } from '@/hooks/useAdminRole';
+import { Shield } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import {
@@ -72,6 +74,8 @@ export function PortalLayout({ activeTab, setActiveTab, onNewKey, children }: Po
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
   const navigate = useNavigate();
 
+  const { isAdmin } = useAdminRole();
+
   // Close drawer on tab change
   useEffect(() => { setDrawerOpen(false); }, [activeTab]);
 
@@ -132,16 +136,33 @@ export function PortalLayout({ activeTab, setActiveTab, onNewKey, children }: Po
         </div>
       </div>
 
-      {/* Sprint badge */}
-      <div style={{ padding: '10px 16px' }}>
+      {/* Sprint badge & Admin button */}
+      <div style={{ padding: '10px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
         <span style={{
           display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 10.5, fontWeight: 600,
           padding: '4px 10px', background: 'rgba(108,60,225,0.10)', border: '1px solid rgba(108,60,225,0.22)',
-          borderRadius: 100, color: '#A78BFA',
+          borderRadius: 100, color: '#A78BFA', width: 'fit-content',
         }}>
           <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#A78BFA', display: 'inline-block', boxShadow: '0 0 6px rgba(167,139,250,0.8)' }} />
           Sprint 8 · 2026
         </span>
+
+        {isAdmin && (
+          <button
+            onClick={() => navigate('/admin')}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 8, width: '100%',
+              padding: '8px 12px', background: 'linear-gradient(135deg, rgba(108,60,225,0.25), rgba(14,181,198,0.15))',
+              border: '1px solid rgba(192,132,252,0.4)', borderRadius: 8, color: '#E9D5FF',
+              fontSize: 12, fontWeight: 700, cursor: 'pointer', boxShadow: '0 0 12px rgba(108,60,225,0.3)',
+              transition: 'all 0.2s ease',
+            }}
+          >
+            <Shield style={{ width: 14, height: 14, color: '#C084FC', flexShrink: 0 }} />
+            <span>Panel Admin Suite</span>
+            <ChevronRight style={{ width: 14, height: 14, marginLeft: 'auto', color: '#C084FC' }} />
+          </button>
+        )}
       </div>
 
       {/* Navigation */}

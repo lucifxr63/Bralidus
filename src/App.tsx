@@ -8,12 +8,22 @@ import { Login } from '@/pages/Login';
 import { Landing } from '@/pages/Landing';
 import { AuthCallback } from '@/pages/AuthCallback';
 import { CompanyIdentityGate } from '@/components/CompanyIdentityGate';
+import { AdminPage } from '@/pages/AdminPage';
+import { useAdminRole } from '@/hooks/useAdminRole';
 import type { Session } from '@supabase/supabase-js';
 
 function ProtectedRoute({ session, children }: { session: Session | null; children: React.ReactNode }) {
   if (session === undefined) return null;
   if (!session) return <Navigate to="/login" replace />;
   // Gatea también la identidad de empresa compartida antes de la app.
+  return <CompanyIdentityGate>{children}</CompanyIdentityGate>;
+}
+
+function AdminRoute({ session, children }: { session: Session | null; children: React.ReactNode }) {
+  const { isAdmin, loading } = useAdminRole();
+  if (session === undefined || loading) return null;
+  if (!session) return <Navigate to="/login" replace />;
+  if (!isAdmin) return <Navigate to="/dashboard" replace />;
   return <CompanyIdentityGate>{children}</CompanyIdentityGate>;
 }
 
@@ -57,6 +67,15 @@ export default function App() {
               <ProtectedRoute session={session}>
                 <DeveloperPortal />
               </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/admin"
+            element={
+              <AdminRoute session={session}>
+                <AdminPage />
+              </AdminRoute>
             }
           />
 
