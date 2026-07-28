@@ -5,7 +5,7 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, PieChart, Pie, Cell,
 } from 'recharts';
 
-export interface BralidusCostsPanelProps {
+export interface AnimusCostsPanelProps {
   totalTokens?: number;
   className?: string;
 }
@@ -29,7 +29,7 @@ const tooltipStyle = {
 };
 
 
-export function BralidusCostsPanel({ totalTokens = 1250000, className = '' }: BralidusCostsPanelProps) {
+export function AnimusCostsPanel({ totalTokens = 1250000, className = '' }: AnimusCostsPanelProps) {
   const [loading, setLoading]           = useState(true);
   const [tokensCount, setTokensCount]   = useState(totalTokens);
   const [cacheHitRate, setCacheHitRate] = useState(84.2);
@@ -292,4 +292,4 @@ export function BralidusCostsPanel({ totalTokens = 1250000, className = '' }: Br
   );
 }
 
-export default BralidusCostsPanel;
+export default AnimusCostsPanel;

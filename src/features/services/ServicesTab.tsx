@@ -11,7 +11,7 @@ interface ServicesTabProps {
 }
 
 const FALLBACK_SERVICES = [
-  { name: 'FastAPI Gateway (BralidusPY)', latency: '42ms', desc: 'MoE Engine & Gating Router' },
+  { name: 'FastAPI Gateway (AnimusPY)', latency: '42ms', desc: 'MoE Engine & Gating Router' },
   { name: 'pgvector HNSW Store', latency: '12ms', desc: '687 nodos vectoriales' },
   { name: 'BCCh Extractor Job', latency: '180ms', desc: 'TPM, IPC, Imacec' },
   { name: 'CMF Regulatory Extractor', latency: '210ms', desc: 'Hechos esenciales & Ley Fintech' },
@@ -30,7 +30,7 @@ export function ServicesTab({ services, servicesLoading, servicesCheckedAt, onRe
         <div style={{ padding: '14px 20px', borderBottom: '1px solid rgba(108,60,225,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <Server style={{ width: 14, height: 14, color: '#6C3CE1' }} />
-            <span style={{ fontSize: 13.5, fontWeight: 700, color: '#C4B5FD' }}>Estado de Microservicios Bralidus</span>
+            <span style={{ fontSize: 13.5, fontWeight: 700, color: '#C4B5FD' }}>Estado de Microservicios Animus</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             {servicesCheckedAt && (

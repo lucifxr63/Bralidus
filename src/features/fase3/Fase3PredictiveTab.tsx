@@ -212,7 +212,7 @@ export function Fase3PredictiveTab() {
 
               {/* Visual Meter */}
               <div style={{ background: '#090914', padding: 20, borderRadius: 14, border: '1px solid rgba(168,85,247,0.2)', textAlign: 'center', marginBottom: 16 }}>
-                <span style={{ fontSize: 12, color: '#9896B8', display: 'block' }}>Score de Compatibilidad Bralidus AI:</span>
+                <span style={{ fontSize: 12, color: '#9896B8', display: 'block' }}>Score de Compatibilidad Animus AI:</span>
                 <div style={{ fontSize: 42, fontWeight: 900, color: '#C084FC', margin: '4px 0' }}>{scoringData.opportunity_score} <span style={{ fontSize: 20, color: '#8B89B0' }}>/ 100</span></div>
                 <span style={{ background: 'rgba(34,197,94,0.15)', color: '#4ADE80', padding: '4px 12px', borderRadius: 100, fontSize: 11, fontWeight: 800 }}>
                   {scoringData.score_level}

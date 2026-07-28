@@ -185,7 +185,7 @@ export function MacroTab() {
               </span>
             </div>
             <p style={{ fontSize: 13.5, color: '#9896B8', margin: 0, maxWidth: 850, lineHeight: 1.5 }}>
-              Visualiza en tiempo real los indicadores macroeconómicos locales de Chile (BCCh, CMF, INE) y globales (FRED, yFinance) capturados y procesados por Bralidus.
+              Visualiza en tiempo real los indicadores macroeconómicos locales de Chile (BCCh, CMF, INE) y globales (FRED, yFinance) capturados y procesados por Animus.
             </p>
           </div>
 

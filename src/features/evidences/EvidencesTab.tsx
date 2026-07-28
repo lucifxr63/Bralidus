@@ -1,8 +1,8 @@
-import { BralidusEvidenceWall } from '@/components/BralidusEvidenceWall';
+import { AnimusEvidenceWall } from '@/components/AnimusEvidenceWall';
 
 export function EvidencesTab() {
   return (
-    <BralidusEvidenceWall
+    <AnimusEvidenceWall
       evidences={[
         { claim: 'Tasa de Política Monetaria (TPM) fijada por el Banco Central de Chile', shape: 'financial', date: '2026-05-15', indicator: 'TPM BCCh', value: 5.75, unit: '%', source: 'Banco Central de Chile', source_url: 'https://www.bcentral.cl' },
         { claim: 'Variación acumulada del Índice de Precios al Consumidor (IPC)', shape: 'financial', date: '2026-05-01', indicator: 'IPC Anual', value: 4.2, unit: '%', source: 'Instituto Nacional de Estadísticas (INE)', source_url: 'https://www.ine.gob.cl' },

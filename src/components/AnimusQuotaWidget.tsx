@@ -3,7 +3,7 @@ import { Zap, ShieldCheck, ChevronRight, AlertTriangle, AlertCircle, Bell, Mail 
 import { toast } from 'sonner';
 
 
-export interface BralidusQuotaWidgetProps {
+export interface AnimusQuotaWidgetProps {
   tier?: string;
   /** Número de llamadas consumidas en el período actual */
   currentUsage?: number;
@@ -41,7 +41,7 @@ const LEVEL_CONFIG = {
     border: 'border-amber-500/20',
     bg:     'bg-amber-500/10',
     icon:   AlertTriangle,
-    label:  'Uso elevado (>70%)',
+    label:  '70%+ consumido',
   },
   critical: {
     bar:    'from-red-500 to-rose-600',
@@ -49,18 +49,18 @@ const LEVEL_CONFIG = {
     border: 'border-red-500/20',
     bg:     'bg-red-500/10',
     icon:   AlertCircle,
-    label:  'Alerta de límite (>90%)',
+    label:  'Límite cercano',
   },
 } as const;
 
-export function BralidusQuotaWidget({
-  tier = 'pro',
+export function AnimusQuotaWidget({
+  tier = 'Developer Pro',
   currentUsage,
   planLimit,
-  usageCount,
-  limitCount,
+  usageCount = 3840,
+  limitCount = 10000,
   className = '',
-}: BralidusQuotaWidgetProps) {
+}: AnimusQuotaWidgetProps) {
   const [alertsEnabled, setAlertsEnabled] = useState(true);
   const [alertThreshold, setAlertThreshold] = useState<80 | 90>(80);
   const [showAlertConfig, setShowAlertConfig] = useState(false);

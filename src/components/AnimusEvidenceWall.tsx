@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { ShieldCheck, Copy, Check, Calendar, TrendingUp, AlertTriangle, ExternalLink, Scale, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 
-export interface BralidusEvidenceItem {
+export interface AnimusEvidenceItem {
   claim: string;
   shape: 'financial' | 'doctrine';
   date?: string;
@@ -16,28 +16,28 @@ export interface BralidusEvidenceItem {
   threshold?: number;
 }
 
-export interface BralidusAlert {
+export interface AnimusAlert {
   title: string;
   severity: 'warning' | 'critical' | 'info';
   description: string;
 }
 
-export interface BralidusEvidenceWallProps {
-  evidences?: BralidusEvidenceItem[];
-  alerts?: BralidusAlert[];
+export interface AnimusEvidenceWallProps {
+  evidences?: AnimusEvidenceItem[];
+  alerts?: AnimusAlert[];
   dataFreshness?: Record<string, string> | null;
   className?: string;
 }
 
-export function BralidusEvidenceWall({
+export function AnimusEvidenceWall({
   evidences = [],
   alerts = [],
   dataFreshness = null,
   className = '',
-}: BralidusEvidenceWallProps) {
+}: AnimusEvidenceWallProps) {
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
 
-  const copyCitation = (ev: BralidusEvidenceItem, index: number) => {
+  const copyCitation = (ev: AnimusEvidenceItem, index: number) => {
     const citation = `[Evidencia Bralidus RaaS] "${ev.claim}" — Fuente: ${ev.source || 'Scouttech Engine'} ${ev.date ? `(${ev.date})` : ''}`;
     navigator.clipboard.writeText(citation);
     setCopiedIndex(index);

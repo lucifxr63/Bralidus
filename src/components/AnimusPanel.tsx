@@ -37,7 +37,7 @@ const JOBS = [
   { label: 'Cache Sweep',            cron: 'Cada 2 horas' },
 ];
 
-export default function BralidusPanel() {
+export default function AnimusPanel() {
   const [cats, setCats] = useState<CatCount[]>([]);
   const [nodes, setNodes] = useState(0);
   const [edges, setEdges] = useState(0);

@@ -130,7 +130,7 @@ export function QuotasTab({ usageCount }: QuotasTabProps) {
       {/* ── Tier Comparison Grid ────────────────────────── */}
       <div>
         <h4 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 15, fontWeight: 800, color: '#E8E7F5', margin: '0 0 14px' }}>
-          Comparativa de Tiers Bralidus RaaS
+          Comparativa de Tiers Animus RaaS
         </h4>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
           {TIER_SPECS.map(t => {

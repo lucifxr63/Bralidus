@@ -1,11 +1,13 @@
-import { BralidusCostsPanel } from '@/components/BralidusCostsPanel';
+import { AnimusCostsPanel } from '@/components/AnimusCostsPanel';
 
-interface CostsTabProps { totalTokens: number; }
+export interface CostsTabProps {
+  totalTokens?: number;
+}
 
 export function CostsTab({ totalTokens }: CostsTabProps) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      <BralidusCostsPanel totalTokens={totalTokens || 1250000} />
+    <div>
+      <AnimusCostsPanel totalTokens={totalTokens || 1250000} />
     </div>
   );
 }

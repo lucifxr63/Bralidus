@@ -50,13 +50,13 @@ export function OverviewTab({ stats, loading, logs, onNavigate }: OverviewTabPro
           <span style={{ fontSize: 10, fontWeight: 700, padding: '3px 10px', background: 'rgba(139,92,246,0.12)', border: '1px solid rgba(139,92,246,0.25)', borderRadius: 100, color: '#A78BFA', letterSpacing: '0.5px', textTransform: 'uppercase' }}>
             Sprint 8 · 2026-06-10
           </span>
-          <span style={{ fontSize: 13, fontWeight: 700, color: '#E8E7F5' }}>BralidusPY Beta — Motor de Inteligencia Macro en Producción</span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: '#E8E7F5' }}>AnimusPY Beta — Motor de Inteligencia Macro en Producción</span>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12 }}>
           {[
             {
               tag: 'Producción', color: '#10B981',
-              title: 'BralidusPY Beta — 10/10 tests PASS',
+              title: 'AnimusPY Beta — 10/10 tests PASS',
               desc: '687 nodos · 34 categorías · 96% embedding coverage. FastAPI + pgvector HNSW + APScheduler 9 jobs. GraphRAG: 5/5 hits via GRAPH path en queries fintech/seed con 43 entidades activadas.',
               path: 'GET /health → status=ok',
             },

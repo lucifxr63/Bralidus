@@ -1,11 +1,11 @@
-// ─── Bralidus API Docs & Endpoint Constants ────────────────────────────────
+// ─── Animus API Docs & Endpoint Constants ────────────────────────────────
 
 const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-const BRALIDUS_SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL ?? 'https://fcdhcntyvsydnvjwopfe.supabase.co';
+const ANIMUS_SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL ?? 'https://fcdhcntyvsydnvjwopfe.supabase.co';
 
 export const BASE = isLocal
   ? '/supabase-api/api-v1'
-  : `${BRALIDUS_SUPABASE_URL}/functions/v1/api-v1`;
+  : `${ANIMUS_SUPABASE_URL}/functions/v1/api-v1`;
 
 export interface EndpointDoc {
   section: string;

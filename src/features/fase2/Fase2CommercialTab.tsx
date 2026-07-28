@@ -405,7 +405,7 @@ export function Fase2CommercialTab() {
               {/* AI Recommendation Card */}
               <div style={{ background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.25)', borderRadius: 12, padding: 14 }}>
                 <div style={{ fontSize: 12, fontWeight: 800, color: '#4ADE80', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <Sparkles style={{ width: 15, height: 15 }} /> Algoritmo de Adjudicación Predictiva Bralidus AI:
+                  <Sparkles style={{ width: 15, height: 15 }} /> Algoritmo de Adjudicación Predictiva Animus AI:
                 </div>
                 <p style={{ fontSize: 11.5, color: '#D4D2F0', margin: 0, lineHeight: 1.5 }}>
                   {preciosData.recommendation}
