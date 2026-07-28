@@ -3,7 +3,7 @@ import { Radio, Send, CheckCircle2, Activity } from 'lucide-react';
 
 export function WebhooksLiveExplorer() {
   const [selectedEvent, setSelectedEvent] = useState<'radar.signal' | 'tender.published' | 'po.created'>('tender.published');
-  const [targetUrl] = useState('https://mi-empresa.cl/api/webhooks/bralidus');
+  const [targetUrl] = useState('https://mi-empresa.cl/api/webhooks/animus');
   const [dispatched, setDispatched] = useState(false);
 
   const getPayload = () => {
@@ -66,7 +66,7 @@ export function WebhooksLiveExplorer() {
           </span>
         </div>
         <p style={{ fontSize: 13.5, color: '#9896B8', maxWidth: 720, margin: 0, lineHeight: 1.6 }}>
-          Simula y prueba la recepción de eventos asíncronos en tiempo real enviados por Bralidus (alertas de Radar, nuevas licitaciones públicas y órdenes de compra adjudicadas).
+          Simula y prueba la recepción de eventos asíncronos en tiempo real enviados por Animus (alertas de Radar, nuevas licitaciones públicas y órdenes de compra adjudicadas).
         </p>
 
         {/* Controls */}

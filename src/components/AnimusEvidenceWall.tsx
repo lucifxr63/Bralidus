@@ -38,7 +38,7 @@ export function AnimusEvidenceWall({
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
 
   const copyCitation = (ev: AnimusEvidenceItem, index: number) => {
-    const citation = `[Evidencia Bralidus RaaS] "${ev.claim}" — Fuente: ${ev.source || 'Scouttech Engine'} ${ev.date ? `(${ev.date})` : ''}`;
+    const citation = `[Evidencia Animus RaaS] "${ev.claim}" — Fuente: ${ev.source || 'Scouttech Engine'} ${ev.date ? `(${ev.date})` : ''}`;
     navigator.clipboard.writeText(citation);
     setCopiedIndex(index);
     toast.success('Cita copiada al portapapeles');

@@ -121,7 +121,7 @@ export function AnimusCostsPanel({ totalTokens = 1250000, className = '' }: Anim
 
 
     } catch (err) {
-      console.error('[BralidusCostsPanel] fetch error:', err);
+      console.error('[AnimusCostsPanel] fetch error:', err);
     } finally {
       setLoading(false);
     }
@@ -169,7 +169,7 @@ export function AnimusCostsPanel({ totalTokens = 1250000, className = '' }: Anim
           <p className="text-2xl font-black text-gray-900 dark:text-[#F0EFF8]">
             {accumulatedTokens.toLocaleString('es-CL')}
           </p>
-          <p className="text-xs text-gray-400 mt-0.5">Tokens acumulados Bralidus MoE</p>
+          <p className="text-xs text-gray-400 mt-0.5">Tokens acumulados Animus MoE</p>
         </div>
 
         <div className="bg-white dark:bg-[#12121A] rounded-2xl border border-gray-100 dark:border-white/5 p-4 shadow-sm">
@@ -217,7 +217,7 @@ export function AnimusCostsPanel({ totalTokens = 1250000, className = '' }: Anim
         </div>
 
         <div className="bg-white dark:bg-[#12121A] rounded-2xl border border-gray-100 dark:border-white/5 p-5 shadow-sm">
-          <h3 className="text-sm font-bold text-gray-700 dark:text-[#C4C4D4] mb-4">Uso por Experto Bralidus MoE</h3>
+          <h3 className="text-sm font-bold text-gray-700 dark:text-[#C4C4D4] mb-4">Uso por Experto Animus MoE</h3>
           <div className="flex flex-col sm:flex-row items-center gap-6">
             <ResponsiveContainer width="100%" height={230}>
               <PieChart>

@@ -40,7 +40,7 @@ export function useQueryCache<T>({
     // 2. Try sessionStorage
     if (persistSession && typeof window !== 'undefined') {
       try {
-        const raw = sessionStorage.getItem(`bralidus_cache_${key}`);
+        const raw = sessionStorage.getItem(`animus_cache_${key}`);
         if (raw) {
           const parsed = JSON.parse(raw) as CacheEntry<T>;
           memoryCache.set(key, parsed as CacheEntry<unknown>);
@@ -59,7 +59,7 @@ export function useQueryCache<T>({
     memoryCache.set(key, entry as CacheEntry<unknown>);
     if (persistSession && typeof window !== 'undefined') {
       try {
-        sessionStorage.setItem(`bralidus_cache_${key}`, JSON.stringify(entry));
+        sessionStorage.setItem(`animus_cache_${key}`, JSON.stringify(entry));
       } catch (e) {
         console.warn(`[useQueryCache] Failed to write sessionStorage for key: ${key}`);
       }
@@ -111,7 +111,7 @@ export function useQueryCache<T>({
   const clearCache = useCallback(() => {
     memoryCache.delete(key);
     if (typeof window !== 'undefined') {
-      sessionStorage.removeItem(`bralidus_cache_${key}`);
+      sessionStorage.removeItem(`animus_cache_${key}`);
     }
   }, [key]);
 

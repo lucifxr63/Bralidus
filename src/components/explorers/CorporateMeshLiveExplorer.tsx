@@ -137,8 +137,8 @@ export function CorporateMeshLiveExplorer() {
     } else if (cleanNoFormat.includes('784644219') || cleanRut.includes('78.464.421-9')) {
       prof = {
         rut: '78.464.421-9',
-        legal_name: 'Bralidus Tech & Inversiones SpA',
-        fantasy_name: 'Bralidus Tech',
+        legal_name: 'Animus Tech & Inversiones SpA',
+        fantasy_name: 'Animus Tech',
         company_type: 'SpA',
         constitution_date: '2024-02-14',
         social_capital_clp: 120000000,
@@ -229,7 +229,7 @@ export function CorporateMeshLiveExplorer() {
 
     // 2. Intentar actualización asíncrona en vivo si la API remota responde
     try {
-      const userApiKey = (typeof window !== 'undefined' && localStorage.getItem('bralidus_api_key')) || import.meta.env.VITE_SUPABASE_ANON_KEY || 'demo_public_key';
+      const userApiKey = (typeof window !== 'undefined' && localStorage.getItem('animus_api_key')) || import.meta.env.VITE_SUPABASE_ANON_KEY || 'demo_public_key';
       const headers = { 'Authorization': `Bearer ${userApiKey}`, 'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY || '' };
       const [resProfile, resMesh, resConflicts] = await Promise.all([
         fetch(`${BASE}/data/companies/${encodeURIComponent(cleanRut)}/profile`, { headers }).catch(() => null),

@@ -127,7 +127,7 @@ export function PortalLayout({ activeTab, setActiveTab, onNewKey, children }: Po
         </div>
         <div>
           <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 15, color: '#E8E7F5', letterSpacing: '-0.3px', lineHeight: 1.2 }}>
-            Bralidus
+            Animus
           </div>
           <div style={{ fontSize: 10.5, color: '#5A5A7A', letterSpacing: '0.3px' }}>
             Developer Portal
@@ -356,7 +356,7 @@ export function PortalLayout({ activeTab, setActiveTab, onNewKey, children }: Po
                 <circle cx="20" cy="18" r="2" fill="rgba(255,255,255,0.7)"/>
               </svg>
             </div>
-            <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 14, color: '#E8E7F5' }}>Bralidus</span>
+            <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 14, color: '#E8E7F5' }}>Animus</span>
           </div>
           <button
             onClick={onNewKey}
@@ -419,7 +419,7 @@ function getTabTitle(tab: Tab): string {
 
 function getTabSubtitle(tab: Tab): string {
   const subtitles: Record<Tab, string> = {
-    overview:   'Estado del sistema Bralidus, estadísticas y actividad reciente.',
+    overview:   'Estado del sistema Animus, estadísticas y actividad reciente.',
     fase2:      'Analítica de precios, perfil 360° de compradores/proveedores, webhooks y exportaciones masivas.',
     fase3:      'Convenios Marco, Grandes Compras, Tratos Directos, Scoring de Oportunidades y Motor de Predicción de Adjudicación AI.',
     costs:      'Telemetría en tiempo real del motor Mixture of Experts (MoE).',
@@ -431,7 +431,7 @@ function getTabSubtitle(tab: Tab): string {
     playground: 'Prueba los endpoints de la API con tu API key en tiempo real.',
     audit:      'Precisión, hit rate y latencia del pipeline RAG.',
     apikeys:    'Administra llaves de acceso y webhooks de notificación.',
-    services:   'Uptime y latencia de los microservicios del ecosistema Bralidus.',
+    services:   'Uptime y latencia de los microservicios del ecosistema Animus.',
     docs:       'Referencia completa de endpoints, parámetros y ejemplos de código.',
   };
   return subtitles[tab] ?? '';

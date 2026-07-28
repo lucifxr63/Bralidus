@@ -130,7 +130,7 @@ export function Login() {
             fontSize: 28, fontWeight: 800, letterSpacing: '-0.5px',
             color: '#E8E7F5', margin: '0 0 8px',
           }}>
-            Bralidus
+            Animus
           </h1>
           <p style={{ fontSize: 14, color: '#7674A0', margin: 0 }}>
             Developer Portal · Macro Intelligence API

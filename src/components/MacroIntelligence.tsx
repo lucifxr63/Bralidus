@@ -67,14 +67,14 @@ export default function MacroIntelligence() {
                 <Brain style={{ width: 20, height: 20 }} />
               </div>
               <h2 style={{ fontSize: 22, fontWeight: 900, color: '#E8E7F5', margin: 0, fontFamily: "'Space Grotesk', sans-serif" }}>
-                Explorador en Vivo — Bralidus Intelligence &amp; GraphRAG (MoE)
+                Explorador en Vivo — Animus Intelligence &amp; GraphRAG (MoE)
               </h2>
               <span style={{ fontSize: 11, fontWeight: 800, padding: '3px 10px', borderRadius: 100, background: 'rgba(192,132,252,0.15)', border: '1px solid rgba(192,132,252,0.3)', color: '#C084FC' }}>
                 5 Expertos Temáticos Integrados
               </span>
             </div>
             <p style={{ fontSize: 13.5, color: '#9896B8', margin: 0, maxWidth: 850, lineHeight: 1.5 }}>
-              Prueba el motor de inteligencia multicapa de Bralidus: enrutamiento inteligente entre expertos de Macro, Mercados, Unit Economics, Leyes y Licitaciones con respuestas verificables y citas.
+              Prueba el motor de inteligencia multicapa de Animus: enrutamiento inteligente entre expertos de Macro, Mercados, Unit Economics, Leyes y Licitaciones con respuestas verificables y citas.
             </p>
           </div>
         </div>

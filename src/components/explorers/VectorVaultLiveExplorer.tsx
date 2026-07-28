@@ -84,7 +84,7 @@ export function VectorVaultLiveExplorer() {
             <Database style={{ width: 18, height: 18 }} />
           </span>
           <h3 style={{ fontSize: 20, fontWeight: 800, color: '#E8E7F5', margin: 0, fontFamily: "'Space Grotesk', sans-serif" }}>
-            Explorador en Vivo — Bralidus Vault &amp; RAG Híbrido v2.0
+            Explorador en Vivo — Animus Vault &amp; RAG Híbrido v2.0
           </h3>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 100, background: 'rgba(14,181,198,0.12)', border: '1px solid rgba(14,181,198,0.3)', color: '#0EB5C6' }}>
             <Cpu style={{ width: 12, height: 12 }} /> HNSW + Lexical + Reranker

@@ -545,7 +545,7 @@ export function Fase2CommercialTab() {
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
                 <span style={{ fontSize: 11, color: '#60A5FA', fontWeight: 800 }}>Endpoint cURL de Consulta:</span>
                 <button
-                  onClick={() => handleCopy(`curl -X GET "https://api.bralidus.com/v1/mercado-publico/compradores/${buyerRutInput}/historial" \\
+                  onClick={() => handleCopy(`curl -X GET "https://api.animus.ai/v1/mercado-publico/compradores/${buyerRutInput}/historial" \\
   -H "Authorization: Bearer <VALIDUS_API_KEY>"`, 'b_curl')}
                   style={{ background: 'rgba(255,255,255,0.06)', border: 'none', color: '#D4D2F0', padding: '3px 8px', borderRadius: 6, fontSize: 10.5, fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}
                 >
@@ -554,7 +554,7 @@ export function Fase2CommercialTab() {
                 </button>
               </div>
               <code style={{ fontSize: 11, color: '#4ADE80', fontFamily: 'monospace' }}>
-                curl -X GET "https://api.bralidus.com/v1/mercado-publico/compradores/{buyerRutInput}/historial" -H "Authorization: Bearer &lt;VALIDUS_API_KEY&gt;"
+                curl -X GET "https://api.animus.ai/v1/mercado-publico/compradores/{buyerRutInput}/historial" -H "Authorization: Bearer &lt;VALIDUS_API_KEY&gt;"
               </code>
             </div>
           </div>
@@ -672,7 +672,7 @@ export function Fase2CommercialTab() {
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
                 <span style={{ fontSize: 11, color: '#F472B6', fontWeight: 800 }}>Endpoint cURL de Consulta:</span>
                 <button
-                  onClick={() => handleCopy(`curl -X GET "https://api.bralidus.com/v1/mercado-publico/proveedores/${supplierRutInput}/perfil-competitivo" \\
+                  onClick={() => handleCopy(`curl -X GET "https://api.animus.ai/v1/mercado-publico/proveedores/${supplierRutInput}/perfil-competitivo" \\
   -H "Authorization: Bearer <VALIDUS_API_KEY>"`, 's_curl')}
                   style={{ background: 'rgba(255,255,255,0.06)', border: 'none', color: '#D4D2F0', padding: '3px 8px', borderRadius: 6, fontSize: 10.5, fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}
                 >
@@ -681,7 +681,7 @@ export function Fase2CommercialTab() {
                 </button>
               </div>
               <code style={{ fontSize: 11, color: '#4ADE80', fontFamily: 'monospace' }}>
-                curl -X GET "https://api.bralidus.com/v1/mercado-publico/proveedores/{supplierRutInput}/perfil-competitivo" -H "Authorization: Bearer &lt;VALIDUS_API_KEY&gt;"
+                curl -X GET "https://api.animus.ai/v1/mercado-publico/proveedores/{supplierRutInput}/perfil-competitivo" -H "Authorization: Bearer &lt;VALIDUS_API_KEY&gt;"
               </code>
             </div>
           </div>
@@ -735,7 +735,7 @@ export function Fase2CommercialTab() {
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
                 <span style={{ fontSize: 11, color: '#0EB5C6', fontWeight: 800 }}>Payload de Creación API:</span>
                 <button
-                  onClick={() => handleCopy(`curl -X POST "https://api.bralidus.com/v1/mercado-publico/busquedas/guardadas" \\
+                  onClick={() => handleCopy(`curl -X POST "https://api.animus.ai/v1/mercado-publico/busquedas/guardadas" \\
   -H "Authorization: Bearer <VALIDUS_API_KEY>" \\
   -H "Content-Type: application/json" \\
   -d '{"name": "Licitaciones Salud RM", "query_params": {"region": "13", "unspsc": "4110*"}}'`, 'sq_curl')}
@@ -746,7 +746,7 @@ export function Fase2CommercialTab() {
                 </button>
               </div>
               <pre style={{ margin: 0, color: '#4ADE80', fontSize: 11, fontFamily: 'monospace', lineHeight: 1.5 }}>
-{`curl -X POST "https://api.bralidus.com/v1/mercado-publico/busquedas/guardadas" \\
+{`curl -X POST "https://api.animus.ai/v1/mercado-publico/busquedas/guardadas" \\
   -H "Authorization: Bearer <VALIDUS_API_KEY>" \\
   -H "Content-Type: application/json" \\
   -d '{"name": "Licitaciones Salud RM", "query_params": {"region": "13", "unspsc": "4110*"}}'`}
@@ -813,7 +813,7 @@ export function Fase2CommercialTab() {
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
                 <span style={{ fontSize: 11, color: '#FCD34D', fontWeight: 800 }}>Endpoint cURL de Creación:</span>
                 <button
-                  onClick={() => handleCopy(`curl -X POST "https://api.bralidus.com/v1/mercado-publico/alertas" \\
+                  onClick={() => handleCopy(`curl -X POST "https://api.animus.ai/v1/mercado-publico/alertas" \\
   -H "Authorization: Bearer <VALIDUS_API_KEY>" \\
   -H "Content-Type: application/json" \\
   -d '{"rule_name": "Alerta Presupuesto > 1.000 UTM", "channels": ["SLACK"], "conditions": {"min_amount_clp": 50000000}}'`, 'al_curl')}
@@ -824,7 +824,7 @@ export function Fase2CommercialTab() {
                 </button>
               </div>
               <code style={{ fontSize: 11, color: '#4ADE80', fontFamily: 'monospace' }}>
-                curl -X POST "https://api.bralidus.com/v1/mercado-publico/alertas" -H "Authorization: Bearer &lt;VALIDUS_API_KEY&gt;"
+                curl -X POST "https://api.animus.ai/v1/mercado-publico/alertas" -H "Authorization: Bearer &lt;VALIDUS_API_KEY&gt;"
               </code>
             </div>
           </div>

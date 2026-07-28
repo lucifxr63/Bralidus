@@ -161,7 +161,7 @@ const HOW_IT_WORKS = [
   {
     step: '01',
     title: 'Envías el contexto',
-    desc: 'POST /query/moe con startup_context: industria, etapa y geografía. Bralidus entiende tu startup.',
+    desc: 'POST /query/moe con startup_context: industria, etapa y geografía. Animus entiende tu startup.',
     icon: <IconCode />,
     color: '#F43F5E',
   },
@@ -258,7 +258,7 @@ export function Landing() {
             </svg>
           </div>
           <span className="font-heading font-extrabold text-lg text-slate-900 tracking-tight">
-            Bralidus
+            Animus
           </span>
         </div>
 
@@ -308,7 +308,7 @@ export function Landing() {
 
           {/* Subheadline */}
           <p className="text-base sm:text-lg text-slate-600 leading-relaxed max-w-2xl mx-auto">
-            Bralidus convierte el contexto de tu startup en <strong className="text-rose-600 font-semibold">GraphRAG dinámico</strong> — macro, mercados, regulatorio y unit economics — listo para inyectar en tu LLM.
+            Animus convierte el contexto de tu startup en <strong className="text-rose-600 font-semibold">GraphRAG dinámico</strong> — macro, mercados, regulatorio y unit economics — listo para inyectar en tu LLM.
           </p>
 
           {/* CTAs */}
@@ -353,7 +353,7 @@ export function Landing() {
           <div className="text-center space-y-3">
             <span className="text-xs font-bold uppercase tracking-wider text-rose-600">Flujo</span>
             <h2 className="font-heading text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
-              Cómo funciona Bralidus
+              Cómo funciona Animus
             </h2>
           </div>
 
@@ -467,7 +467,7 @@ export function Landing() {
               <div className="w-3 h-3 rounded-full bg-amber-500" />
               <div className="w-3 h-3 rounded-full bg-emerald-500" />
               <span className="ml-3 text-xs text-slate-400 font-mono">
-                POST https://bralidus.railway.app/query/moe
+                POST https://animus.railway.app/query/moe
               </span>
             </div>
 
@@ -543,7 +543,7 @@ export function Landing() {
               </svg>
             </div>
             <div>
-              <div className="font-heading font-extrabold text-sm text-slate-200">Bralidus</div>
+              <div className="font-heading font-extrabold text-sm text-slate-200">Animus</div>
               <div className="text-[10px] text-slate-500">Powered by Validus · Scouttech</div>
             </div>
           </div>

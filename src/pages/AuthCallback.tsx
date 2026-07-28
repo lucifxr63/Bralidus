@@ -56,7 +56,7 @@ export function AuthCallback() {
       fontFamily: "'DM Sans', system-ui, sans-serif",
     }}>
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20 }}>
-        {/* Bralidus animated logo */}
+        {/* Animus animated logo */}
         <div style={{
           width: 56, height: 56, borderRadius: 16,
           background: 'linear-gradient(135deg, #6C3CE1, #0EB5C6)',
@@ -80,7 +80,7 @@ export function AuthCallback() {
           <p style={{ color: '#E8E7F5', fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 16, margin: '0 0 6px' }}>
             Iniciando sesión...
           </p>
-          <p style={{ color: '#7674A0', fontSize: 13, margin: 0 }}>Bralidus Developer Portal</p>
+          <p style={{ color: '#7674A0', fontSize: 13, margin: 0 }}>Animus Developer Portal</p>
         </div>
 
         {/* Spinner */}

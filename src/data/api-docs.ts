@@ -181,7 +181,7 @@ export const API_DOCS: EndpointDoc[] = [
   {
     section: 'Mercado Público (B2G)',
     method: 'GET', path: '/api/v1/mercado-publico/analitica/precios', color: '#F59E0B',
-    description: 'Analítica de precios unitarios por UNSPSC: percentiles p10 a p90, mediana de adjudicación y sugerencia algorítmica Bralidus AI.',
+    description: 'Analítica de precios unitarios por UNSPSC: percentiles p10 a p90, mediana de adjudicación y sugerencia algorítmica Animus AI.',
     params: [
       { name: 'unspsc_code', type: 'string', required: true, description: 'Código UNSPSC del bien o servicio (ej: 43233205)' },
       { name: 'periodo_meses', type: 'number', required: false, description: 'Horizonte temporal en meses (default: 12)' }
@@ -249,7 +249,7 @@ export const API_DOCS: EndpointDoc[] = [
     params: [
       { name: 'format', type: 'string', required: true, description: 'Formato: jsonl | csv | parquet' }
     ],
-    responseExample: '{\n  "job_id": "export_9912",\n  "download_url": "https://downloads.bralidus.com/dumps/mp_2026.jsonl.gz"\n}',
+    responseExample: '{\n  "job_id": "export_9912",\n  "download_url": "https://downloads.animus.ai/dumps/mp_2026.jsonl.gz"\n}',
     errorCodes: ['400 Formato no soportado', '401 Unauthorized']
   },
 
@@ -630,7 +630,7 @@ export const API_DOCS: EndpointDoc[] = [
   {
     section: 'Datos Económicos & Macro',
     method: 'POST', path: '/api/v1/data/insights/macro-brief', color: '#2DD4BF',
-    description: 'Informe de síntesis macroeconómica generado por IA Doctrina Bralidus.',
+    description: 'Informe de síntesis macroeconómica generado por IA Doctrina Animus.',
     params: [],
     responseExample: '{\n  "data": { "summary": "La economía chilena muestra señales de estabilización..." }\n}',
     errorCodes: ['401 Unauthorized']
@@ -656,11 +656,11 @@ export const API_DOCS: EndpointDoc[] = [
     errorCodes: ['401 Unauthorized']
   },
 
-  // ── SECCIÓN 3: Bralidus Intelligence & GraphRAG (Cliente-Centric v2.0) ──────
+  // ── SECCIÓN 3: Animus Intelligence & GraphRAG (Cliente-Centric v2.0) ──────
   {
     section: 'GraphRAG & Intelligence',
     method: 'POST', path: '/api/v1/intel/query', color: '#8B5CF6',
-    description: 'Consulta inteligente unificada Bralidus: enrutamiento automático entre los 5 expertos (Macro, Mercados, Unit Econ, Legal, Estrategia) con evidencia citable.',
+    description: 'Consulta inteligente unificada Animus: enrutamiento automático entre los 5 expertos (Macro, Mercados, Unit Econ, Legal, Estrategia) con evidencia citable.',
     params: [
       { name: 'query', type: 'string', required: true, description: 'Pregunta en lenguaje natural' },
       { name: 'routing', type: 'string', required: false, description: 'Modo de enrutamiento: "auto" | "manual"' },
@@ -672,7 +672,7 @@ export const API_DOCS: EndpointDoc[] = [
   {
     section: 'GraphRAG & Intelligence',
     method: 'GET', path: '/api/v1/intel/experts', color: '#8B5CF6',
-    description: 'Catálogo de capacidades, jurisdicciones y fuentes de los 5 expertos de Inteligencia Bralidus.',
+    description: 'Catálogo de capacidades, jurisdicciones y fuentes de los 5 expertos de Inteligencia Animus.',
     params: [],
     responseExample: '{\n  "data": {\n    "total_experts": 5,\n    "experts": [{ "id": "macro", "name": "Macroeconomic Expert" }]\n  }\n}',
     errorCodes: ['401 Unauthorized']
@@ -869,7 +869,7 @@ export const API_DOCS: EndpointDoc[] = [
     errorCodes: ['401 Unauthorized']
   },
 
-  // ── SECCIÓN 4: Bralidus Vault, RAG Vectorial & Colecciones v2.0 ──────────────
+  // ── SECCIÓN 4: Animus Vault, RAG Vectorial & Colecciones v2.0 ──────────────
   {
     section: 'RAG & Vault Vectorial',
     method: 'POST', path: '/api/v1/rag/query', color: '#0EB5C6',
@@ -952,7 +952,7 @@ export const API_DOCS: EndpointDoc[] = [
     params: [
       { name: 'filename', type: 'string', required: true, description: 'Nombre del archivo' }
     ],
-    responseExample: '{\n  "data": { "upload_id": "upl_01K...", "upload_url": "https://storage.bralidus.cl/..." }\n}',
+    responseExample: '{\n  "data": { "upload_id": "upl_01K...", "upload_url": "https://storage.animus.cl/..." }\n}',
     errorCodes: ['401 Unauthorized']
   },
   {
@@ -1093,7 +1093,7 @@ export const API_DOCS: EndpointDoc[] = [
   {
     section: 'Webhooks & Servicios',
     method: 'GET', path: '/health/services', color: '#10B981',
-    description: 'Health check general de microservicios e infraestructura de Bralidus.',
+    description: 'Health check general de microservicios e infraestructura de Animus.',
     params: [],
     responseExample: '{\n  "status": "healthy",\n  "services": { "database": "ok", "railway_worker": "ok" }\n}',
     errorCodes: [],

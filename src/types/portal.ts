@@ -1,4 +1,4 @@
-// ─── Bralidus Developer Portal — Shared Types ─────────────────────────────
+// ─── Animus Developer Portal — Shared Types ─────────────────────────────
 
 export type Tab =
   | 'overview'

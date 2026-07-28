@@ -70,15 +70,15 @@ export default function AnimusPanel() {
           <Brain className="w-4 h-4 text-violet-500" />
         </div>
         <div>
-          <h2 className="font-black text-gray-900 dark:text-white text-sm">BralidusPY — Motor de Inteligencia Macro</h2>
+          <h2 className="font-black text-gray-900 dark:text-white text-sm">AnimusPY — Motor de Inteligencia Macro</h2>
           <p className="text-[11px] text-gray-400">FastAPI + pgvector + APScheduler · GraphRAG híbrido GRAPH + VECTOR</p>
           <a
-            href="https://braliduspy-production.up.railway.app/docs"
+            href="https://animuspy-production.up.railway.app/docs"
             target="_blank"
             rel="noopener noreferrer"
             className="text-[10px] text-teal-400 hover:text-teal-300 transition font-mono"
           >
-            braliduspy-production.up.railway.app ↗
+            animuspy-production.up.railway.app ↗
           </a>
         </div>
         <span className="ml-auto text-[10px] font-bold px-2 py-0.5 rounded-full bg-teal-500/15 text-teal-400 uppercase tracking-wider">Railway</span>
@@ -130,8 +130,8 @@ export default function AnimusPanel() {
       <div className="bg-white dark:bg-[#12121A] rounded-2xl border border-gray-100 dark:border-white/5 shadow-sm overflow-hidden">
         <div className="px-5 py-4 border-b border-gray-100 dark:border-white/5 flex items-center gap-2 flex-wrap">
           <span className="text-sm font-bold text-gray-900 dark:text-white">API Reference</span>
-          <code className="text-[10px] text-gray-400 bg-gray-100 dark:bg-white/5 px-2 py-0.5 rounded">Authorization: Bearer &lt;BRALIDUS_API_KEY&gt;</code>
-          <code className="text-[10px] text-teal-400 bg-teal-500/10 px-2 py-0.5 rounded ml-auto">braliduspy-production.up.railway.app</code>
+          <code className="text-[10px] text-gray-400 bg-gray-100 dark:bg-white/5 px-2 py-0.5 rounded">Authorization: Bearer &lt;ANIMUS_API_KEY&gt;</code>
+          <code className="text-[10px] text-teal-400 bg-teal-500/10 px-2 py-0.5 rounded ml-auto">animuspy-production.up.railway.app</code>
         </div>
         <div className="divide-y divide-gray-100 dark:divide-white/5">
           {ENDPOINTS.map(ep => (

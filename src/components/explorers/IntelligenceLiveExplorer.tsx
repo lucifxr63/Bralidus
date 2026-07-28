@@ -19,9 +19,9 @@ export function IntelligenceLiveExplorer() {
     evidence_nodes: [
       { expert: "macro", title: "TPM Banco Central", value: "5.75%", date: "2026-07-18", source: "BCCh" },
       { expert: "legal", title: "Ley 21.521 (Ley Fintec)", value: "Vigente", date: "2026-06-01", source: "CMF / Biblioteca del Congreso" },
-      { expert: "unit_economics", title: "CAC/LTV Benchmark SaaS LatAm", value: "$420 USD CAC", date: "2026-07-15", source: "Bralidus Knowledge Base" }
+      { expert: "unit_economics", title: "CAC/LTV Benchmark SaaS LatAm", value: "$420 USD CAC", date: "2026-07-15", source: "Animus Knowledge Base" }
     ],
-    generated_context: "## Análisis de Inteligencia Bralidus MoE\n\nEl costo de capital actual (TPM 5.75% por BCCh) incrementa la exigencia de payback period en startups Fintech a < 12 meses. Se evidencia regulación activa por CMF bajo Ley Fintec..."
+    generated_context: "## Análisis de Inteligencia Animus MoE\n\nEl costo de capital actual (TPM 5.75% por BCCh) incrementa la exigencia de payback period en startups Fintech a < 12 meses. Se evidencia regulación activa por CMF bajo Ley Fintec..."
   });
 
   const handleQuerySubmit = async () => {
@@ -53,7 +53,7 @@ export function IntelligenceLiveExplorer() {
             <Cpu style={{ width: 18, height: 18 }} />
           </span>
           <h3 style={{ fontSize: 20, fontWeight: 800, color: '#E8E7F5', margin: 0, fontFamily: "'Space Grotesk', sans-serif" }}>
-            Explorador en Vivo — Bralidus Intelligence & GraphRAG MoE
+            Explorador en Vivo — Animus Intelligence & GraphRAG MoE
           </h3>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 100, background: 'rgba(139,92,246,0.12)', border: '1px solid rgba(139,92,246,0.3)', color: '#A78BFA' }}>
             <Sparkles style={{ width: 12, height: 12 }} /> Mixture of 5 Experts

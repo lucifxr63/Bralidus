@@ -314,7 +314,7 @@ export function MacroTab() {
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
               <span style={{ fontSize: 12, fontWeight: 800, color: '#0EB5C6' }}>Endpoint cURL — Snapshot Consolidado Macroeconómico:</span>
               <button
-                onClick={() => handleCopy(`curl -X GET "https://api.bralidus.com/v1/data/economy" -H "Authorization: Bearer <VALIDUS_API_KEY>"`, 'macro_curl')}
+                onClick={() => handleCopy(`curl -X GET "https://api.animus.ai/v1/data/economy" -H "Authorization: Bearer <VALIDUS_API_KEY>"`, 'macro_curl')}
                 style={{ background: 'rgba(255,255,255,0.06)', border: 'none', color: '#D4D2F0', padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}
               >
                 {copiedId === 'macro_curl' ? <Check style={{ width: 12, height: 12, color: '#4ADE80' }} /> : <Copy style={{ width: 12, height: 12 }} />}
@@ -322,7 +322,7 @@ export function MacroTab() {
               </button>
             </div>
             <code style={{ fontSize: 11.5, color: '#4ADE80', fontFamily: 'monospace' }}>
-              curl -X GET "https://api.bralidus.com/v1/data/economy" -H "Authorization: Bearer &lt;VALIDUS_API_KEY&gt;"
+              curl -X GET "https://api.animus.ai/v1/data/economy" -H "Authorization: Bearer &lt;VALIDUS_API_KEY&gt;"
             </code>
           </div>
         </div>

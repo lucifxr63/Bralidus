@@ -648,7 +648,7 @@ export function MercadoPublicoLiveTable() {
   const fetchLiveOpportunities = async () => {
     setLoading(true);
     try {
-      // 1. Intentar API Gateway Bralidus
+      // 1. Intentar API Gateway Animus
       const res = await fetch(`${BASE}/data/b2g/licitaciones/activas`, {
         headers: { 'Authorization': 'Bearer demo_public_key' }
       }).catch(() => null);
@@ -707,7 +707,7 @@ export function MercadoPublicoLiveTable() {
   const triggerBrowserFileDownload = (filename: string, code: string, title?: string, buyer?: string) => {
     const content = `================================================================================
 REPÚBLICA DE CHILE — MERCADO PÚBLICO
-DOCUMENTO OFICIAL DE BASES Y ANEXOS - BRALIDUS ENGINE
+DOCUMENTO OFICIAL DE BASES Y ANEXOS - ANIMUS ENGINE
 ================================================================================
 
 ID LICITACIÓN / COMPRA ÁGIL: ${code}
@@ -723,7 +723,7 @@ Este archivo (${filename}) corresponde a los Anexos Ingresados, Especificaciones
 Técnicas (EETT), Términos de Referencia o Acta de Adjudicación Oficial extraídos
 directamente del portal Mercado Público Chile (www.mercadopublico.cl).
 
-ESTADO DE VERIFICACIÓN BRALIDUS:
+ESTADO DE VERIFICACIÓN ANIMUS:
 - Integridad Checksum SHA-256: VERIFICADA
 - Verificación CAPTCHA ChileCompra: COMPLETADA EXITOSAMENTE
 - Clasificación RAG: Anexos de Licitación B2G
@@ -790,7 +790,7 @@ https://www.mercadopublico.cl/FichaLicitacion.html?idLicitacion=${code}
               </span>
             </div>
             <p style={{ fontSize: 13.5, color: '#9896B8', maxWidth: 720, margin: 0, lineHeight: 1.6 }}>
-              Visualiza en tiempo real los contratos, licitaciones públicas y compras ágiles capturadas e indexadas por Bralidus RaaS API con enlaces directos y descargador de anexos.
+              Visualiza en tiempo real los contratos, licitaciones públicas y compras ágiles capturadas e indexadas por Animus RaaS API con enlaces directos y descargador de anexos.
             </p>
           </div>
           <button 
@@ -843,10 +843,10 @@ https://www.mercadopublico.cl/FichaLicitacion.html?idLicitacion=${code}
                 </div>
               </div>
 
-              {/* Card 2: Real Bralidus RaaS API Live Gateway & Coverage */}
+              {/* Card 2: Real Animus RaaS API Live Gateway & Coverage */}
               <div style={{ background: '#090914', border: '1px solid rgba(14,181,198,0.2)', borderRadius: 12, padding: 14 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, fontWeight: 800, color: '#0EB5C6', marginBottom: 8 }}>
-                  <Database style={{ width: 15, height: 15 }} /> Cobertura RaaS API Bralidus (Tiempo Real)
+                  <Database style={{ width: 15, height: 15 }} /> Cobertura RaaS API Animus (Tiempo Real)
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 11.5 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', color: '#D4D2F0' }}>
@@ -1102,7 +1102,7 @@ https://www.mercadopublico.cl/FichaLicitacion.html?idLicitacion=${code}
               {/* Modal Header */}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, paddingBottom: 16, borderBottom: '1px solid rgba(108,60,225,0.15)' }}>
                 <div>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: '#F59E0B', textTransform: 'uppercase', letterSpacing: '0.8px' }}>Ficha Canónica Mercado Público — Bralidus RaaS API</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: '#F59E0B', textTransform: 'uppercase', letterSpacing: '0.8px' }}>Ficha Canónica Mercado Público — Animus RaaS API</span>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4 }}>
                     <h4 style={{ fontSize: 20, fontWeight: 800, color: '#E8E7F5', margin: 0, fontFamily: 'monospace' }}>Licitación ID: {selectedItem.external_code}</h4>
                     <button
@@ -1237,7 +1237,7 @@ https://www.mercadopublico.cl/FichaLicitacion.html?idLicitacion=${code}
                   </div>
 
                   <div style={{ background: '#090914', border: '1px solid rgba(139,92,246,0.15)', borderRadius: 10, padding: 10, fontSize: 11, color: '#8B89B0', marginTop: 14 }}>
-                    Auditoría Legal Bralidus: Verificado contra repositorio judicial de compras públicas.
+                    Auditoría Legal Animus: Verificado contra repositorio judicial de compras públicas.
                   </div>
                 </div>
               </div>

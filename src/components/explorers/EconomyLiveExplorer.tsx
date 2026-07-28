@@ -200,7 +200,7 @@ const DEMO_INDICATORS: EconomicIndicator[] = [
     unit: 'Salud Financiera',
     change: 'Alta Solvencia',
     isPositive: true,
-    provider: 'Bralidus Unified DB',
+    provider: 'Animus Unified DB',
     updated_at: '2026-07-27T12:00:00Z',
     description: 'Fusión 360° de estados financieros CMF, legal Diario Oficial y Mercado Público.',
     json_sample: { rut: '76.123.456-K', financial_health_score: 88, insolvency_risk: 'LOW' }
@@ -276,7 +276,7 @@ const DEMO_INDICATORS: EconomicIndicator[] = [
     unit: 'IA Generativa',
     change: '84% Confianza',
     isPositive: true,
-    provider: 'Bralidus MoE AI Engine',
+    provider: 'Animus MoE AI Engine',
     updated_at: '2026-07-27T16:00:00Z',
     description: 'Evaluación del impacto en PIB e Inflación ante cambios en Cobre/Dólar/TPM.',
     json_sample: { simulated_impacts: { imacec_growth_adjusted: '+0.9%', inflation_impact: '+0.6%' } }
@@ -290,7 +290,7 @@ const DEMO_INDICATORS: EconomicIndicator[] = [
     unit: 'Coef. Pearson',
     change: 'En tiempo real',
     isPositive: true,
-    provider: 'Bralidus Analytics',
+    provider: 'Animus Analytics',
     updated_at: '2026-07-27T16:00:00Z',
     description: 'Correlaciones dinámicas cruzadas entre Cobre, Dólar, TPM y UF.',
     json_sample: { correlation_matrix: { "COPPER_vs_USDCLP": -0.84, "USDCLP_vs_UF": 0.62 } }

@@ -204,7 +204,7 @@ export function AuditLog({ pageSize = 10, className = '' }: AuditLogProps) {
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.setAttribute('href', url);
-      link.setAttribute('download', `bralidus_audit_logs_${new Date().toISOString().slice(0,10)}.csv`);
+      link.setAttribute('download', `animus_audit_logs_${new Date().toISOString().slice(0,10)}.csv`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -225,7 +225,7 @@ export function AuditLog({ pageSize = 10, className = '' }: AuditLogProps) {
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.setAttribute('href', url);
-      link.setAttribute('download', `bralidus_audit_logs_${new Date().toISOString().slice(0,10)}.json`);
+      link.setAttribute('download', `animus_audit_logs_${new Date().toISOString().slice(0,10)}.json`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);

@@ -28,7 +28,7 @@ body {
   --font-sans: 'DM Sans', system-ui, sans-serif;
   --font-heading: 'Space Grotesk', system-ui, sans-serif;
 
-  /* ── Bralidus brand palette ────────────────────────────── */
+  /* ── Animus brand palette ────────────────────────────── */
   --color-brand:       #6C3CE1;   /* violet profundo */
   --color-brand-light: #8B5CF6;   /* violet medio */
   --color-brand-teal:  #0EB5C6;   /* teal herencia Validus */
@@ -109,19 +109,19 @@ body {
   background-clip: text;
 }
 
-.bralidus-card {
+.animus-card {
   background: #0E0E1A;
   border: 1px solid rgba(108, 60, 225, 0.14);
   border-radius: 16px;
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 
-.bralidus-card:hover {
+.animus-card:hover {
   border-color: rgba(108, 60, 225, 0.35);
   box-shadow: 0 0 24px 0 rgba(108, 60, 225, 0.10);
 }
 
-.bralidus-btn {
+.animus-btn {
   background: linear-gradient(135deg, #6C3CE1, #5B30C4);
   color: #fff;
   font-weight: 700;
@@ -131,13 +131,13 @@ body {
   box-shadow: 0 4px 20px rgba(108,60,225,0.25);
 }
 
-.bralidus-btn:hover {
+.animus-btn:hover {
   opacity: 0.92;
   transform: translateY(-1px);
   box-shadow: 0 8px 28px rgba(108,60,225,0.40);
 }
 
-.bralidus-btn:active {
+.animus-btn:active {
   transform: translateY(0);
 }
 

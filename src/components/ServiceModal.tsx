@@ -24,7 +24,7 @@ interface ServiceMeta {
   run_test: () => Promise<unknown>;
 }
 
-const BRALIDUS_URL = 'https://braliduspy-production.up.railway.app';
+const ANIMUS_URL = 'https://animuspy-production.up.railway.app';
 
 function buildMeta(svc: ServiceInfo): ServiceMeta {
   const id = svc.id;
@@ -111,18 +111,18 @@ function buildMeta(svc: ServiceInfo): ServiceMeta {
       },
     },
 
-    braliduspy: {
-      description: 'BralidusPY FastAPI — motor de inteligencia macro corriendo en Railway US West. Expone /query/moe (GatingNetwork + GraphRAG), /radar/signals, /health, y 9 APScheduler jobs. Repositorio: stars.git',
-      docs_url: `${BRALIDUS_URL}/docs`,
+    animuspy: {
+      description: 'AnimusPY FastAPI — motor de inteligencia macro corriendo en Railway US West. Expone /query/moe (GatingNetwork + GraphRAG), /radar/signals, /health, y 9 APScheduler jobs. Repositorio: stars.git',
+      docs_url: `${ANIMUS_URL}/docs`,
       schema: 'GET /ping → { status, uptime_seconds, scheduler_running }\nGET /health → { status, services[], knowledge_nodes_count }\nPOST /query/moe → { answer, sources[], graph_hits, vector_hits }\nGET /radar/signals → Signal[]\nPATCH /radar/signals/{id}/rate → { analyst_rating, rated_at }',
       test_label: 'Ping Railway',
       run_test: async () => {
         const t0 = Date.now();
-        const res = await fetch(`${BRALIDUS_URL}/ping`);
+        const res = await fetch(`${ANIMUS_URL}/ping`);
         const latency = Date.now() - t0;
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
-        return { ...data, latency_ms: latency, url: BRALIDUS_URL };
+        return { ...data, latency_ms: latency, url: ANIMUS_URL };
       },
     },
 
@@ -150,12 +150,12 @@ function buildMeta(svc: ServiceInfo): ServiceMeta {
       run_test: async () => ({ status: 'key configurada en Railway + .env local', series_disponibles: ['GDP', 'CPIAUCSL', 'FEDFUNDS', 'DEXCLUS', 'PCOPPUSDM'] }),
     },
 
-    bralidus_auth: {
-      description: 'Bearer token para autenticar llamadas a BralidusPY API. Requerido en los endpoints /query/moe, /query, /ingest y PATCH /radar/signals/{id}/rate. Configurado en Supabase secrets y Railway env.',
-      schema: 'Header: Authorization: Bearer <BRALIDUS_API_KEY>\nEndpoints protegidos:\n  POST /query/moe\n  POST /query\n  POST /ingest\n  PATCH /radar/signals/{id}/rate\nEndpoints públicos:\n  GET /ping\n  GET /health\n  GET /radar/signals\n  GET /entities',
+    animus_auth: {
+      description: 'Bearer token para autenticar llamadas a AnimusPY API. Requerido en los endpoints /query/moe, /query, /ingest y PATCH /radar/signals/{id}/rate. Configurado en Supabase secrets y Railway env.',
+      schema: 'Header: Authorization: Bearer <ANIMUS_API_KEY>\nEndpoints protegidos:\n  POST /query/moe\n  POST /query\n  POST /ingest\n  PATCH /radar/signals/{id}/rate\nEndpoints públicos:\n  GET /ping\n  GET /health\n  GET /radar/signals\n  GET /entities',
       test_label: 'Test auth con /ping',
       run_test: async () => {
-        const res = await fetch(`${BRALIDUS_URL}/ping`);
+        const res = await fetch(`${ANIMUS_URL}/ping`);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return { auth_configured: true, public_endpoint_ok: true, note: 'Bearer auth validado en endpoints protegidos' };
       },
