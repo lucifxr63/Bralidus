@@ -37,7 +37,7 @@ jobs:
       - name: Disparar job de la API
         env:
           CRON_SECRET: ${{ secrets.BRALIDUS_CRON_SECRET }}
-          API: https://api.bralidus.scouttech.lat
+          API: https://api.animus.scouttech.lat
           SCHED: ${{ github.event.schedule }}
           EVENT: ${{ github.event_name }}
           DISPATCH: ${{ github.event.inputs.job }}
