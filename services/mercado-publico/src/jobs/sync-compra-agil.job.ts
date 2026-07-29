@@ -8,6 +8,7 @@ import {
 import type { CompraAgilListItem } from '../infrastructure/mercado-publico/compra-agil.types.js';
 import { ingestCompraAgilUseCase } from '../modules/opportunities/application/ingest-compra-agil.use-case.js';
 import { syncLogRepository } from '../modules/sync/infrastructure/sync-log.repository.js';
+import { deriveRunStatus } from '../modules/sync/domain/run-status.js';
 import { syncProgress } from './sync-progress.store.js';
 import { notifyIngested } from '../infrastructure/licitus-callback/licitus-callback.js';
 
@@ -271,17 +272,12 @@ export async function completeCompraAgilDate(
   },
 ): Promise<void> {
   const { found, succeeded, failed, aborted, errored } = totals;
+  // `errored` (la fecha reventó por error de step) nunca puede ser 'success'.
   const status = errored
     ? succeeded > 0
       ? 'partial'
       : 'failed'
-    : aborted
-      ? 'partial'
-      : failed === 0
-        ? 'success'
-        : succeeded === 0
-          ? 'failed'
-          : 'partial';
+    : deriveRunStatus({ succeeded, failed, aborted });
 
   await syncLogRepository.complete(logId, {
     status,

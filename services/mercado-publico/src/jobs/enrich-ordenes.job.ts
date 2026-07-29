@@ -16,12 +16,14 @@ import { logger } from '../infrastructure/logging/logger.js';
 import { ingestOrdenCompraUseCase } from '../modules/purchase-orders/application/ingest-orden-compra.use-case.js';
 import { purchaseOrderRepository } from '../modules/purchase-orders/infrastructure/purchase-order.repository.js';
 import { syncLogRepository } from '../modules/sync/infrastructure/sync-log.repository.js';
+import {
+  deriveRunStatus,
+  runFailureRate,
+  FAILURE_RATE_THRESHOLD,
+} from '../modules/sync/domain/run-status.js';
 import { AppError } from '../shared/errors/app-error.js';
 
 const JOB_NAME = 'enrich-ordenes';
-
-/** Ver la nota en refresh-opportunities.job.ts: mismo criterio, misma razón. */
-const FAILURE_RATE_THRESHOLD = 0.5;
 
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 
@@ -119,16 +121,16 @@ export async function runEnrichOrdenesJob(): Promise<void> {
       if (env.SYNC_REQUEST_DELAY_MS > 0) await sleep(env.SYNC_REQUEST_DELAY_MS);
     }
 
-    // Estado por TASA de fallo, no por "hubo al menos un éxito" — mismo criterio
-    // y misma razón que en refresh-opportunities.job.ts (ver nota allá): con la
-    // condición anterior, un único acierto enmascaraba cualquier cantidad de
-    // fallos y la alerta de ops nunca se disparaba.
-    const attempted = stats.enriched + stats.failed;
-    const failureRate = attempted > 0 ? stats.failed / attempted : 0;
-    const degraded = failureRate >= FAILURE_RATE_THRESHOLD;
+    // Estado por TASA de fallo (regla compartida en run-status.ts), no por
+    // "hubo al menos un éxito": con la condición anterior un único acierto
+    // enmascaraba cualquier cantidad de fallos y la alerta nunca se disparaba.
+    const counters = { succeeded: stats.enriched, failed: stats.failed };
+    const status = deriveRunStatus(counters);
+    const failureRate = runFailureRate(counters);
+    const degraded = status !== 'success';
 
     await syncLogRepository.complete(logId, {
-      status: degraded ? 'failed' : 'success',
+      status,
       totalFound: stats.candidates,
       totalProcessed: stats.candidates,
       totalSucceeded: stats.enriched,

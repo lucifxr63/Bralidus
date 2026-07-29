@@ -5,6 +5,7 @@ import type { MpLicitacionRaw } from '../infrastructure/mercado-publico/mercado-
 import { ingestLicitacionUseCase } from '../modules/opportunities/application/ingest-licitacion.use-case.js';
 import { supplierProfileRepository } from '../modules/supplier-profile/infrastructure/supplier-profile.repository.js';
 import { syncLogRepository } from '../modules/sync/infrastructure/sync-log.repository.js';
+import { deriveRunStatus } from '../modules/sync/domain/run-status.js';
 import { syncProgress } from './sync-progress.store.js';
 import { notifyIngested } from '../infrastructure/licitus-callback/licitus-callback.js';
 import {
@@ -300,13 +301,11 @@ export async function syncForDate(
     }
 
     const totalFailed = allFailed.length;
-    const status = abortedMidDate
-      ? 'partial'
-      : totalFailed === 0
-        ? 'success'
-        : totalSucceeded === 0
-          ? 'failed'
-          : 'partial';
+    const status = deriveRunStatus({
+      succeeded: totalSucceeded,
+      failed: totalFailed,
+      aborted: abortedMidDate,
+    });
 
     await syncLogRepository.complete(logId, {
       status,
@@ -527,13 +526,11 @@ export async function completeLicitacionesDate(
   },
 ): Promise<void> {
   const failed = totals.failedDetails.length;
-  const status = totals.aborted
-    ? 'partial'
-    : failed === 0
-      ? 'success'
-      : totals.succeeded === 0
-        ? 'failed'
-        : 'partial';
+  const status = deriveRunStatus({
+    succeeded: totals.succeeded,
+    failed,
+    aborted: totals.aborted,
+  });
 
   await syncLogRepository.complete(logId, {
     status,

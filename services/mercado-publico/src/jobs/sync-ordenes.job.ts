@@ -3,6 +3,7 @@ import { logger } from '../infrastructure/logging/logger.js';
 import { mercadoPublicoClient } from '../infrastructure/mercado-publico/mercado-publico.client.js';
 import { ingestOrdenCompraUseCase } from '../modules/purchase-orders/application/ingest-orden-compra.use-case.js';
 import { syncLogRepository } from '../modules/sync/infrastructure/sync-log.repository.js';
+import { deriveRunStatus } from '../modules/sync/domain/run-status.js';
 import { syncProgress } from './sync-progress.store.js';
 import type { MpOrdenCompraRaw } from '../infrastructure/mercado-publico/mercado-publico.types.js';
 
@@ -145,7 +146,11 @@ export async function syncOrdenesForDate(
       if (result.aborted) { abortedMidDate = true; break; }
     }
 
-    const status = abortedMidDate ? 'partial' : totalFailed === 0 ? 'success' : totalSucceeded === 0 ? 'failed' : 'partial';
+    const status = deriveRunStatus({
+      succeeded: totalSucceeded,
+      failed: totalFailed,
+      aborted: abortedMidDate,
+    });
 
     await syncLogRepository.complete(logId, {
       status,
@@ -254,17 +259,13 @@ export async function completeOrdenesDate(
   },
 ): Promise<void> {
   const { found, succeeded, failed, aborted, errored } = totals;
+  // `errored` (la fecha reventó por error de step) nunca puede ser 'success',
+  // aunque haya alcanzado a procesar todo lo que tenía delante.
   const status = errored
     ? succeeded > 0
       ? 'partial'
       : 'failed'
-    : aborted
-      ? 'partial'
-      : failed === 0
-        ? 'success'
-        : succeeded === 0
-          ? 'failed'
-          : 'partial';
+    : deriveRunStatus({ succeeded, failed, aborted });
 
   await syncLogRepository.complete(logId, {
     status,
