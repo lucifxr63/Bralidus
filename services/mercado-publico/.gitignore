@@ -5,7 +5,10 @@
 .nitro
 .vercel
 
-# El .gitignore de la raíz del repo ignora `.env*` (línea 32), lo que también
-# atraparía la plantilla. Se re-incluye a propósito: documenta qué variables
-# necesita el servicio y no contiene secretos.
+# Secretos locales
+.env*
+
+# La negación va DESPUÉS de `.env*` a propósito: en gitignore gana la última
+# regla que coincide, así que invertir el orden volvería a excluir la plantilla.
+# No contiene secretos — documenta qué variables necesita el servicio.
 !.env.example
