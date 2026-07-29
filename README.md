@@ -1,20 +1,33 @@
-# Validus — Developer Portal
+# Animus Engine / Bralidus — Developer Portal
 
-Dashboard de gestión para la API de Validus. Permite a desarrolladores administrar API keys, monitorear uso, testear endpoints en tiempo real, gestionar webhooks y visualizar el knowledge graph del sistema.
+Dashboard de gestión e interacción para **Animus Engine v2.0 / Bralidus RaaS**, el motor de Inteligencia y Retrieval-as-a-Service (RaaS) para contrataciones B2G de ChileCompra (Mercado Público), licitaciones LE/LP, benchmarks de mercado e indicadores macroeconómicos chilenos.
 
-**URL en producción:** `https://validus.scouttech.lat/developers`
+**URL en Producción (SPA):** `https://bralidus.vercel.app`  
+**API Gateway Producción (Supabase):** `https://fcdhcntyvsydnvjwopfe.supabase.co/functions/v1/api-v1`
 
 ---
 
-## Stack
+## ⚡ Novedades Arquitectónicas Animus Engine v2.0
+
+- **Plan Free sin bloqueo 403 (`500 créditos/mes`):** Los desarrolladores en el tier Free disponen de 500 créditos mensuales de prueba y una ráfaga de 30 peticiones/minuto para validar los endpoints en tiempo real sin requerir tarjeta de crédito.
+- **Capa de Resiliencia B2G (`Fallback ChileCompra`):** Si las tablas canónicas del motor se encuentran en sincronización, los endpoints `/mercado-publico/compra-agil`, `/opportunities` y `/licitaciones` inyectan 12 procesos reales de instituciones públicas chilenas con montos en CLP/UTM y enlaces oficiales directos a `www.mercadopublico.cl`.
+- **API Connection Hub & MCP Server:** Soporte nativo para copiar snippets en cURL, TypeScript, Python y configuración de servidor **MCP (`animus-engine-mcp`)** para agentes Claude Code o IDEs IA.
+- **Metodología Fintoc:** Pruebas interactivas inmediatas en el Playground utilizando llaves demo (`demo_public_key`).
+- **SPA Version Detector (`VersionUpdateAlert`):** Sistema de detección y notificación con Toast de Sonner que avisa en tiempo real cuando se publica una actualización, ejecutando una recarga limpia (`cache-buster` y purga de Service Workers) sin necesidad de Ctrl+F5.
+- **Estándar IA / LLM First:** Archivos canónicos `/llms.txt`, `/llms-full.txt` y `/robots.txt` para indexación por agentes autónomos.
+
+---
+
+## Stack Tecnológico
 
 | Layer | Tecnología |
 |---|---|
 | Framework | React 19 + Vite 8 |
 | Lenguaje | TypeScript 6 (strict) |
-| CSS | Tailwind v4 (sin config file) |
+| CSS | Tailwind CSS v4 |
 | Auth | Supabase PKCE (magic link) |
-| Base de datos | Supabase (Postgres) |
+| Base de datos | Supabase (Postgres + pgvector) |
+| API Gateway | Supabase Edge Functions (`api-v1`) |
 | Gráficos | Recharts 3 (área, pie, barra) |
 | Knowledge Graph | ReactFlow (@xyflow/react) |
 | Notificaciones | Sonner |
@@ -22,31 +35,21 @@ Dashboard de gestión para la API de Validus. Permite a desarrolladores administ
 
 ---
 
-## Funcionalidades
+## Funcionalidades Principales
 
-### Gestión de API Keys
-- Generación de claves con prefijo `val_live_` + 16 bytes hex aleatorios
-- Hash SHA-256 client-side antes de persistir — el raw nunca toca el backend
-- Vista solo del prefijo tras creación (seguridad por diseño)
-- Revocación y tracking de `last_used_at`
+### 1. Gestión de API Keys
+- Generación de claves con prefijo `val_live_` + 16 bytes hex aleatorios.
+- Hash SHA-256 client-side antes de persistir — el raw nunca toca el backend.
+- Revocación y tracking de `last_used_at`.
 
-### Monitoreo de uso
-- Requests del mes, requests del día, tokens consumidos
-- Rate limits por plan (Free: 1 000 req / 500k tokens)
-- Gráficos de 14 días: requests por día, distribución por endpoint, tokens por día
+### 2. Monitoreo y Cuotas (Tiers)
+- Control de consumo mensual vs límites de tier (`free`, `starter`, `pro`, `enterprise`).
+- Gráficos de 14 días: requests por día, distribución por endpoint y consumo de tokens.
 
-### Playground interactivo
-- 8 endpoints disponibles para testear con parámetros configurables
-- Generación automática de snippets curl / Node.js / Python
-- Respuesta en tiempo real con highlight de JSON
+### 3. Playground Interactivo & API Connection Hub
+- Prueba endpoints B2G y macroeconómicos con parámetros configurables y highlighting JSON en tiempo real.
+- Manual de Usuario interactivo integrado como modal con ilustraciones ilustrativas y guías cURL.
 
-### Documentación de API
-- 8 endpoints documentados con parámetros, tipos y ejemplos
-- Expandibles inline sin salir del dashboard
-
-### Health check
-- Estado en tiempo real de todos los servicios backend
-- CMF, FRED, ChileCompra, RAG, webhooks, economic knowledge
 
 ### RAG Audit
 - Métricas de precisión y latencia del sistema de búsqueda semántica
