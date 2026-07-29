@@ -1,0 +1,704 @@
+[
+  {
+    "endpoint": "GET /api/v1/mercado-publico/health",
+    "category": "Mercado Público (B2G)",
+    "cost": 1,
+    "type": "Estado operativo de servicios de Mercado Públ..."
+  },
+  {
+    "endpoint": "GET /api/v1/mercado-publico/opportunities",
+    "category": "Mercado Público (B2G)",
+    "cost": 25,
+    "type": "Buscador Unificado: Combina licitaciones trad..."
+  },
+  {
+    "endpoint": "GET /api/v1/mercado-publico/licitaciones",
+    "category": "Mercado Público (B2G)",
+    "cost": 25,
+    "type": "Listado paginado de licitaciones públicas de ..."
+  },
+  {
+    "endpoint": "GET /api/v1/mercado-publico/licitaciones/:codigo_externo",
+    "category": "Mercado Público (B2G)",
+    "cost": 25,
+    "type": "Detalle completo de una licitación específica..."
+  },
+  {
+    "endpoint": "GET /api/v1/mercado-publico/compra-agil",
+    "category": "Mercado Público (B2G)",
+    "cost": 25,
+    "type": "Listado en tiempo real de oportunidades de Co..."
+  },
+  {
+    "endpoint": "GET /api/v1/mercado-publico/ordenes-compra",
+    "category": "Mercado Público (B2G)",
+    "cost": 25,
+    "type": "Listado de órdenes de compra (OCs) emitidas p..."
+  },
+  {
+    "endpoint": "GET /api/v1/mercado-publico/ordenes-compra/:codigo_oc",
+    "category": "Mercado Público (B2G)",
+    "cost": 25,
+    "type": "Detalle completo de la orden de compra (ej: 1..."
+  },
+  {
+    "endpoint": "GET /api/v1/mercado-publico/organismos",
+    "category": "Mercado Público (B2G)",
+    "cost": 25,
+    "type": "Directorio y búsqueda de organismos comprador..."
+  },
+  {
+    "endpoint": "GET /api/v1/mercado-publico/organismos/:id",
+    "category": "Mercado Público (B2G)",
+    "cost": 25,
+    "type": "Ficha de un organismo comprador del Estado y ..."
+  },
+  {
+    "endpoint": "GET /api/v1/mercado-publico/proveedores/:rut",
+    "category": "Mercado Público (B2G)",
+    "cost": 35,
+    "type": "Perfil B2G público de una empresa: órdenes de..."
+  },
+  {
+    "endpoint": "GET /api/v1/mercado-publico/proveedores/:rut/vs-mercado",
+    "category": "Mercado Público (B2G)",
+    "cost": 35,
+    "type": "Comparativa de facturación B2G y ticket prome..."
+  },
+  {
+    "endpoint": "GET /api/v1/mercado-publico/proveedores/:rut/oportunidades",
+    "category": "Mercado Público (B2G)",
+    "cost": 35,
+    "type": "Licitaciones públicas y compras ágiles activa..."
+  },
+  {
+    "endpoint": "GET /api/v1/mercado-publico/benchmarks",
+    "category": "Mercado Público (B2G)",
+    "cost": 25,
+    "type": "Benchmarks B2G agregados por rubro UNSPSC y r..."
+  },
+  {
+    "endpoint": "GET /api/v1/mercado-publico/metricas/:rut",
+    "category": "Mercado Público (B2G)",
+    "cost": 25,
+    "type": "Métricas consolidadas M1 a M10 de Mercado Púb..."
+  },
+  {
+    "endpoint": "GET /api/v1/mercado-publico/analitica/precios",
+    "category": "Mercado Público (B2G)",
+    "cost": 50,
+    "type": "Analítica de precios unitarios por UNSPSC: pe..."
+  },
+  {
+    "endpoint": "GET /api/v1/mercado-publico/compradores/:rut/historial",
+    "category": "Mercado Público (B2G)",
+    "cost": 35,
+    "type": "Perfilamiento 360° del comprador: días reales..."
+  },
+  {
+    "endpoint": "GET /api/v1/mercado-publico/proveedores/:rut/perfil-competitivo",
+    "category": "Mercado Público (B2G)",
+    "cost": 35,
+    "type": "Scorecard de competidor: Win-Rate %, ticket p..."
+  },
+  {
+    "endpoint": "POST /api/v1/mercado-publico/busquedas/guardadas",
+    "category": "Mercado Público (B2G)",
+    "cost": 25,
+    "type": "Almacena queries multi-criterio complejas y l..."
+  },
+  {
+    "endpoint": "POST /api/v1/mercado-publico/alertas",
+    "category": "Mercado Público (B2G)",
+    "cost": 25,
+    "type": "Registra reglas de notificación en tiempo rea..."
+  },
+  {
+    "endpoint": "POST /api/v1/mercado-publico/webhooks",
+    "category": "Mercado Público (B2G)",
+    "cost": 25,
+    "type": "Suscripción a Webhooks Push Event (`tender.pu..."
+  },
+  {
+    "endpoint": "POST /api/v1/mercado-publico/exportaciones",
+    "category": "Mercado Público (B2G)",
+    "cost": 25,
+    "type": "Generación de descargas masivas de datasets e..."
+  },
+  {
+    "endpoint": "GET /api/v1/mercado-publico/convenio-marco",
+    "category": "Mercado Público (B2G)",
+    "cost": 25,
+    "type": "Catálogo unificado de Convenios Marco vigente..."
+  },
+  {
+    "endpoint": "GET /api/v1/mercado-publico/grandes-compras",
+    "category": "Mercado Público (B2G)",
+    "cost": 25,
+    "type": "Monitor de Grandes Compras dentro de Convenio..."
+  },
+  {
+    "endpoint": "GET /api/v1/mercado-publico/consultas-mercado",
+    "category": "Mercado Público (B2G)",
+    "cost": 25,
+    "type": "Consultas al Mercado (RFIs) abiertas por orga..."
+  },
+  {
+    "endpoint": "GET /api/v1/mercado-publico/tratos-directos",
+    "category": "Mercado Público (B2G)",
+    "cost": 25,
+    "type": "Auditoría de Tratos Directos y resoluciones f..."
+  },
+  {
+    "endpoint": "POST /api/v1/mercado-publico/ai/scoring-oportunidad",
+    "category": "Mercado Público (B2G)",
+    "cost": 40,
+    "type": "Algoritmo de scoring que evalúa la compatibil..."
+  },
+  {
+    "endpoint": "POST /api/v1/mercado-publico/ai/prediccion-adjudicacion",
+    "category": "Mercado Público (B2G)",
+    "cost": 40,
+    "type": "Modelo predictivo de Win Probability % basado..."
+  },
+  {
+    "endpoint": "GET /api/v1/mercado-publico/ai/recomendaciones/:rut",
+    "category": "Mercado Público (B2G)",
+    "cost": 40,
+    "type": "Motor de recomendaciones inteligentes con las..."
+  },
+  {
+    "endpoint": "GET /api/v1/data/economy/chile/snapshot",
+    "category": "Datos Económicos & Macro",
+    "cost": 1,
+    "type": "Snapshot macroeconómico consolidado de Chile:..."
+  },
+  {
+    "endpoint": "GET /api/v1/data/economy/chile/uf",
+    "category": "Datos Económicos & Macro",
+    "cost": 1,
+    "type": "Valor actual e histórico de la Unidad de Fome..."
+  },
+  {
+    "endpoint": "GET /api/v1/data/economy/chile/ipc",
+    "category": "Datos Económicos & Macro",
+    "cost": 1,
+    "type": "IPC mensual, inflación acumulada 12 meses e i..."
+  },
+  {
+    "endpoint": "GET /api/v1/data/economy/chile/tpm",
+    "category": "Datos Económicos & Macro",
+    "cost": 1,
+    "type": "Tasa de Política Monetaria (TPM), postura mon..."
+  },
+  {
+    "endpoint": "GET /api/v1/data/economy/chile/imacec",
+    "category": "Datos Económicos & Macro",
+    "cost": 1,
+    "type": "Imacec total, minero y no minero (Banco Centr..."
+  },
+  {
+    "endpoint": "GET /api/v1/data/economy/chile/gdp",
+    "category": "Datos Económicos & Macro",
+    "cost": 1,
+    "type": "PIB nominal, real y crecimiento por component..."
+  },
+  {
+    "endpoint": "GET /api/v1/data/economy/chile/exchange-rates",
+    "category": "Datos Económicos & Macro",
+    "cost": 1,
+    "type": "Paridad Dólar Observado (USD/CLP) y monedas i..."
+  },
+  {
+    "endpoint": "GET /api/v1/data/economy/chile/trade-balance",
+    "category": "Datos Económicos & Macro",
+    "cost": 1,
+    "type": "Balanza comercial de Chile: exportaciones e i..."
+  },
+  {
+    "endpoint": "GET /api/v1/data/economy/chile/ipom",
+    "category": "Datos Económicos & Macro",
+    "cost": 1,
+    "type": "Metadatos, proyecciones y tono monetario extr..."
+  },
+  {
+    "endpoint": "GET /api/v1/data/economy/indicators",
+    "category": "Datos Económicos & Macro",
+    "cost": 1,
+    "type": "Catálogo completo de indicadores económicos d..."
+  },
+  {
+    "endpoint": "GET /api/v1/data/economy/releases",
+    "category": "Datos Económicos & Macro",
+    "cost": 1,
+    "type": "Últimas publicaciones y boletines macroeconóm..."
+  },
+  {
+    "endpoint": "GET /api/v1/data/economy/calendar",
+    "category": "Datos Económicos & Macro",
+    "cost": 1,
+    "type": "Calendario consolidado de próximas publicacio..."
+  },
+  {
+    "endpoint": "GET /api/v1/data/economy/series/:series_id",
+    "category": "Datos Económicos & Macro",
+    "cost": 1,
+    "type": "Serie de tiempo histórica normalizada de cual..."
+  },
+  {
+    "endpoint": "GET /api/v1/data/economy/global/snapshot",
+    "category": "Datos Económicos & Macro",
+    "cost": 1,
+    "type": "Snapshot macro global: Inflación EE. UU., Tas..."
+  },
+  {
+    "endpoint": "GET /api/v1/data/commodities",
+    "category": "Datos Económicos & Macro",
+    "cost": 25,
+    "type": "Catálogo de commodities y materias primas (Co..."
+  },
+  {
+    "endpoint": "GET /api/v1/data/commodities/snapshot",
+    "category": "Datos Económicos & Macro",
+    "cost": 25,
+    "type": "Snapshot de cotizaciones en tiempo real de co..."
+  },
+  {
+    "endpoint": "GET /api/v1/data/commodities/copper",
+    "category": "Datos Económicos & Macro",
+    "cost": 25,
+    "type": "Precio spot y futuros del Cobre en LME / COME..."
+  },
+  {
+    "endpoint": "GET /api/v1/data/markets",
+    "category": "Datos Económicos & Macro",
+    "cost": 25,
+    "type": "Snapshot de mercados financieros relevantes p..."
+  },
+  {
+    "endpoint": "GET /api/v1/data/markets/chile/ipsa",
+    "category": "Datos Económicos & Macro",
+    "cost": 25,
+    "type": "Cotización, variación e histórico del Índice ..."
+  },
+  {
+    "endpoint": "GET /api/v1/data/financial-system/entities",
+    "category": "Datos Económicos & Macro",
+    "cost": 25,
+    "type": "Directorio y buscador de entidades fiscalizad..."
+  },
+  {
+    "endpoint": "GET /api/v1/data/companies/insolvencies",
+    "category": "Datos Económicos & Macro",
+    "cost": 25,
+    "type": "Boletín Concursal: Registro de reorganizacion..."
+  },
+  {
+    "endpoint": "GET /api/v1/data/companies/:rut/insolvency-status",
+    "category": "Datos Económicos & Macro",
+    "cost": 25,
+    "type": "Radar Forense: Verificación de estado concurs..."
+  },
+  {
+    "endpoint": "GET /api/v1/data/companies/:rut/economic-profile",
+    "category": "Datos Económicos & Macro",
+    "cost": 25,
+    "type": "Perfil unificado de empresa: salud financiera..."
+  },
+  {
+    "endpoint": "GET /api/v1/data/companies/:rut/public-procurement/metrics",
+    "category": "Datos Económicos & Macro",
+    "cost": 25,
+    "type": "Métricas M1-M10 de compras públicas por RUT d..."
+  },
+  {
+    "endpoint": "GET /api/v1/data/companies/:rut/profile",
+    "category": "Datos Económicos & Macro",
+    "cost": 25,
+    "type": "S-Pulse: Perfil societario canónico (RUT, Raz..."
+  },
+  {
+    "endpoint": "GET /api/v1/data/companies/:rut/ownership-mesh",
+    "category": "Datos Económicos & Macro",
+    "cost": 25,
+    "type": "S-Pulse: Malla societaria completa (Nodos de ..."
+  },
+  {
+    "endpoint": "GET /api/v1/data/companies/:rut/legal-representatives",
+    "category": "Datos Económicos & Macro",
+    "cost": 25,
+    "type": "S-Pulse: Lista de representantes legales vige..."
+  },
+  {
+    "endpoint": "GET /api/v1/data/companies/:rut/related-parties",
+    "category": "Datos Económicos & Macro",
+    "cost": 25,
+    "type": "S-Pulse: Red de sociedades relacionadas (matr..."
+  },
+  {
+    "endpoint": "POST /api/v1/data/companies/:rut/b2g-conflicts",
+    "category": "Datos Económicos & Macro",
+    "cost": 25,
+    "type": "S-Pulse: Detector de conflictos de interés B2..."
+  },
+  {
+    "endpoint": "GET /api/v1/data/companies/search",
+    "category": "Datos Económicos & Macro",
+    "cost": 25,
+    "type": "S-Pulse: Buscador predictivo de empresas por ..."
+  },
+  {
+    "endpoint": "GET /api/v1/data/labor",
+    "category": "Datos Económicos & Macro",
+    "cost": 25,
+    "type": "Snapshot del mercado laboral chileno."
+  },
+  {
+    "endpoint": "GET /api/v1/data/labor/unemployment",
+    "category": "Datos Económicos & Macro",
+    "cost": 25,
+    "type": "Tasa de desocupación INE nacional y por regio..."
+  },
+  {
+    "endpoint": "GET /api/v1/data/labor/wages",
+    "category": "Datos Económicos & Macro",
+    "cost": 25,
+    "type": "Índice de Remuneraciones (IR Real) e Índice d..."
+  },
+  {
+    "endpoint": "GET /api/v1/data/investment-projects",
+    "category": "Datos Económicos & Macro",
+    "cost": 25,
+    "type": "Pipeline de Proyectos de Inversión SEIA ($ Ca..."
+  },
+  {
+    "endpoint": "GET /api/v1/data/company-events/constitutions",
+    "category": "Datos Económicos & Macro",
+    "cost": 25,
+    "type": "Nuevas constituciones de sociedades en el Dia..."
+  },
+  {
+    "endpoint": "GET /api/v1/data/analytics/correlations",
+    "category": "Datos Económicos & Macro",
+    "cost": 25,
+    "type": "Matriz de correlación cruzada en tiempo real ..."
+  },
+  {
+    "endpoint": "POST /api/v1/data/insights/macro-brief",
+    "category": "Datos Económicos & Macro",
+    "cost": 1,
+    "type": "Informe de síntesis macroeconómica generado p..."
+  },
+  {
+    "endpoint": "POST /api/v1/data/insights/scenario-analysis",
+    "category": "Datos Económicos & Macro",
+    "cost": 25,
+    "type": "Simulación generativa de escenarios económico..."
+  },
+  {
+    "endpoint": "POST /api/v1/data/exports",
+    "category": "Datos Económicos & Macro",
+    "cost": 25,
+    "type": "Generación y descarga de exportaciones masiva..."
+  },
+  {
+    "endpoint": "POST /api/v1/intel/query",
+    "category": "GraphRAG & Intelligence",
+    "cost": 35,
+    "type": "Consulta inteligente unificada Animus: enruta..."
+  },
+  {
+    "endpoint": "GET /api/v1/intel/experts",
+    "category": "GraphRAG & Intelligence",
+    "cost": 25,
+    "type": "Catálogo de capacidades, jurisdicciones y fue..."
+  },
+  {
+    "endpoint": "POST /api/v1/intel/experts/:expert_id/query",
+    "category": "GraphRAG & Intelligence",
+    "cost": 25,
+    "type": "Consulta dirigida exclusivamente a un experto..."
+  },
+  {
+    "endpoint": "POST /api/v1/intel/assessments/tender-fit",
+    "category": "GraphRAG & Intelligence",
+    "cost": 25,
+    "type": "Evaluación determinista de compatibilidad (0-..."
+  },
+  {
+    "endpoint": "POST /api/v1/intel/assessments/company-risk",
+    "category": "GraphRAG & Intelligence",
+    "cost": 25,
+    "type": "Evaluación determinista de riesgo concursal C..."
+  },
+  {
+    "endpoint": "POST /api/v1/intel/assessments/macro-impact",
+    "category": "GraphRAG & Intelligence",
+    "cost": 1,
+    "type": "Evaluación de impacto de variaciones macroeco..."
+  },
+  {
+    "endpoint": "POST /api/v1/intel/assessments/win-probability",
+    "category": "GraphRAG & Intelligence",
+    "cost": 25,
+    "type": "Estimación determinista de Win Probability % ..."
+  },
+  {
+    "endpoint": "POST /api/v1/intel/assessments/buyer-profile",
+    "category": "GraphRAG & Intelligence",
+    "cost": 25,
+    "type": "Perfilamiento 360° determinista del comprador..."
+  },
+  {
+    "endpoint": "POST /api/v1/intel/assessments/legal-basis",
+    "category": "GraphRAG & Intelligence",
+    "cost": 25,
+    "type": "Fundamentación legal y cuerpo normativo aplic..."
+  },
+  {
+    "endpoint": "POST /api/v1/intel/assessments/regulatory-compliance",
+    "category": "GraphRAG & Intelligence",
+    "cost": 25,
+    "type": "Matriz de cumplimiento y brechas normativas (..."
+  },
+  {
+    "endpoint": "POST /api/v1/intel/reports",
+    "category": "GraphRAG & Intelligence",
+    "cost": 25,
+    "type": "Generación asíncrona de informe ejecutivo est..."
+  },
+  {
+    "endpoint": "GET /api/v1/intel/jobs/:job_id",
+    "category": "GraphRAG & Intelligence",
+    "cost": 25,
+    "type": "Consulta de estado de generación del informe ..."
+  },
+  {
+    "endpoint": "GET /api/v1/intel/reports/:report_id",
+    "category": "GraphRAG & Intelligence",
+    "cost": 25,
+    "type": "Obtiene el informe ejecutivo generado y su co..."
+  },
+  {
+    "endpoint": "GET /api/v1/intel/citations/:citation_id",
+    "category": "GraphRAG & Intelligence",
+    "cost": 25,
+    "type": "Trazabilidad y verificación de la cita origin..."
+  },
+  {
+    "endpoint": "POST /api/v1/intel/citations/:citation_id/verify",
+    "category": "GraphRAG & Intelligence",
+    "cost": 25,
+    "type": "Verificación de integridad sha256 e hipervínc..."
+  },
+  {
+    "endpoint": "GET /api/v1/intel/graph/entities",
+    "category": "GraphRAG & Intelligence",
+    "cost": 25,
+    "type": "Buscador de entidades e instituciones en el G..."
+  },
+  {
+    "endpoint": "GET /api/v1/intel/graph/entities/:entity_id/neighbors",
+    "category": "GraphRAG & Intelligence",
+    "cost": 25,
+    "type": "Exploración de vecinos directos y tipos de re..."
+  },
+  {
+    "endpoint": "POST /api/v1/intel/graph/paths",
+    "category": "GraphRAG & Intelligence",
+    "cost": 25,
+    "type": "Encuentra el camino más corto entre dos entid..."
+  },
+  {
+    "endpoint": "POST /api/v1/intel/sessions",
+    "category": "GraphRAG & Intelligence",
+    "cost": 25,
+    "type": "Crea una sesión conversacional aislada por te..."
+  },
+  {
+    "endpoint": "POST /api/v1/intel/sessions/:session_id/messages",
+    "category": "GraphRAG & Intelligence",
+    "cost": 25,
+    "type": "Envía un mensaje subsiguiente dentro del hilo..."
+  },
+  {
+    "endpoint": "POST /api/v1/intel/estimate",
+    "category": "GraphRAG & Intelligence",
+    "cost": 25,
+    "type": "Estimador previo de créditos y latencia esper..."
+  },
+  {
+    "endpoint": "POST /api/v1/rag/query",
+    "category": "RAG & Vault Vectorial",
+    "cost": 5,
+    "type": "Recuperación de evidencia documental mediante..."
+  },
+  {
+    "endpoint": "POST /api/v1/rag/vaults",
+    "category": "RAG & Vault Vectorial",
+    "cost": 25,
+    "type": "Crea un contenedor de seguridad y retención d..."
+  },
+  {
+    "endpoint": "GET /api/v1/rag/vaults",
+    "category": "RAG & Vault Vectorial",
+    "cost": 25,
+    "type": "Listado de Vaults accesibles por el tenant en..."
+  },
+  {
+    "endpoint": "GET /api/v1/rag/vaults/:vault_id/stats",
+    "category": "RAG & Vault Vectorial",
+    "cost": 25,
+    "type": "Estadísticas de uso del Vault: total de docum..."
+  },
+  {
+    "endpoint": "POST /api/v1/rag/vaults/:vault_id/collections",
+    "category": "RAG & Vault Vectorial",
+    "cost": 25,
+    "type": "Crea una colección lógica de documentos dentr..."
+  },
+  {
+    "endpoint": "POST /api/v1/rag/documents/text",
+    "category": "RAG & Vault Vectorial",
+    "cost": 25,
+    "type": "Ingesta e indexación directa de texto plano c..."
+  },
+  {
+    "endpoint": "POST /api/v1/rag/documents/file",
+    "category": "RAG & Vault Vectorial",
+    "cost": 25,
+    "type": "Carga multipart/form-data de archivos (PDF, D..."
+  },
+  {
+    "endpoint": "POST /api/v1/rag/uploads",
+    "category": "RAG & Vault Vectorial",
+    "cost": 25,
+    "type": "Genera una URL firmada presigned de carga dir..."
+  },
+  {
+    "endpoint": "POST /api/v1/rag/batches",
+    "category": "RAG & Vault Vectorial",
+    "cost": 25,
+    "type": "Ingesta masiva asíncrona batch de colecciones..."
+  },
+  {
+    "endpoint": "GET /api/v1/rag/documents",
+    "category": "RAG & Vault Vectorial",
+    "cost": 25,
+    "type": "Búsqueda y listado de documentos indexados co..."
+  },
+  {
+    "endpoint": "DELETE /api/v1/rag/documents/:document_id",
+    "category": "RAG & Vault Vectorial",
+    "cost": 25,
+    "type": "Inicia el trabajo asíncrono de purga segura d..."
+  },
+  {
+    "endpoint": "GET /api/v1/rag/documents/:document_id/chunks",
+    "category": "RAG & Vault Vectorial",
+    "cost": 25,
+    "type": "Inspección de fragmentos vectorizados y ubica..."
+  },
+  {
+    "endpoint": "POST /api/v1/rag/context",
+    "category": "RAG & Vault Vectorial",
+    "cost": 25,
+    "type": "Generador de Context Packs optimizados para L..."
+  },
+  {
+    "endpoint": "GET /api/v1/rag/embedding-profiles",
+    "category": "RAG & Vault Vectorial",
+    "cost": 25,
+    "type": "Catálogo de perfiles estables de embeddings (..."
+  },
+  {
+    "endpoint": "POST /api/v1/rag/estimate",
+    "category": "RAG & Vault Vectorial",
+    "cost": 25,
+    "type": "Estimador previo de créditos y latencia por i..."
+  },
+  {
+    "endpoint": "GET /api/v1/data/spulse/companies/search",
+    "category": "Grafo Societario (S-Pulse)",
+    "cost": 2,
+    "type": "Buscador de empresas por razón social o RUT (..."
+  },
+  {
+    "endpoint": "GET /api/v1/data/spulse/companies/:rut/profile",
+    "category": "Grafo Societario (S-Pulse)",
+    "cost": 2,
+    "type": "Ficha 360° societaria: composición de socios,..."
+  },
+  {
+    "endpoint": "GET /api/v1/data/spulse/companies/:rut/network",
+    "category": "Grafo Societario (S-Pulse)",
+    "cost": 2,
+    "type": "Grafo de redes: Nodos y aristas formateados p..."
+  },
+  {
+    "endpoint": "GET /api/v1/data/spulse/relationships/:rel_id/source",
+    "category": "Grafo Societario (S-Pulse)",
+    "cost": 2,
+    "type": "Trazabilidad legal auditable: Muestra el extr..."
+  },
+  {
+    "endpoint": "POST /api/v1/validate",
+    "category": "Webhooks & Servicios",
+    "cost": 25,
+    "type": "Wizard MegaPrompt: Ejecución de análisis de v..."
+  },
+  {
+    "endpoint": "POST /api/v1/webhooks",
+    "category": "Webhooks & Servicios",
+    "cost": 25,
+    "type": "Registra una URL HTTPS para recibir eventos a..."
+  },
+  {
+    "endpoint": "GET /health/services",
+    "category": "Webhooks & Servicios",
+    "cost": 1,
+    "type": "Health check general de microservicios e infr..."
+  },
+  {
+    "endpoint": "POST /mcp/v1/tools/call",
+    "category": "Animus MCP Server (Model Context Protocol)",
+    "cost": 25,
+    "type": "Protocolo agéntico MCP: ejecución remota de h..."
+  },
+  {
+    "endpoint": "MCP Tool: animus_search_b2g_tenders",
+    "category": "Animus MCP Server (Model Context Protocol)",
+    "cost": 25,
+    "type": "MCP Agéntico B2G Licitaciones"
+  },
+  {
+    "endpoint": "MCP Tool: animus_get_corporate_mesh",
+    "category": "Animus MCP Server (Model Context Protocol)",
+    "cost": 10,
+    "type": "MCP Agéntico Grafo S-Pulse"
+  },
+  {
+    "endpoint": "MCP Tool: animus_get_macro_indicators",
+    "category": "Animus MCP Server (Model Context Protocol)",
+    "cost": 1,
+    "type": "MCP Agéntico Macro Snapshot"
+  },
+  {
+    "endpoint": "MCP Tool: animus_query_moe_graphrag",
+    "category": "Animus MCP Server (Model Context Protocol)",
+    "cost": 35,
+    "type": "MCP Agéntico Mixture of Experts"
+  },
+  {
+    "endpoint": "MCP Tool: animus_predict_win_probability",
+    "category": "Animus MCP Server (Model Context Protocol)",
+    "cost": 40,
+    "type": "MCP Agéntico Win Probability %"
+  },
+  {
+    "endpoint": "POST /mcp/v1/tools/call",
+    "category": "Animus MCP Server (Model Context Protocol)",
+    "cost": 1,
+    "type": "Invocación remota de herramienta MCP"
+  }
+]

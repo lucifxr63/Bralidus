@@ -232,14 +232,12 @@ function buildMeta(svc: ServiceInfo): ServiceMeta {
       schema: 'temp_context WHERE source=\'sii\'\n  content: JSON con { rut, razon_social, actividades[], giro }',
       test_label: 'Última consulta SII',
       run_test: async () => {
-        const { data, error } = await supabase
-          .from('temp_context')
-          .select('created_at,content,source')
-          .eq('source', 'sii')
-          .order('created_at', { ascending: false })
-          .limit(3);
-        if (error) throw new Error(error.message);
-        return data?.length ? data : { note: 'Sin consultas recientes — se activa al analizar competidores' };
+        // La tabla `temp_context` no existe en este proyecto Supabase
+        // (verificado contra el esquema). Antes esta prueba lanzaba el error
+        // crudo de Postgres, que no explicaba nada.
+        throw new Error(
+          'Sin registro de consultas: la tabla temp_context no existe en este proyecto. Esta integración no está instrumentada.',
+        );
       },
     },
 
@@ -293,14 +291,12 @@ function buildMeta(svc: ServiceInfo): ServiceMeta {
       schema: 'temp_context WHERE source=\'cmf_best\'\n  content: { indicador, valor, fecha, fuente: "CMF BEST" }',
       test_label: 'Última consulta CMF BEST',
       run_test: async () => {
-        const { data, error } = await supabase
-          .from('temp_context')
-          .select('created_at,content')
-          .eq('source', 'cmf_best')
-          .order('created_at', { ascending: false })
-          .limit(3);
-        if (error) throw new Error(error.message);
-        return data?.length ? data : { note: 'Sin datos recientes — consulta on-demand' };
+        // La tabla `temp_context` no existe en este proyecto Supabase
+        // (verificado contra el esquema). Antes esta prueba lanzaba el error
+        // crudo de Postgres, que no explicaba nada.
+        throw new Error(
+          'Sin registro de consultas: la tabla temp_context no existe en este proyecto. Esta integración no está instrumentada.',
+        );
       },
     },
 
@@ -325,14 +321,12 @@ function buildMeta(svc: ServiceInfo): ServiceMeta {
       schema: 'temp_context WHERE source=\'inapi\'\n  content: array de { marca, titular, estado, fecha_solicitud, clases_niza[] }',
       test_label: 'Últimas consultas INAPI',
       run_test: async () => {
-        const { data, error } = await supabase
-          .from('temp_context')
-          .select('created_at,content')
-          .eq('source', 'inapi')
-          .order('created_at', { ascending: false })
-          .limit(3);
-        if (error) throw new Error(error.message);
-        return data?.length ? data : { note: 'Sin consultas recientes — se activa al analizar marcas del competidor' };
+        // La tabla `temp_context` no existe en este proyecto Supabase
+        // (verificado contra el esquema). Antes esta prueba lanzaba el error
+        // crudo de Postgres, que no explicaba nada.
+        throw new Error(
+          'Sin registro de consultas: la tabla temp_context no existe en este proyecto. Esta integración no está instrumentada.',
+        );
       },
     },
 
