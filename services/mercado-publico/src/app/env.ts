@@ -47,7 +47,19 @@ const envSchema = z.object({
   CRON_SECRET: z.string().min(16).optional(),
 
   // ── Mercado Público (API v1) ─────────────────────────────────
-  MERCADO_PUBLICO_BASE_URL: z.string().url().default('http://api.mercadopublico.cl'),
+  // El default DEBE incluir el prefijo /servicios/v1 y ser https.
+  //
+  // Antes era 'http://api.mercadopublico.cl': sin TLS y sin el prefijo de ruta.
+  // Como la variable no estaba seteada en Vercel, el servicio caía a ese default
+  // y TODA llamada a publico/licitaciones.json fallaba en red (sin status HTTP),
+  // agotaba los 3 reintentos del workflow durable y moría con FatalError — sin
+  // llegar nunca a finish(), así que `job_progress.is_running` quedaba en true
+  // y el guard de concurrencia bloqueaba las corridas siguientes. Resultado:
+  // ingesta detenida desde el 2026-07-26 sin que ninguna alerta lo dijera.
+  //
+  // Verificado el 2026-07-29: https + /servicios/v1 responde 200; ambas
+  // variantes sin uno u otro no responden.
+  MERCADO_PUBLICO_BASE_URL: z.string().url().default('https://api.mercadopublico.cl/servicios/v1'),
   MERCADO_PUBLICO_TICKET: z.string().min(1),
   // Circuit breaker: fallas seguidas para abrir y cooldown antes de reintentar.
   // Evita quemar una corrida entera cuando MP está caído.
@@ -74,8 +86,23 @@ const envSchema = z.object({
   // Chunking por slices: heredado del límite de CPU de Cloudflare Workers.
   // En Vercel/Nitro el techo es otro, pero se conserva el chunking porque es
   // lo que mantiene cada step barato y reintentable de forma independiente.
-  SYNC_OC_CHUNK_SIZE: z.coerce.number().int().positive().default(500),
-  SYNC_LIC_CHUNK_SIZE: z.coerce.number().int().positive().default(300),
+  // Tamaño de slice = cuánto procesa UN step del workflow durable, y por lo
+  // tanto lo que debe caber en el techo de duración de una función (300 s por
+  // defecto en Vercel).
+  //
+  // Los defaults viejos (500 OCs / 300 licitaciones) venían de Cloudflare
+  // Workers, donde el techo era otro. En Vercel no caben: medido el 2026-07-29,
+  // un batch de 20 licitaciones con SYNC_CONCURRENCY=1 tarda ~78 s, así que un
+  // slice de 300 pedía ~21 min contra un límite de 5. El step moría a los ~4
+  // batches, el workflow lo reintentaba DESDE EL PRINCIPIO, y a los 3 intentos
+  // abortaba — re-pidiendo cada vez los mismos registros a Mercado Público y
+  // quemando cuota del ticket sin cerrar nunca la corrida.
+  //
+  // 60 licitaciones = 3 batches ≈ 234 s, con margen bajo los 300 s. Subir esto
+  // exige subir también `maxDuration` en vercel.json, y verificar que el
+  // producto (batches × duración de batch) siga entrando en el techo.
+  SYNC_OC_CHUNK_SIZE: z.coerce.number().int().positive().default(150),
+  SYNC_LIC_CHUNK_SIZE: z.coerce.number().int().positive().default(60),
   SYNC_REQUEST_DELAY_MS: z.coerce.number().int().min(0).default(200),
   SYNC_CONCURRENCY: z.coerce.number().int().min(1).max(20).default(1),
   SYNC_ITEM_TIMEOUT_MS: z.coerce.number().int().min(1000).default(30000),
