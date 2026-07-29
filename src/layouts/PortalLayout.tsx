@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import type { Tab } from '@/types/portal';
 import { ProfileDropdown } from '@/components/layout/ProfileDropdown';
+import { UserManualModal } from '@/components/UserManualModal';
 
 interface NavItem {
   id: Tab;
@@ -68,6 +69,7 @@ interface PortalLayoutProps {
 
 export function PortalLayout({ activeTab, setActiveTab, onNewKey, children }: PortalLayoutProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [manualOpen, setManualOpen] = useState(false);
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
   const navigate = useNavigate();
 
@@ -242,6 +244,22 @@ export function PortalLayout({ activeTab, setActiveTab, onNewKey, children }: Po
       {/* Bottom actions */}
       <div style={{ borderTop: '1px solid rgba(108,60,225,0.12)', padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 6 }}>
         <button
+          onClick={() => setManualOpen(true)}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 7, width: '100%',
+            padding: '8px 12px', background: 'rgba(14,181,198,0.12)',
+            border: '1px solid rgba(14,181,198,0.35)', borderRadius: 10, cursor: 'pointer',
+            color: '#0EB5C6', fontSize: 12.5, fontWeight: 700,
+            transition: 'opacity 0.15s, transform 0.15s',
+          }}
+          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.opacity = '0.88'; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.opacity = '1'; }}
+        >
+          <BookOpen style={{ width: 14, height: 14 }} />
+          Manual de Uso
+        </button>
+
+        <button
           onClick={onNewKey}
           style={{
             display: 'flex', alignItems: 'center', gap: 7, width: '100%',
@@ -408,6 +426,26 @@ export function PortalLayout({ activeTab, setActiveTab, onNewKey, children }: Po
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <button
+                onClick={() => setManualOpen(true)}
+                style={{
+                  background: 'rgba(14,181,198,0.12)',
+                  border: '1px solid rgba(14,181,198,0.35)',
+                  borderRadius: 9,
+                  padding: '8px 14px',
+                  cursor: 'pointer',
+                  color: '#0EB5C6',
+                  fontSize: 12.5,
+                  fontWeight: 700,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  boxShadow: '0 2px 10px rgba(14,181,198,0.2)',
+                }}
+              >
+                <BookOpen style={{ width: 14, height: 14 }} />
+                Guía de Uso
+              </button>
+              <button
                 onClick={onNewKey}
                 style={{
                   background: 'linear-gradient(135deg, #6C3CE1, #5B30C4)',
@@ -427,6 +465,12 @@ export function PortalLayout({ activeTab, setActiveTab, onNewKey, children }: Po
           {children}
         </main>
       </div>
+
+      <UserManualModal
+        isOpen={manualOpen}
+        onClose={() => setManualOpen(false)}
+        onNavigateTab={(tab) => setActiveTab(tab as Tab)}
+      />
     </div>
   );
 }
