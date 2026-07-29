@@ -11,6 +11,7 @@ import {
 import type { Tab } from '@/types/portal';
 import { ProfileDropdown } from '@/components/layout/ProfileDropdown';
 import { UserManualModal } from '@/components/UserManualModal';
+import { VersionUpdateAlert } from '@/components/VersionUpdateAlert';
 
 interface NavItem {
   id: Tab;
@@ -446,6 +447,31 @@ export function PortalLayout({ activeTab, setActiveTab, onNewKey, children }: Po
                 Guía de Uso
               </button>
               <button
+                onClick={() => {
+                  if ('caches' in window) {
+                    caches.keys().then((names) => names.forEach((name) => caches.delete(name)));
+                  }
+                  window.location.href = window.location.pathname + '?refresh=' + Date.now();
+                }}
+                title="Actualizar versión sin caché (Hard Refresh)"
+                style={{
+                  background: 'rgba(108,60,225,0.14)',
+                  border: '1px solid rgba(108,60,225,0.38)',
+                  borderRadius: 9,
+                  padding: '8px 13px',
+                  cursor: 'pointer',
+                  color: '#A78BFA',
+                  fontSize: 12.5,
+                  fontWeight: 700,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  transition: 'background 0.2s',
+                }}
+              >
+                🔄 Actualizar
+              </button>
+              <button
                 onClick={onNewKey}
                 style={{
                   background: 'linear-gradient(135deg, #6C3CE1, #5B30C4)',
@@ -471,6 +497,7 @@ export function PortalLayout({ activeTab, setActiveTab, onNewKey, children }: Po
         onClose={() => setManualOpen(false)}
         onNavigateTab={(tab) => setActiveTab(tab as Tab)}
       />
+      <VersionUpdateAlert />
     </div>
   );
 }
