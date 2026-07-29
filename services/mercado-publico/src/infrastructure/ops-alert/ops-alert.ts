@@ -10,7 +10,7 @@
 import { env } from '../../app/env.js';
 import { logger } from '../logging/logger.js';
 
-export type OpsAlertLevel = 'warn' | 'error';
+export type OpsAlertLevel = 'info' | 'warn' | 'error';
 
 export interface OpsAlert {
   level: OpsAlertLevel;
@@ -48,7 +48,8 @@ export async function sendOpsAlert(alert: OpsAlert): Promise<void> {
   // 1) Siempre loguea (observabilidad aunque no haya webhook configurado)
   const payload = { opsAlert: true, level: alert.level, detail: alert.detail };
   if (alert.level === 'error') logger.error(payload, `[ops-alert] ${alert.title}`);
-  else logger.warn(payload, `[ops-alert] ${alert.title}`);
+  else if (alert.level === 'warn') logger.warn(payload, `[ops-alert] ${alert.title}`);
+  else logger.info(payload, `[ops-alert] ${alert.title}`);
 
   // 2) Webhook opcional, con dedupe (evita martillar Discord/Slack con el mismo aviso)
   const url = env.OPS_WEBHOOK_URL;
@@ -58,7 +59,7 @@ export async function sendOpsAlert(alert: OpsAlert): Promise<void> {
     return;
   }
 
-  const emoji = alert.level === 'error' ? '🔴' : '🟡';
+  const emoji = alert.level === 'error' ? '🔴' : alert.level === 'warn' ? '🟡' : '🟢';
   const content = `${emoji} **${alert.title}**${alert.detail ? `\n${alert.detail}` : ''}`;
   try {
     // `content` = Discord, `text` = Slack — mandar ambos cubre los dos sin config.

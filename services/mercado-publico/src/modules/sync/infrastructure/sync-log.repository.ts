@@ -73,7 +73,7 @@ class SyncLogRepository {
    * Actualiza el log al finalizar con métricas y estado final.
    */
   async complete(id: string, input: CompleteSyncLogInput): Promise<void> {
-    const rows = await query<{ job_name: string }>(
+    const rows = await query<{ job_name: string; started_at: Date; finished_at: Date }>(
       `UPDATE sync_logs SET
          status          = $2,
          finished_at     = NOW(),
@@ -86,7 +86,7 @@ class SyncLogRepository {
          error_details   = $9,
          metadata        = COALESCE(metadata, '{}') || $10
        WHERE id = $1
-       RETURNING job_name`,
+       RETURNING job_name, started_at, finished_at`,
       [
         id,
         input.status,
@@ -103,16 +103,47 @@ class SyncLogRepository {
 
     logger.debug({ id, status: input.status }, 'SyncLog completed');
 
-    // Alerta de ops cuando el run falla del todo (Fase 1). Fire-and-forget:
-    // el alerting nunca debe romper el flujo del sync.
+    // Reporte de ops de CADA corrida terminada, no sólo de las que fallan.
+    //
+    // Antes sólo se avisaba en 'failed', así que el canal quedaba mudo mientras
+    // todo iba bien — y un silencio prolongado era indistinguible de "la
+    // ingesta lleva tres días detenida", que es exactamente lo que pasó entre
+    // el 2026-07-26 y el 2026-07-29. Un latido por corrida hace que la ausencia
+    // de mensajes sea, por sí sola, una señal.
+    //
+    // Fire-and-forget: el alerting nunca debe romper el flujo del sync.
+    const jobName = rows[0]?.job_name ?? 'desconocido';
+    const startedAt = rows[0]?.started_at;
+    const finishedAt = rows[0]?.finished_at;
+    const segundos =
+      startedAt && finishedAt
+        ? Math.round((new Date(finishedAt).getTime() - new Date(startedAt).getTime()) / 1000)
+        : null;
+
+    const cifras =
+      `procesadas=${input.totalProcessed} · ok=${input.totalSucceeded} · fallidas=${input.totalFailed}` +
+      (input.totalSkipped ? ` · omitidas=${input.totalSkipped}` : '') +
+      (segundos != null ? ` · ${segundos}s` : '');
+
     if (input.status === 'failed') {
-      const jobName = rows[0]?.job_name ?? 'desconocido';
       void sendOpsAlert({
         level: 'error',
         title: `Sync '${jobName}' falló`,
-        detail: `encontradas=${input.totalFound}, fallidas=${input.totalFailed}${
-          input.errorDetails?.length ? ` — ${JSON.stringify(input.errorDetails[0]).slice(0, 200)}` : ''
-        }`,
+        detail:
+          `encontradas=${input.totalFound}, ${cifras}` +
+          (input.errorDetails?.length
+            ? `\n${JSON.stringify(input.errorDetails[0]).slice(0, 200)}`
+            : ''),
+        // Cada corrida es un hecho distinto: sin una clave única, la ventana de
+        // dedupe de 30 min se tragaría el aviso de la corrida siguiente.
+        dedupeKey: `sync-failed:${id}`,
+      });
+    } else {
+      void sendOpsAlert({
+        level: 'info',
+        title: `Sync '${jobName}' — ${input.status}`,
+        detail: `encontradas=${input.totalFound} · ${cifras}`,
+        dedupeKey: `sync-done:${id}`,
       });
     }
   }
