@@ -107,8 +107,14 @@ export function toCanonicalStatus(statusCode: number | null): CanonicalStatusCod
 export function buildOfficialUrl(externalCode: string, sourceType: CanonicalSourceType): string {
   // Mismas URLs que arma `withOfficialUrl` en el gateway api-v1, para que un
   // registro escrito aquí y uno servido desde allá apunten al mismo lugar.
+  //
+  // Compra Ágil vive en su propio subdominio. La ruta anterior
+  // (www.mercadopublico.cl/CompraAgil/Ficha/<code>) responde 200 con una página
+  // vacía en lugar de 404, así que los links parecían válidos sin serlo — un
+  // integrador lo reportó el 2026-07-29. Si se toca acá, tocar también
+  // `withOfficialUrl` en api-v1/routes/data.ts: deben coincidir siempre.
   return sourceType === 'agile_purchase'
-    ? `https://www.mercadopublico.cl/CompraAgil/Ficha/${encodeURIComponent(externalCode)}`
+    ? `https://compra-agil.mercadopublico.cl/resumen-cotizacion/${encodeURIComponent(externalCode)}`
     : `https://www.mercadopublico.cl/Procurement/Modules/RFBA/Details.aspx?code=${encodeURIComponent(externalCode)}`;
 }
 
