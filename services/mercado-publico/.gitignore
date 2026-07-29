@@ -1,0 +1,11 @@
+/.swc
+
+# Salida de build de Nitro (local y preset Vercel)
+.output
+.nitro
+.vercel
+
+# El .gitignore de la raíz del repo ignora `.env*` (línea 32), lo que también
+# atraparía la plantilla. Se re-incluye a propósito: documenta qué variables
+# necesita el servicio y no contiene secretos.
+!.env.example

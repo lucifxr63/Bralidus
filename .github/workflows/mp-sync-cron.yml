@@ -1,0 +1,85 @@
+name: mp-sync-cron
+
+# Agenda los jobs de ingesta de Mercado Público del servicio `mp-sync`
+# (services/mercado-publico, proyecto Vercel propio). Cada schedule dispara
+# POST /jobs/run/{id} con MP_SYNC_CRON_SECRET — mismo patrón y mismo contrato
+# que bralidus-api-cron.yml, para que ambos servicios se operen igual.
+#
+# El servicio ARRANCA un workflow durable y responde de inmediato con el runId:
+# el curl no espera a que termine el sync, así que estos jobs no chocan con el
+# límite de duración de una función serverless (a diferencia de los de
+# bralidus-api, que sí ejecutan inline).
+#
+# Horarios heredados de los cron triggers de Cloudflare (wrangler.jsonc), en UTC.
+# Chile = UTC-4. Diferencia a favor: Cloudflare topaba en 5 crons por Worker y
+# obligaba a lanzar Compra Ágil desde el tick de las 06:00 con `delayMinutes`;
+# acá tiene su propio horario y ese rodeo ya no hace falta.
+#
+# NOTA: los `schedule` sólo corren desde la rama default (master) — activos tras merge.
+
+on:
+  schedule:
+    - cron: '0 6 * * *'      # sync-licitaciones (02:00 Chile)
+    - cron: '30 6 * * *'     # sync-ordenes (02:30 Chile) — escalonado para no saturar MP
+    - cron: '0 7 * * *'      # sync-compra-agil (03:00 Chile)
+    - cron: '15 */6 * * *'   # refresh-opportunities (cada 6 h a los :15)
+    - cron: '0 3 * * 0'      # build-buyer-profiles (dom 03:00)
+  workflow_dispatch:
+    inputs:
+      job:
+        description: 'job_id a disparar (ver /jobs/list)'
+        required: true
+        default: refresh-opportunities
+      options:
+        description: 'JSON de opciones, ej. {"lookbackDays":7}'
+        required: false
+        default: '{}'
+
+concurrency:
+  group: mp-sync-cron
+  cancel-in-progress: false
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Disparar job de ingesta
+        env:
+          CRON_SECRET: ${{ secrets.MP_SYNC_CRON_SECRET }}
+          # Variable de repo: URL del proyecto Vercel de mp-sync.
+          # Setear en Settings → Secrets and variables → Actions → Variables.
+          API: ${{ vars.MP_SYNC_API_URL }}
+          SCHED: ${{ github.event.schedule }}
+          EVENT: ${{ github.event_name }}
+          DISPATCH: ${{ github.event.inputs.job }}
+          OPTIONS: ${{ github.event.inputs.options }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${API:-}" ]; then
+            echo "::error::Falta la variable de repo MP_SYNC_API_URL (URL del proyecto Vercel de mp-sync)"
+            exit 1
+          fi
+
+          if [ "$EVENT" = "workflow_dispatch" ]; then
+            JOB="$DISPATCH"
+            BODY="$OPTIONS"
+            [ -z "$BODY" ] && BODY='{}'
+          else
+            case "$SCHED" in
+              '0 6 * * *')     JOB=sync-licitaciones ;;
+              '30 6 * * *')    JOB=sync-ordenes ;;
+              '0 7 * * *')     JOB=sync-compra-agil ;;
+              '15 */6 * * *')  JOB=refresh-opportunities ;;
+              '0 3 * * 0')     JOB=build-buyer-profiles ;;
+              *) echo "::error::schedule no mapeado: $SCHED"; exit 1 ;;
+            esac
+            BODY='{}'
+          fi
+
+          echo "Disparando job: $JOB"
+          # --max-time bajo a propósito: el endpoint sólo encola el workflow.
+          curl -fsS --max-time 60 -X POST "$API/jobs/run/$JOB" \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            -H 'Content-Type: application/json' \
+            -d "$BODY"

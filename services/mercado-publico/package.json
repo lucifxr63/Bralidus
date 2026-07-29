@@ -1,0 +1,30 @@
+{
+  "name": "mp-sync",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "dev": "nitro dev",
+    "build": "nitro build",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.56.0",
+    "@workflow/core": "^4.6.0",
+    "dotenv": "^17.4.2",
+    "hono": "^4.12.28",
+    "pg": "^8.12.0",
+    "workflow": "^4.6.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.0",
+    "@types/pg": "^8.11.6",
+    "nitro": "^3.0.260610-beta",
+    "rollup": "^4.62.2",
+    "typescript": "^5.9.2"
+  }
+}

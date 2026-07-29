@@ -1,0 +1,143 @@
+import type { NormalizedLicitacion } from '../../infrastructure/mercado-publico/mercado-publico.types.js';
+import { TENDER_TYPE } from '../../shared/constants/tender-types.js';
+
+/**
+ * Mapeo del registro normalizado interno → fila de `licitaciones_mercado_publico`
+ * (la tabla canónica de Bralidus/Animus, proyecto fcdhcntyvsydnvjwopfe).
+ *
+ * Es el único punto donde el vocabulario de Licitus se traduce al de Bralidus.
+ * Ambos describen lo mismo pero con enums distintos, así que la traducción es
+ * deliberada y está acotada por los CHECK constraints de la tabla destino —
+ * emitir un valor fuera de lista hace fallar el INSERT.
+ */
+
+/** Valores admitidos por el CHECK de `source_type` en la tabla destino. */
+export type CanonicalSourceType =
+  | 'tender'
+  | 'agile_purchase'
+  | 'private_tender'
+  | 'convenio_marco'
+  | 'grandes_compras'
+  | 'trato_directo'
+  | 'consulta_mercado'
+  | 'contrato_publico'
+  | 'nuevos_mecanismos';
+
+/** Valores admitidos por el CHECK de `status_code` en la tabla destino. */
+export type CanonicalStatusCode =
+  | 'publicada'
+  | 'adjudicada'
+  | 'cerrada'
+  | 'desierta'
+  | 'revocada';
+
+export interface CanonicalRow {
+  external_code: string;
+  title: string;
+  buyer_name: string;
+  buyer_rut: string | null;
+  buyer_org_code: string | null;
+  source_type: CanonicalSourceType;
+  status_code: CanonicalStatusCode;
+  amount_estimated: number;
+  currency: string;
+  published_at: string;
+  closing_at: string | null;
+  award_at: string | null;
+  category: string;
+  official_url: string;
+  attachments: unknown[];
+  items: unknown[];
+  raw_payload: Record<string, unknown>;
+}
+
+/**
+ * Mecanismo de contratación. Se prioriza `tenderTypeCode` sobre `sourceType`
+ * porque es más específico: un Convenio Marco (CO) o un Trato Directo (E2)
+ * llegan por el mismo endpoint que una licitación normal, y etiquetarlos como
+ * 'tender' sería guardar el dato mal. No amplía lo que se extrae — solo evita
+ * perder precisión sobre lo que YA se extrae.
+ */
+export function toCanonicalSourceType(n: NormalizedLicitacion): CanonicalSourceType {
+  if (n.sourceType === 'compra_agil' || n.tenderTypeCode === TENDER_TYPE.COT) {
+    return 'agile_purchase';
+  }
+  switch (n.tenderTypeCode) {
+    case TENDER_TYPE.CO:
+      return 'convenio_marco';
+    case TENDER_TYPE.E2:
+      return 'trato_directo';
+    case TENDER_TYPE.B2:
+      // B2 = oferta electrónica simplificada. `tenderPublicTypeCode` 2 = Privada.
+      return n.tenderPublicTypeCode === 2 ? 'private_tender' : 'tender';
+    default:
+      return n.tenderPublicTypeCode === 2 ? 'private_tender' : 'tender';
+  }
+}
+
+/**
+ * Estados de MP → enum canónico.
+ *
+ * OJO — mapeo con pérdida conocida: MP tiene 18 = "Suspendida", que la tabla
+ * canónica no contempla (su CHECK solo admite publicada/adjudicada/cerrada/
+ * desierta/revocada). Se mapea a 'cerrada' porque es lo que describe el efecto
+ * observable (no está recibiendo ofertas), pero el estado real se conserva
+ * intacto en `raw_payload` para no perder el dato. Si más adelante importa
+ * distinguirla, hay que extender el CHECK de la tabla.
+ */
+export function toCanonicalStatus(statusCode: number | null): CanonicalStatusCode {
+  switch (statusCode) {
+    case 5:
+      return 'publicada';
+    case 6:
+      return 'cerrada';
+    case 7:
+      return 'desierta';
+    case 8:
+      return 'adjudicada';
+    case 15:
+      return 'revocada';
+    case 18:
+      return 'cerrada'; // Suspendida — ver nota arriba
+    default:
+      return 'publicada';
+  }
+}
+
+export function buildOfficialUrl(externalCode: string, sourceType: CanonicalSourceType): string {
+  // Mismas URLs que arma `withOfficialUrl` en el gateway api-v1, para que un
+  // registro escrito aquí y uno servido desde allá apunten al mismo lugar.
+  return sourceType === 'agile_purchase'
+    ? `https://www.mercadopublico.cl/CompraAgil/Ficha/${encodeURIComponent(externalCode)}`
+    : `https://www.mercadopublico.cl/Procurement/Modules/RFBA/Details.aspx?code=${encodeURIComponent(externalCode)}`;
+}
+
+export function toCanonicalRow(n: NormalizedLicitacion): CanonicalRow {
+  const sourceType = toCanonicalSourceType(n);
+
+  return {
+    external_code: n.externalCode,
+    title: n.title,
+    // NOT NULL en destino: MP siempre trae organismo, pero un fallback explícito
+    // es preferible a que reviente la corrida entera por un registro raro.
+    buyer_name: n.buyerOrgName ?? n.buyerUnitName ?? 'Organismo no informado',
+    // MP no expone el RUT del comprador en este endpoint; queda para cuando
+    // se cruce con la identidad compartida del ecosistema.
+    buyer_rut: null,
+    buyer_org_code: n.buyerOrgCode,
+    source_type: sourceType,
+    status_code: toCanonicalStatus(n.statusCode),
+    amount_estimated: n.estimatedAmount ?? 0,
+    currency: n.currency ?? 'CLP',
+    published_at: n.publishedAt ?? new Date().toISOString(),
+    closing_at: n.closingAt,
+    award_at: n.awardedAt,
+    category: 'Contratación Pública',
+    official_url: buildOfficialUrl(n.externalCode, sourceType),
+    // Este pipeline no descarga adjuntos (eso es el downloader aparte de
+    // BralidusPY); se deja el array vacío que la tabla espera por defecto.
+    attachments: [],
+    items: n.items,
+    raw_payload: n.rawPayloadJson,
+  };
+}

@@ -1,0 +1,202 @@
+import {
+  queryOne,
+  query,
+  withTransaction,
+} from '../../../infrastructure/database/client/pg-client';
+import type { PurchaseOrder, PurchaseOrderItem } from '../../../shared/types/domain.types';
+import type { NormalizedOrdenCompra } from '../../../infrastructure/mercado-publico/mercado-publico.types';
+import { mapRowToPurchaseOrder, mapRowToPurchaseOrderItem } from './purchase-order.mapper';
+
+const PURCHASE_ORDER_ITEM_COLUMNS = 10;
+
+/**
+ * INSERT multi-row de items de OC en un solo round-trip (reemplaza el loop N+1).
+ * Genera `VALUES ($1..$10),($11..$20),...` para `rowCount` filas (> 0). El caller
+ * aplana los params en el mismo orden de columnas.
+ */
+export function buildInsertPurchaseOrderItems(rowCount: number): string {
+  const rows: string[] = [];
+  for (let r = 0; r < rowCount; r++) {
+    const base = r * PURCHASE_ORDER_ITEM_COLUMNS;
+    const placeholders = Array.from(
+      { length: PURCHASE_ORDER_ITEM_COLUMNS },
+      (_, c) => `$${base + c + 1}`,
+    );
+    rows.push(`(${placeholders.join(',')})`);
+  }
+  return `INSERT INTO purchase_order_items (
+      purchase_order_id, line_number, product_code, category_code, category_name,
+      buyer_spec, supplier_spec, quantity, unit_net_price, total
+    ) VALUES ${rows.join(',')} RETURNING *`;
+}
+
+export class PurchaseOrderRepository {
+  async upsertFromNormalized(
+    data: NormalizedOrdenCompra,
+  ): Promise<PurchaseOrder & { items: PurchaseOrderItem[] }> {
+    return withTransaction(async (client) => {
+      const row = await client.query(
+        `INSERT INTO purchase_orders (
+          external_code, licitation_code, order_type_code, order_type_label,
+          state_code, supplier_state_label, buyer_org_code, buyer_org_name,
+          supplier_code, supplier_name, total_net, taxes, total, currency,
+          supplier_rating, supplier_rating_count,
+          issued_at, accepted_at, raw_payload_json, normalized_payload_json
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
+        ON CONFLICT (external_code) DO UPDATE SET
+          state_code = EXCLUDED.state_code,
+          supplier_state_label = EXCLUDED.supplier_state_label,
+          supplier_rating = EXCLUDED.supplier_rating,
+          supplier_rating_count = EXCLUDED.supplier_rating_count,
+          -- Campos de detalle (proveedor/montos/comprador/fechas): el listado los
+          -- trae null y el enriquecimiento por detalle los llena. COALESCE evita
+          -- que un re-sync desde el listado sobrescriba a null lo ya enriquecido.
+          -- issued_at/accepted_at incluidos: sin esto, la fecha del detalle nunca
+          -- llegaba a la fila (quedaba NULL para siempre — bug detectado 2026-07-19,
+          -- rompía los filtros por período de la API B2B /v1).
+          issued_at = COALESCE(EXCLUDED.issued_at, purchase_orders.issued_at),
+          accepted_at = COALESCE(EXCLUDED.accepted_at, purchase_orders.accepted_at),
+          supplier_code = COALESCE(EXCLUDED.supplier_code, purchase_orders.supplier_code),
+          supplier_name = COALESCE(EXCLUDED.supplier_name, purchase_orders.supplier_name),
+          total_net = COALESCE(EXCLUDED.total_net, purchase_orders.total_net),
+          taxes = COALESCE(EXCLUDED.taxes, purchase_orders.taxes),
+          total = COALESCE(EXCLUDED.total, purchase_orders.total),
+          currency = COALESCE(EXCLUDED.currency, purchase_orders.currency),
+          buyer_org_code = COALESCE(EXCLUDED.buyer_org_code, purchase_orders.buyer_org_code),
+          buyer_org_name = COALESCE(EXCLUDED.buyer_org_name, purchase_orders.buyer_org_name),
+          licitation_code = COALESCE(EXCLUDED.licitation_code, purchase_orders.licitation_code),
+          raw_payload_json = EXCLUDED.raw_payload_json,
+          normalized_payload_json = EXCLUDED.normalized_payload_json,
+          updated_at = NOW()
+        RETURNING *`,
+        [
+          data.externalCode,
+          data.licitationCode,
+          data.orderTypeCode,
+          data.orderTypeLabel,
+          data.stateCode,
+          data.supplierStateLabel,
+          data.buyerOrgCode,
+          data.buyerOrgName,
+          data.supplierCode,
+          data.supplierName,
+          data.totalNet,
+          data.taxes,
+          data.total,
+          data.currency,
+          data.supplierRating,
+          data.supplierRatingCount,
+          data.issuedAt,
+          data.acceptedAt,
+          JSON.stringify(data.rawPayloadJson),
+          JSON.stringify(data.normalizedPayloadJson),
+        ],
+      );
+
+      const order = mapRowToPurchaseOrder(row.rows[0] as Record<string, unknown>);
+
+      // Re-insert items SOLO si el payload trae items. El listado de OC no los
+      // incluye; sin este guard, un re-sync desde listado borraría los items
+      // que el enriquecimiento por detalle ya pobló.
+      if (data.items.length === 0) {
+        return { ...order, items: [] };
+      }
+
+      await client.query('DELETE FROM purchase_order_items WHERE purchase_order_id = $1', [
+        order.id,
+      ]);
+
+      // INSERT multi-row en un solo round-trip (antes: un INSERT por item = N+1).
+      const params = data.items.flatMap((item) => [
+        order.id,
+        item.lineNumber,
+        item.productCode,
+        item.categoryCode,
+        item.categoryName,
+        item.buyerSpec,
+        item.supplierSpec,
+        item.quantity,
+        item.unitNetPrice,
+        item.total,
+      ]);
+      const inserted = await client.query(
+        buildInsertPurchaseOrderItems(data.items.length),
+        params,
+      );
+      // RETURNING * preserva el orden de la lista VALUES en un único INSERT.
+      const itemRows = inserted.rows.map((r) =>
+        mapRowToPurchaseOrderItem(r as Record<string, unknown>),
+      );
+
+      return { ...order, items: itemRows };
+    });
+  }
+
+  async findByBuyerOrgCode(buyerOrgCode: string, limit = 50): Promise<PurchaseOrder[]> {
+    const rows = await query<Record<string, unknown>>(
+      `SELECT * FROM purchase_orders WHERE buyer_org_code = $1
+       ORDER BY issued_at DESC NULLS LAST LIMIT $2`,
+      [buyerOrgCode, limit],
+    );
+    return rows.map(mapRowToPurchaseOrder);
+  }
+
+  async findRecent(limit = 50): Promise<PurchaseOrder[]> {
+    const rows = await query<Record<string, unknown>>(
+      `SELECT * FROM purchase_orders ORDER BY issued_at DESC NULLS LAST LIMIT $1`,
+      [limit],
+    );
+    return rows.map(mapRowToPurchaseOrder);
+  }
+
+  async findByExternalCode(
+    externalCode: string,
+  ): Promise<(PurchaseOrder & { items: PurchaseOrderItem[] }) | null> {
+    const row = await queryOne<Record<string, unknown>>(
+      'SELECT * FROM purchase_orders WHERE external_code = $1',
+      [externalCode],
+    );
+    if (!row) return null;
+
+    const order = mapRowToPurchaseOrder(row);
+    const items = await query<Record<string, unknown>>(
+      'SELECT * FROM purchase_order_items WHERE purchase_order_id = $1 ORDER BY line_number ASC',
+      [order.id],
+    );
+
+    return { ...order, items: items.map(mapRowToPurchaseOrderItem) };
+  }
+
+  /**
+   * OCs pendientes de enriquecer (sin proveedor y sin agotar reintentos),
+   * priorizando las de organismos con buyer_profile (mayor valor para el
+   * buyer intelligence) y luego las más antiguas.
+   */
+  async findPendingEnrichment(
+    limit: number,
+  ): Promise<Array<{ externalCode: string; buyerOrgCode: string | null }>> {
+    const rows = await query<{ external_code: string; buyer_org_code: string | null }>(
+      `SELECT po.external_code, po.buyer_org_code
+         FROM purchase_orders po
+         LEFT JOIN buyer_profiles bp ON bp.org_code = po.buyer_org_code
+        WHERE po.supplier_code IS NULL
+          AND po.enrichment_attempts < 5
+        ORDER BY (bp.org_code IS NOT NULL) DESC, po.created_at ASC
+        LIMIT $1`,
+      [limit],
+    );
+    return rows.map((r) => ({ externalCode: r.external_code, buyerOrgCode: r.buyer_org_code }));
+  }
+
+  /** Suma un intento de enriquecimiento (para no reintentar indefinidamente). */
+  async incrementEnrichmentAttempts(externalCode: string): Promise<void> {
+    await query(
+      `UPDATE purchase_orders
+          SET enrichment_attempts = enrichment_attempts + 1
+        WHERE external_code = $1`,
+      [externalCode],
+    );
+  }
+}
+
+export const purchaseOrderRepository = new PurchaseOrderRepository();

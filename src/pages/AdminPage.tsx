@@ -42,6 +42,19 @@ interface WorkerStatus {
   last_run: string;
   status: 'healthy' | 'running' | 'warning' | 'error';
   target_endpoint: string;
+  /**
+   * Servicio dueño del job. `animus` = la API FastAPI (api.animus.scouttech.lat);
+   * `mp-sync` = el servicio de ingesta de Mercado Público, que vive en su propio
+   * proyecto Vercel y por lo tanto en otro host.
+   */
+  service?: 'animus' | 'mp-sync';
+}
+
+const ANIMUS_API = 'https://api.animus.scouttech.lat';
+const MP_SYNC_API = import.meta.env['VITE_MP_SYNC_API_URL'] ?? '';
+
+function serviceBaseUrl(worker: WorkerStatus): string {
+  return worker.service === 'mp-sync' ? MP_SYNC_API : ANIMUS_API;
 }
 
 const INITIAL_WORKERS: WorkerStatus[] = [
@@ -54,6 +67,15 @@ const INITIAL_WORKERS: WorkerStatus[] = [
   { id: 'seia_sync',      name: 'SEIA Proyectos Ambientales',        schedule: 'Cada 3 días',       last_run: 'Ayer 12:00',  status: 'healthy', target_endpoint: '/jobs/run/seia_sync' },
   { id: 'fred_sync',      name: 'FRED St. Louis Fed Sync',            schedule: 'Domingos 03:00',    last_run: 'Hace 2 días', status: 'healthy', target_endpoint: '/jobs/run/fred_sync' },
   { id: 'yfinance_sync',  name: 'yfinance Market Snapshot',          schedule: 'Día 1 de mes',      last_run: 'Hace 1 mes',  status: 'healthy', target_endpoint: '/jobs/run/yfinance_sync' },
+
+  // ── Ingesta de Mercado Público (servicio mp-sync, proyecto Vercel aparte) ──
+  // Estos jobs ARRANCAN un workflow durable y responden de inmediato con un
+  // runId: el disparo no espera a que termine el sync.
+  { id: 'sync-licitaciones',      name: 'MP · Licitaciones',            schedule: 'Diario 02:00',   last_run: '—', status: 'healthy', target_endpoint: '/jobs/run/sync-licitaciones',      service: 'mp-sync' },
+  { id: 'sync-ordenes',           name: 'MP · Órdenes de Compra',       schedule: 'Diario 02:30',   last_run: '—', status: 'healthy', target_endpoint: '/jobs/run/sync-ordenes',           service: 'mp-sync' },
+  { id: 'sync-compra-agil',       name: 'MP · Compra Ágil (COT)',       schedule: 'Diario 03:00',   last_run: '—', status: 'healthy', target_endpoint: '/jobs/run/sync-compra-agil',       service: 'mp-sync' },
+  { id: 'refresh-opportunities',  name: 'MP · Refresh de Oportunidades', schedule: 'Cada 6 horas',  last_run: '—', status: 'healthy', target_endpoint: '/jobs/run/refresh-opportunities',  service: 'mp-sync' },
+  { id: 'build-buyer-profiles',   name: 'MP · Perfiles de Compradores',  schedule: 'Domingos 03:00', last_run: '—', status: 'healthy', target_endpoint: '/jobs/run/build-buyer-profiles',   service: 'mp-sync' },
 ];
 
 export function AdminPage() {
@@ -167,21 +189,44 @@ export function AdminPage() {
 
   // Manual worker trigger
   const handleTriggerWorker = async (worker: WorkerStatus) => {
+    const base = serviceBaseUrl(worker);
+    if (!base) {
+      toast.error(`Falta VITE_MP_SYNC_API_URL — no se sabe a qué host disparar ${worker.id}`);
+      return;
+    }
+
     setRunningWorker(worker.id);
     toast.info(`Disparando job manual: ${worker.name}...`);
     try {
-      const res = await fetch(`https://api.animus.scouttech.lat${worker.target_endpoint}`, {
+      const res = await fetch(`${base}${worker.target_endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       });
-      if (res.ok || res.status === 401 || res.status === 404) {
-        toast.success(`Job ${worker.id} enviado exitosamente al orquestador`);
+
+      // Se reporta lo que REALMENTE pasó. Antes un 401/404 se anunciaba como
+      // éxito, lo que ocultaba justo los dos fallos más probables al operar
+      // estos jobs desde el navegador.
+      if (res.ok) {
+        toast.success(`Job ${worker.id} encolado`);
+        setWorkers(prev =>
+          prev.map(w => (w.id === worker.id ? { ...w, last_run: 'Ahora mismo', status: 'healthy' } : w)),
+        );
+      } else if (res.status === 401) {
+        // Esperado: /jobs/run/* exige un secreto de servidor que el navegador
+        // no tiene (ni debe tener). El disparo manual va por GitHub Actions →
+        // "Run workflow" en mp-sync-cron / bralidus-api-cron.
+        toast.error(
+          `${worker.id}: 401 — este job exige el secreto de cron. Dispáralo desde GitHub Actions (workflow_dispatch).`,
+        );
+        setWorkers(prev => prev.map(w => (w.id === worker.id ? { ...w, status: 'warning' } : w)));
       } else {
-        toast.warning(`Respuesta del backend (${res.status}). Job enviado a ejecución.`);
+        toast.error(`${worker.id}: el servicio respondió ${res.status}`);
+        setWorkers(prev => prev.map(w => (w.id === worker.id ? { ...w, status: 'error' } : w)));
       }
-      setWorkers(prev => prev.map(w => w.id === worker.id ? { ...w, last_run: 'Ahora mismo', status: 'healthy' } : w));
-    } catch (_err) {
-      toast.success(`Job ${worker.id} enrutado al planificador de tareas.`);
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : String(err);
+      toast.error(`${worker.id}: no se pudo contactar al servicio (${detail})`);
+      setWorkers(prev => prev.map(w => (w.id === worker.id ? { ...w, status: 'error' } : w)));
     } finally {
       setTimeout(() => setRunningWorker(null), 1200);
     }

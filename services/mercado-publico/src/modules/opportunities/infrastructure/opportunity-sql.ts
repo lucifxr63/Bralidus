@@ -1,0 +1,159 @@
+// Raw SQL statements for opportunities module
+// Centralized here so repository stays readable
+
+export const SQL = {
+  INSERT_OPPORTUNITY: `
+    INSERT INTO opportunities (
+      external_code, source_type, title, description,
+      status_code, status_label,
+      tender_type_code, tender_type_label,
+      buyer_org_code, buyer_org_name,
+      buyer_unit_code, buyer_unit_name,
+      buyer_region, buyer_commune,
+      published_at, closing_at, estimated_award_at,
+      currency, estimated_amount, amount_visibility,
+      payment_modality_code,
+      contract_duration_value, contract_duration_label,
+      allows_subcontracting,
+      days_to_close, complaints_count, is_renewable, award_act_url, amount_is_public,
+      raw_payload_json, normalized_payload_json, area,
+      site_visit_at, requires_contraloria
+    ) VALUES (
+      $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,
+      $11,$12,$13,$14,$15,$16,$17,$18,$19,$20,
+      $21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,
+      $33,$34
+    )
+    ON CONFLICT (external_code) DO UPDATE SET
+      title = EXCLUDED.title,
+      description = EXCLUDED.description,
+      status_code = EXCLUDED.status_code,
+      status_label = EXCLUDED.status_label,
+      closing_at = EXCLUDED.closing_at,
+      estimated_award_at = EXCLUDED.estimated_award_at,
+      estimated_amount = EXCLUDED.estimated_amount,
+      days_to_close = EXCLUDED.days_to_close,
+      complaints_count = EXCLUDED.complaints_count,
+      is_renewable = EXCLUDED.is_renewable,
+      award_act_url = EXCLUDED.award_act_url,
+      amount_is_public = EXCLUDED.amount_is_public,
+      raw_payload_json = EXCLUDED.raw_payload_json,
+      normalized_payload_json = EXCLUDED.normalized_payload_json,
+      area = EXCLUDED.area,
+      site_visit_at = EXCLUDED.site_visit_at,
+      requires_contraloria = EXCLUDED.requires_contraloria,
+      updated_at = NOW()
+    RETURNING *
+  `,
+
+  DELETE_OPPORTUNITY_ITEMS: `
+    DELETE FROM opportunity_items WHERE opportunity_id = $1
+  `,
+
+  FIND_BY_ID: `
+    SELECT * FROM opportunities WHERE id = $1
+  `,
+
+  FIND_BY_EXTERNAL_CODE: `
+    SELECT * FROM opportunities WHERE external_code = $1
+  `,
+
+  FIND_BY_IDS: `
+    SELECT * FROM opportunities WHERE id = ANY($1::uuid[])
+  `,
+
+  FIND_ITEMS_BY_OPPORTUNITY_ID: `
+    SELECT * FROM opportunity_items WHERE opportunity_id = $1
+    ORDER BY line_number ASC NULLS LAST
+  `,
+
+  FIND_ITEMS_BY_OPPORTUNITY_IDS: `
+    SELECT * FROM opportunity_items WHERE opportunity_id = ANY($1::uuid[])
+    ORDER BY opportunity_id, line_number ASC NULLS LAST
+  `,
+
+  /**
+   * Candidatos para el job de refresh dirigido (Fase C):
+   *   1 = guardadas/en pipeline aún vigentes (prioridad máxima)
+   *   2 = activas que cierran en las próximas 72 h
+   *   3 = cerradas hace < 30 días sin acta de adjudicación (alimenta buyer profiles)
+   * Los status finales ('7' desierta, '8' adjudicada, '15' revocada, '18'/'19')
+   * no se refrescan. status_code se guarda como TEXT ('5' o '05' según fuente).
+   */
+  FIND_REFRESH_CANDIDATES: `
+    SELECT * FROM (
+      SELECT DISTINCT ON (id) id, external_code, status_code, closing_at, priority FROM (
+        SELECT o.id, o.external_code, o.status_code, o.closing_at, 1 AS priority
+        FROM opportunities o
+        WHERE o.source_type <> 'private'
+          AND (
+            EXISTS (SELECT 1 FROM saved_opportunities s WHERE s.opportunity_id = o.id)
+            OR EXISTS (SELECT 1 FROM opportunity_pipeline p WHERE p.opportunity_id = o.id)
+          )
+          AND (o.status_code IS NULL OR o.status_code NOT IN ('7','07','8','08','15','18','19'))
+          AND (o.closing_at IS NULL OR o.closing_at > NOW() - INTERVAL '30 days')
+        UNION ALL
+        SELECT o.id, o.external_code, o.status_code, o.closing_at, 2
+        FROM opportunities o
+        WHERE o.source_type <> 'private'
+          AND o.status_code IN ('5','05')
+          AND o.closing_at BETWEEN NOW() AND NOW() + INTERVAL '72 hours'
+        UNION ALL
+        SELECT o.id, o.external_code, o.status_code, o.closing_at, 3
+        FROM opportunities o
+        WHERE o.source_type <> 'private'
+          AND o.status_code IN ('5','05','6','06')
+          AND o.closing_at BETWEEN NOW() - INTERVAL '30 days' AND NOW()
+          AND o.award_act_url IS NULL
+      ) buckets
+      ORDER BY id, priority
+    ) dedup
+    ORDER BY priority ASC, closing_at ASC NULLS LAST
+    LIMIT $1
+  `,
+
+  /** Usuarios que guardaron la oportunidad o la tienen en pipeline. */
+  FIND_INTERESTED_USER_IDS: `
+    SELECT DISTINCT user_id FROM (
+      SELECT user_id FROM saved_opportunities WHERE opportunity_id = $1
+      UNION
+      SELECT user_id FROM opportunity_pipeline WHERE opportunity_id = $1
+    ) interested
+  `,
+
+  COUNT_WITH_FILTERS: `
+    SELECT COUNT(*) as total FROM opportunities
+    WHERE 1=1
+  `,
+
+  FIND_ALL_BASE: `
+    SELECT * FROM opportunities
+    WHERE 1=1
+  `,
+};
+
+/** Columnas por fila del INSERT de items — debe coincidir con el orden de params. */
+const OPPORTUNITY_ITEM_COLUMNS = 9;
+
+/**
+ * INSERT multi-row de items en un solo round-trip. Reemplaza el loop N+1
+ * (un INSERT por item). Genera `VALUES ($1..$9),($10..$18),...` para `rowCount`
+ * filas. El caller aplana los params en el mismo orden de columnas.
+ * `rowCount` debe ser > 0 (los items van muy por debajo del límite de params de PG).
+ */
+export function buildInsertOpportunityItems(rowCount: number): string {
+  const rows: string[] = [];
+  for (let r = 0; r < rowCount; r++) {
+    const base = r * OPPORTUNITY_ITEM_COLUMNS;
+    const placeholders = Array.from({ length: OPPORTUNITY_ITEM_COLUMNS }, (_, c) => `$${base + c + 1}`);
+    rows.push(`(${placeholders.join(',')})`);
+  }
+  return `
+    INSERT INTO opportunity_items (
+      opportunity_id, line_number, product_code,
+      category_code, category_name, product_name,
+      description, unit_measure, quantity
+    ) VALUES ${rows.join(',')}
+    RETURNING *
+  `;
+}
