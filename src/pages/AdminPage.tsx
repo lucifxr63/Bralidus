@@ -21,16 +21,26 @@ interface UserRow {
   total_credits_used: number;
 }
 
+/**
+ * Refleja lo que `api_usage_logs` realmente guarda: id, api_key_id, endpoint,
+ * requests_count, tokens_used, ip_address, created_at.
+ *
+ * Los campos que esa tabla NO tiene (método HTTP, latencia, status, email del
+ * usuario) quedan opcionales y se muestran como "—". Antes se rellenaban con
+ * valores inventados, lo que hacía que la consola de auditoría mostrara
+ * tráfico que nunca ocurrió.
+ */
 interface AuditLogItem {
   id: string;
-  user_id: string;
+  api_key_id?: string;
   user_email?: string;
   endpoint: string;
-  method: string;
-  status: number;
-  duration_ms: number;
-  credits_consumed: number;
-  ip?: string;
+  method?: string;
+  status?: number;
+  duration_ms?: number;
+  tokens_used?: number;
+  requests_count?: number;
+  ip_address?: string;
   created_at: string;
   meta?: Record<string, unknown>;
 }
@@ -103,56 +113,78 @@ export function AdminPage() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      // Fetch profiles / users
+      // Usuarios. Se piden SOLO columnas que `profiles` tiene de verdad: no
+      // existen `email` ni `company_name` (email vive en auth.users, fuera del
+      // alcance del cliente). Pedirlas hacía fallar la consulta entera y el
+      // panel caía siempre a una lista de usuarios inventados.
       const { data: profiles, error: profErr } = await supabase
         .from('profiles')
-        .select('id, email, full_name, company_name, tier, created_at')
+        .select('id, full_name, tier, created_at, startup_name')
         .order('created_at', { ascending: false });
 
-      if (!profErr && profiles) {
-        const mappedUsers: UserRow[] = profiles.map(p => ({
-          id: p.id,
-          email: p.email || 'desconocido@animus.ai',
-          full_name: p.full_name || 'Desarrollador Animus',
-          company_name: p.company_name || 'Autónomo',
-          tier: (p.tier as UserRow['tier']) || 'free',
-          created_at: p.created_at || new Date().toISOString(),
-          api_keys_count: Math.floor(Math.random() * 3) + 1,
-          total_credits_used: Math.floor(Math.random() * 4500) + 120,
-        }));
-        setUsers(mappedUsers);
-      } else {
-        // Mock fallback if table empty
-        setUsers([
-          { id: 'usr-1', email: 'lucianoalonso2000@gmail.com', full_name: 'Luciano Larraín', company_name: 'ScoutTech SpA', tier: 'admin', created_at: '2026-01-10T12:00:00Z', api_keys_count: 5, total_credits_used: 89400 },
-          { id: 'usr-2', email: 'contacto@scouttech.lat', full_name: 'S-Pulse Ops', company_name: 'ScoutTech B2B', tier: 'premium', created_at: '2026-02-15T09:30:00Z', api_keys_count: 2, total_credits_used: 34200 },
-          { id: 'usr-3', email: 'dev.lead@fintech.cl', full_name: 'Andrés Valenzuela', company_name: 'Fintech Latam', tier: 'pro', created_at: '2026-03-01T14:20:00Z', api_keys_count: 1, total_credits_used: 12400 },
-          { id: 'usr-4', email: 'carlos.mendoza@empresa.com', full_name: 'Carlos Mendoza', company_name: 'Mendoza Consultores', tier: 'basic', created_at: '2026-04-12T11:15:00Z', api_keys_count: 1, total_credits_used: 3100 },
-          { id: 'usr-5', email: 'free.dev@gmail.com', full_name: 'Matías Silva', company_name: 'Indie Dev', tier: 'free', created_at: '2026-05-20T16:00:00Z', api_keys_count: 1, total_credits_used: 450 },
-        ]);
+      // Conteo real de API keys por perfil.
+      const { data: keysData } = await supabase.from('api_keys').select('id, profile_id');
+      const keysByProfile = new Map<string, string[]>();
+      for (const k of keysData ?? []) {
+        const list = keysByProfile.get(k.profile_id) ?? [];
+        list.push(k.id);
+        keysByProfile.set(k.profile_id, list);
       }
 
-      // Fetch audit logs / API requests
-      const { data: logsData, error: logErr } = await supabase
-        .from('api_requests_log')
-        .select('*')
+      // Consumo real: api_usage_logs se enlaza al usuario por api_key_id.
+      const { data: usageData } = await supabase
+        .from('api_usage_logs')
+        .select('api_key_id, tokens_used, requests_count, endpoint, ip_address, created_at, id')
         .order('created_at', { ascending: false })
-        .limit(50);
+        .limit(200);
 
-      if (!logErr && logsData && logsData.length > 0) {
-        setAuditLogs(logsData as AuditLogItem[]);
-      } else {
-        // Mock audit log data for demonstration
-        setAuditLogs([
-          { id: 'log-101', user_id: 'usr-1', user_email: 'lucianoalonso2000@gmail.com', endpoint: '/api/v1/query/moe', method: 'POST', status: 200, duration_ms: 340, credits_consumed: 15, ip: '190.160.45.12', created_at: new Date(Date.now() - 1000 * 60 * 2).toISOString(), meta: { expert: 'unit_economics', tokens: 420 } },
-          { id: 'log-102', user_id: 'usr-2', user_email: 'contacto@scouttech.lat', endpoint: '/api/v1/mercado-publico/compradores', method: 'GET', status: 200, duration_ms: 180, credits_consumed: 5, ip: '200.12.55.90', created_at: new Date(Date.now() - 1000 * 60 * 15).toISOString(), meta: { records: 24 } },
-          { id: 'log-103', user_id: 'usr-3', user_email: 'dev.lead@fintech.cl', endpoint: '/api/v1/intelligence/macro', method: 'GET', status: 200, duration_ms: 210, credits_consumed: 10, ip: '186.105.12.3', created_at: new Date(Date.now() - 1000 * 60 * 28).toISOString(), meta: { series: 'FRED_GDP' } },
-          { id: 'log-104', user_id: 'usr-5', user_email: 'free.dev@gmail.com', endpoint: '/api/v1/s-pulse/mesh', method: 'POST', status: 429, duration_ms: 45, credits_consumed: 0, ip: '190.22.100.5', created_at: new Date(Date.now() - 1000 * 60 * 45).toISOString(), meta: { error: 'Rate limit tier free alcanzado' } },
-          { id: 'log-105', user_id: 'usr-4', user_email: 'carlos.mendoza@empresa.com', endpoint: '/api/v1/query/moe', method: 'POST', status: 200, duration_ms: 410, credits_consumed: 15, ip: '201.238.10.88', created_at: new Date(Date.now() - 1000 * 60 * 90).toISOString(), meta: { expert: 'doctrine' } },
-        ]);
+      const tokensByKey = new Map<string, number>();
+      for (const u of usageData ?? []) {
+        tokensByKey.set(u.api_key_id, (tokensByKey.get(u.api_key_id) ?? 0) + (u.tokens_used ?? 0));
       }
-    } catch (_err) {
-      toast.error('Error al cargar datos del panel de control');
+
+      if (profErr) {
+        toast.error(`No se pudieron cargar los perfiles: ${profErr.message}`);
+        setUsers([]);
+      } else {
+        setUsers(
+          (profiles ?? []).map((p) => {
+            const keyIds = keysByProfile.get(p.id) ?? [];
+            return {
+              id: p.id,
+              // `profiles` no guarda email; se muestra el id corto como
+              // identificador en vez de inventar una dirección.
+              email: `${String(p.id).slice(0, 8)}…`,
+              full_name: p.full_name || 'Sin nombre',
+              company_name: p.startup_name || '—',
+              tier: (p.tier as UserRow['tier']) || 'free',
+              created_at: p.created_at || '',
+              api_keys_count: keyIds.length,
+              total_credits_used: keyIds.reduce((sum, id) => sum + (tokensByKey.get(id) ?? 0), 0),
+            };
+          }),
+        );
+      }
+
+      // Auditoría: la tabla real es `api_usage_logs` (la consulta anterior
+      // apuntaba a `api_requests_log`, que no existe, y al fallar mostraba
+      // cinco filas de tráfico ficticio). Los campos que esta tabla no tiene
+      // —método, latencia, status— quedan vacíos y se renderizan como "—".
+      setAuditLogs(
+        (usageData ?? []).slice(0, 50).map((u) => ({
+          id: u.id,
+          api_key_id: u.api_key_id,
+          endpoint: u.endpoint,
+          tokens_used: u.tokens_used ?? undefined,
+          requests_count: u.requests_count ?? undefined,
+          ip_address: u.ip_address ?? undefined,
+          created_at: u.created_at,
+        })),
+      );
+    } catch (err) {
+      toast.error(
+        `Error al cargar datos del panel: ${err instanceof Error ? err.message : String(err)}`,
+      );
     } finally {
       setLoading(false);
     }
@@ -256,9 +288,9 @@ export function AdminPage() {
     const matchStatus = statusFilter === 'all' ||
                         (statusFilter === '200' && l.status === 200) ||
                         (statusFilter === '429' && l.status === 429) ||
-                        (statusFilter === '500' && l.status >= 500);
+                        (statusFilter === '500' && (l.status ?? 0) >= 500);
     const matchEndpoint = l.endpoint.toLowerCase().includes(endpointSearch.toLowerCase()) ||
-                          (l.user_email || '').toLowerCase().includes(endpointSearch.toLowerCase());
+                          (l.api_key_id || '').toLowerCase().includes(endpointSearch.toLowerCase());
     return matchStatus && matchEndpoint;
   });
 
@@ -646,12 +678,12 @@ export function AdminPage() {
                 <thead>
                   <tr style={{ background: 'rgba(255,255,255,0.03)', borderBottom: '1px solid rgba(255,255,255,0.08)', color: '#9CA3AF' }}>
                     <th style={{ padding: '14px 20px' }}>Fecha / Hora</th>
-                    <th style={{ padding: '14px 20px' }}>Usuario</th>
+                    <th style={{ padding: '14px 20px' }}>API Key</th>
                     <th style={{ padding: '14px 20px' }}>Endpoint</th>
                     <th style={{ padding: '14px 20px' }}>Método</th>
                     <th style={{ padding: '14px 20px' }}>Status</th>
                     <th style={{ padding: '14px 20px' }}>Latencia</th>
-                    <th style={{ padding: '14px 20px' }}>Créditos</th>
+                    <th style={{ padding: '14px 20px' }}>Tokens</th>
                     <th style={{ padding: '14px 20px' }}>Detalles</th>
                   </tr>
                 </thead>
@@ -661,26 +693,36 @@ export function AdminPage() {
                       <td style={{ padding: '14px 20px', color: '#9CA3AF' }}>
                         {new Date(log.created_at).toLocaleTimeString('es-CL')}
                       </td>
-                      <td style={{ padding: '14px 20px', color: '#FFF', fontWeight: 500 }}>
-                        {log.user_email}
+                      <td style={{ padding: '14px 20px', color: '#FFF', fontWeight: 500, fontFamily: 'monospace' }}>
+                        {log.api_key_id ? `${log.api_key_id.slice(0, 8)}…` : '—'}
                       </td>
                       <td style={{ padding: '14px 20px', color: '#0EB5C6', fontFamily: 'monospace' }}>
                         {log.endpoint}
                       </td>
                       <td style={{ padding: '14px 20px', fontWeight: 600 }}>
-                        <span style={{ color: log.method === 'GET' ? '#10B981' : '#F59E0B' }}>{log.method}</span>
+                        {/* api_usage_logs no registra el método HTTP */}
+                        <span style={{ color: '#6B7280' }}>{log.method ?? '—'}</span>
                       </td>
                       <td style={{ padding: '14px 20px' }}>
-                        <span style={{
-                          background: log.status === 200 ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)',
-                          color: log.status === 200 ? '#10B981' : '#EF4444',
-                          padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 700,
-                        }}>
-                          {log.status}
-                        </span>
+                        {/* api_usage_logs no registra el status HTTP */}
+                        {log.status == null ? (
+                          <span style={{ color: '#6B7280' }}>—</span>
+                        ) : (
+                          <span style={{
+                            background: log.status === 200 ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)',
+                            color: log.status === 200 ? '#10B981' : '#EF4444',
+                            padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 700,
+                          }}>
+                            {log.status}
+                          </span>
+                        )}
                       </td>
-                      <td style={{ padding: '14px 20px', color: '#D1D5DB' }}>{log.duration_ms} ms</td>
-                      <td style={{ padding: '14px 20px', color: '#F59E0B', fontWeight: 600 }}>{log.credits_consumed} pts</td>
+                      <td style={{ padding: '14px 20px', color: '#6B7280' }}>
+                        {log.duration_ms != null ? `${log.duration_ms} ms` : '—'}
+                      </td>
+                      <td style={{ padding: '14px 20px', color: '#F59E0B', fontWeight: 600 }}>
+                        {log.tokens_used != null ? log.tokens_used.toLocaleString('es-CL') : '—'}
+                      </td>
                       <td style={{ padding: '14px 20px' }}>
                         <button
                           onClick={() => setSelectedTrace(log)}

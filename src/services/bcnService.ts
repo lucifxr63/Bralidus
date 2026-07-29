@@ -49,15 +49,31 @@ export interface BcnNormRelation {
   descripcion?: string;
 }
 
-// Token BCN expuesto en frontend/proxy env
-const BCN_API_TOKEN = import.meta.env.VITE_BCN_KEY || '01auaPsIGmgYU7C2Ej4j88ENSEKCQfoyp4vEbxEigKfD1A0T4H0BtNuqgsDM5NuK';
+/**
+ * Token de la API de BCN (Ley Chile).
+ *
+ * Antes había un token hardcodeado como fallback, que quedaba embebido en el
+ * bundle y se servía a cualquier visitante del portal. Se eliminó: si
+ * `VITE_BCN_KEY` no está configurada, las llamadas no se intentan y la UI cae
+ * al corpus curado, en vez de filtrar una credencial.
+ *
+ * Nota: cualquier valor en `VITE_*` es público por definición (Vite lo inlinea
+ * en el bundle). Este token es de solo lectura sobre datos públicos, así que
+ * es un riesgo acotado — pero si en el futuro se necesita una credencial de
+ * verdad privada, tiene que ir detrás del gateway, no acá.
+ */
+const BCN_API_TOKEN = import.meta.env['VITE_BCN_KEY'] ?? '';
 const BCN_BASE_URL = 'https://www.leychile.cl/Consulta/obtxml';
+
+/** Sin token no se llama a la API: se usa directamente el corpus curado. */
+const bcnConfigured = (): boolean => BCN_API_TOKEN.length > 0;
 
 /**
  * Endpoint 1: /servicio/61/ — Buscador general por conceptos o lenguaje natural
  */
 export async function searchBcnNorms(query: string): Promise<BcnNormSummary[]> {
   try {
+    if (!bcnConfigured()) throw new Error('VITE_BCN_KEY no configurada');
     const res = await fetch(`${BCN_BASE_URL}?opt=61&query=${encodeURIComponent(query)}&token=${BCN_API_TOKEN}`);
     if (res.ok) {
       const data = await res.json();
