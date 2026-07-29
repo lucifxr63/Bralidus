@@ -8,11 +8,18 @@ import { PortalLayout } from '@/layouts/PortalLayout';
 import { usePortalData } from '@/hooks/usePortalData';
 
 // Feature Tabs
+// Tabs retirados (29-jul-2026) por no tener dato real detrás:
+//   fase2      — simulador puro, sin fetch: percentiles y benchmarks hardcodeados
+//   fase3      — la "IA predictiva" eran tres if sobre el monto, con spinner
+//                artificial encima para aparentar latencia de inferencia
+//   macro      — indicadores inventados atribuidos al Banco Central y al INE
+//   evidences  — "evidencias" hardcodeadas, con un IPC que además contradecía
+//                al de los otros dos mocks
+// Sus componentes siguen en src/features/ por si se reconstruyen con datos
+// reales, pero ya no se montan ni aparecen en la navegación.
 import { OverviewTab }   from '@/features/overview/OverviewTab';
 import { CostsTab }      from '@/features/costs/CostsTab';
-import { EvidencesTab }  from '@/features/evidences/EvidencesTab';
 import { QuotasTab }     from '@/features/quotas/QuotasTab';
-import { MacroTab }      from '@/features/intelligence/MacroTab';
 import { ForensicTab }   from '@/features/intelligence/ForensicTab';
 import { GraphTab }      from '@/features/intelligence/GraphTab';
 import { PlaygroundTab } from '@/features/playground/PlaygroundTab';
@@ -20,8 +27,6 @@ import { AuditTab }      from '@/features/audit/AuditTab';
 import { ApiKeysTab }    from '@/features/apikeys/ApiKeysTab';
 import { ServicesTab }   from '@/features/services/ServicesTab';
 import { DocsTab }       from '@/features/docs/DocsTab';
-import { Fase2CommercialTab } from '@/features/fase2/Fase2CommercialTab';
-import { Fase3PredictiveTab } from '@/features/fase3/Fase3PredictiveTab';
 import { BcnTab } from '@/features/bcn/BcnTab';
 import { ProfileTab } from '@/features/profile/ProfileTab';
 
@@ -56,14 +61,6 @@ export function DeveloperPortal() {
         />
       )}
 
-      {activeTab === 'fase2' && (
-        <Fase2CommercialTab />
-      )}
-
-      {activeTab === 'fase3' && (
-        <Fase3PredictiveTab />
-      )}
-
       {activeTab === 'bcn' && (
         <BcnTab />
       )}
@@ -72,16 +69,8 @@ export function DeveloperPortal() {
         <CostsTab totalTokens={stats.totalTokens} />
       )}
 
-      {activeTab === 'evidences' && (
-        <EvidencesTab />
-      )}
-
       {activeTab === 'quotas' && (
         <QuotasTab usageCount={stats.totalReqs} />
-      )}
-
-      {activeTab === 'macro' && (
-        <MacroTab />
       )}
 
       {activeTab === 'forensic' && (

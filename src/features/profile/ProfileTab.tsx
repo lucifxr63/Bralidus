@@ -1,23 +1,60 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { User, Building, ShieldCheck, Bell, Save, CheckCircle2, Smartphone, FileText } from 'lucide-react';
 import { toast } from 'sonner';
+import { supabase } from '@/lib/supabase';
 
+/**
+ * Perfil del usuario.
+ *
+ * Antes esta pantalla no persistía NADA: los campos venían con los datos
+ * personales del dueño de la cuenta hardcodeados como valores por defecto, y
+ * `handleSaveProfile` solo lanzaba un toast de éxito. El usuario creía haber
+ * guardado.
+ *
+ * Ahora se cargan y se guardan de verdad los dos campos que la tabla
+ * `profiles` soporta (`full_name`, `startup_name`). El resto —teléfono, cargo,
+ * RUT de empresa, industria, sitio web, 2FA— no tiene columna ni backend
+ * detrás: quedan deshabilitados y anotados, en vez de fingir que se guardan.
+ */
 export function ProfileTab() {
   const [activeSubTab, setActiveSubTab] = useState<'account' | 'company' | 'security' | 'notifications'>('account');
   const [savedSuccess, setSavedSuccess] = useState(false);
+  const [saving, setSaving] = useState(false);
 
-  // Form State
-  const [fullName, setFullName] = useState('Luciano Alonso Larraín');
-  const [email, setEmail] = useState('luciano@scouttech.lat');
-  const [phone, setPhone] = useState('+56 9 8765 4321');
-  const [jobTitle, setJobTitle] = useState('Chief Executive Officer & Founder');
+  // Campos con respaldo real en `profiles`
+  const [fullName, setFullName] = useState('');
+  const [companyName, setCompanyName] = useState('');
 
-  // Company State
-  const [companyName, setCompanyName] = useState('Scouttech SpA');
-  const [companyRut, setCompanyRut] = useState('78.464.421-9');
-  const [industry, setIndustry] = useState('SaaS & Intelligence / B2G Technology');
-  const [website, setWebsite] = useState('https://animus.scouttech.lat');
-  const [siiStatus] = useState('Pendiente de Inicio de Actividades (SII)');
+  // Sin respaldo: se muestran deshabilitados (ver docblock)
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [jobTitle, setJobTitle] = useState('');
+  const [companyRut, setCompanyRut] = useState('');
+  const [industry, setIndustry] = useState('');
+  const [website, setWebsite] = useState('');
+  const [siiStatus] = useState('—');
+
+  useEffect(() => {
+    (async () => {
+      const { data: auth } = await supabase.auth.getUser();
+      if (auth?.user?.email) setEmail(auth.user.email);
+      if (!auth?.user?.id) return;
+
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('full_name, startup_name, startup_sector')
+        .eq('id', auth.user.id)
+        .maybeSingle();
+
+      if (error) {
+        toast.error(`No se pudo cargar el perfil: ${error.message}`);
+        return;
+      }
+      setFullName(data?.full_name ?? '');
+      setCompanyName(data?.startup_name ?? '');
+      setIndustry(data?.startup_sector ?? '');
+    })();
+  }, []);
 
   // Security State
   const [currentPassword, setCurrentPassword] = useState('');
@@ -30,11 +67,34 @@ export function ProfileTab() {
   const [notifyQuota, setNotifyQuota] = useState(true);
   const [notifyWebhooks, setNotifyWebhooks] = useState(true);
 
-  const handleSaveProfile = (e: React.FormEvent) => {
+  const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSavedSuccess(true);
-    toast.success('Perfil y preferencias actualizadas correctamente en Animus Engine');
-    setTimeout(() => setSavedSuccess(false), 3000);
+    setSaving(true);
+    try {
+      const { data: auth } = await supabase.auth.getUser();
+      if (!auth?.user?.id) {
+        toast.error('Sesión no válida: vuelve a iniciar sesión.');
+        return;
+      }
+
+      // Solo se persiste lo que la tabla soporta. Antes se anunciaba éxito sin
+      // escribir nada.
+      const { error } = await supabase
+        .from('profiles')
+        .update({ full_name: fullName, startup_name: companyName })
+        .eq('id', auth.user.id);
+
+      if (error) {
+        toast.error(`No se pudo guardar: ${error.message}`);
+        return;
+      }
+
+      setSavedSuccess(true);
+      toast.success('Nombre y empresa guardados.');
+      setTimeout(() => setSavedSuccess(false), 3000);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const cardStyle = { background: '#0E0E1A', border: '1px solid rgba(108,60,225,0.12)', borderRadius: 16, overflow: 'hidden' };
@@ -105,6 +165,7 @@ export function ProfileTab() {
                   <input
                     type="email"
                     value={email}
+                    disabled
                     onChange={e => setEmail(e.target.value)}
                     style={{ width: '100%', padding: '10px 14px', background: '#090914', border: '1px solid rgba(108,60,225,0.2)', borderRadius: 8, color: '#E8E7F5', fontSize: 13, outline: 'none' }}
                   />
@@ -115,6 +176,7 @@ export function ProfileTab() {
                   <input
                     type="text"
                     value={jobTitle}
+                    disabled
                     onChange={e => setJobTitle(e.target.value)}
                     style={{ width: '100%', padding: '10px 14px', background: '#090914', border: '1px solid rgba(108,60,225,0.2)', borderRadius: 8, color: '#E8E7F5', fontSize: 13, outline: 'none' }}
                   />
@@ -125,6 +187,7 @@ export function ProfileTab() {
                   <input
                     type="text"
                     value={phone}
+                    disabled
                     onChange={e => setPhone(e.target.value)}
                     style={{ width: '100%', padding: '10px 14px', background: '#090914', border: '1px solid rgba(108,60,225,0.2)', borderRadius: 8, color: '#E8E7F5', fontSize: 13, outline: 'none' }}
                   />
@@ -159,6 +222,7 @@ export function ProfileTab() {
                   <input
                     type="text"
                     value={companyRut}
+                    disabled
                     onChange={e => setCompanyRut(e.target.value)}
                     style={{ width: '100%', padding: '10px 14px', background: '#090914', border: '1px solid rgba(108,60,225,0.2)', borderRadius: 8, color: '#4ADE80', fontSize: 13, fontWeight: 800, fontFamily: 'monospace', outline: 'none' }}
                   />
@@ -169,6 +233,7 @@ export function ProfileTab() {
                   <input
                     type="text"
                     value={industry}
+                    disabled
                     onChange={e => setIndustry(e.target.value)}
                     style={{ width: '100%', padding: '10px 14px', background: '#090914', border: '1px solid rgba(108,60,225,0.2)', borderRadius: 8, color: '#E8E7F5', fontSize: 13, outline: 'none' }}
                   />
@@ -179,6 +244,7 @@ export function ProfileTab() {
                   <input
                     type="text"
                     value={website}
+                    disabled
                     onChange={e => setWebsite(e.target.value)}
                     style={{ width: '100%', padding: '10px 14px', background: '#090914', border: '1px solid rgba(108,60,225,0.2)', borderRadius: 8, color: '#E8E7F5', fontSize: 13, outline: 'none' }}
                   />
@@ -197,6 +263,7 @@ export function ProfileTab() {
                     type="password"
                     placeholder="••••••••••••"
                     value={currentPassword}
+                    disabled
                     onChange={e => setCurrentPassword(e.target.value)}
                     style={{ width: '100%', padding: '10px 14px', background: '#090914', border: '1px solid rgba(108,60,225,0.2)', borderRadius: 8, color: '#E8E7F5', fontSize: 13, outline: 'none' }}
                   />
@@ -208,6 +275,7 @@ export function ProfileTab() {
                     type="password"
                     placeholder="••••••••••••"
                     value={newPassword}
+                    disabled
                     onChange={e => setNewPassword(e.target.value)}
                     style={{ width: '100%', padding: '10px 14px', background: '#090914', border: '1px solid rgba(108,60,225,0.2)', borderRadius: 8, color: '#E8E7F5', fontSize: 13, outline: 'none' }}
                   />
@@ -265,17 +333,26 @@ export function ProfileTab() {
 
           {/* Submit Button */}
           <div style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <button
-              type="submit"
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 22px',
-                background: 'linear-gradient(135deg, #6C3CE1 0%, #8B5CF6 100%)', borderRadius: 10,
-                color: '#fff', fontSize: 13, fontWeight: 800, border: 'none', cursor: 'pointer',
-                boxShadow: '0 4px 14px rgba(108,60,225,0.3)',
-              }}
-            >
-              <Save style={{ width: 15, height: 15 }} /> Guardar Cambios
-            </button>
+            <div>
+              <button
+                type="submit"
+                disabled={saving}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 22px',
+                  background: 'linear-gradient(135deg, #6C3CE1 0%, #8B5CF6 100%)', borderRadius: 10,
+                  color: '#fff', fontSize: 13, fontWeight: 800, border: 'none',
+                  cursor: saving ? 'default' : 'pointer', opacity: saving ? 0.6 : 1,
+                  boxShadow: '0 4px 14px rgba(108,60,225,0.3)',
+                }}
+              >
+                <Save style={{ width: 15, height: 15 }} /> {saving ? 'Guardando…' : 'Guardar Cambios'}
+              </button>
+              <p style={{ fontSize: 11, color: '#5A5A78', margin: '8px 0 0', maxWidth: 420 }}>
+                Se guardan el nombre y la empresa. Los campos atenuados aún no
+                tienen dónde almacenarse, así que están deshabilitados en vez de
+                aparentar que se guardan.
+              </p>
+            </div>
 
             {savedSuccess && (
               <span style={{ fontSize: 12, fontWeight: 700, color: '#10B981', display: 'flex', alignItems: 'center', gap: 6 }}>

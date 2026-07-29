@@ -176,7 +176,8 @@ export function QuotasTab({ usageCount }: QuotasTabProps) {
   }, [filteredEndpoints]);
 
   const tierMeta = TIER_SPECS.find(t => t.name.toLowerCase() === currentTier) ?? TIER_SPECS[1];
-  const creditsUsed = usageCount || 420;
+  // Antes `usageCount || 420`: sin consumo real inventaba 420 créditos usados.
+  const creditsUsed = usageCount ?? 0;
   const creditLimit = tierMeta.credits;
   const pctUsed = Math.min(100, Math.round((creditsUsed / creditLimit) * 100));
 

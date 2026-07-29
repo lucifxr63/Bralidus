@@ -10,14 +10,11 @@ interface ServicesTabProps {
   onRefresh: () => void;
 }
 
-const FALLBACK_SERVICES = [
-  { name: 'FastAPI Gateway (AnimusPY)', latency: '42ms', desc: 'MoE Engine & Gating Router' },
-  { name: 'pgvector HNSW Store', latency: '12ms', desc: '687 nodos vectoriales' },
-  { name: 'BCCh Extractor Job', latency: '180ms', desc: 'TPM, IPC, Imacec' },
-  { name: 'CMF Regulatory Extractor', latency: '210ms', desc: 'Hechos esenciales & Ley Fintech' },
-  { name: 'S-Pulse Societario Graph', latency: '65ms', desc: 'Redes societarias chilenas' },
-  { name: 'Licitus B2G Intelligence', latency: '95ms', desc: 'Órdenes de compra Mercado Público' },
-];
+// Aquí había un FALLBACK_SERVICES con seis servicios fijos, todos badgeados
+// "OPERACIONAL" y con latencias inventadas (42ms, 12ms, 180ms…). Se renderizaba
+// justo cuando el fetch de /health/services fallaba o volvía vacío — es decir,
+// **una caída total del backend se veía toda verde**. Eliminado: si no hay
+// datos de salud, se dice que no los hay.
 
 export function ServicesTab({ services, servicesLoading, servicesCheckedAt, onRefresh }: ServicesTabProps) {
   const [selectedService, setSelectedService] = useState<ServiceInfo | null>(null);
@@ -80,17 +77,15 @@ export function ServicesTab({ services, servicesLoading, servicesCheckedAt, onRe
               ))}
             </div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 }}>
-              {FALLBACK_SERVICES.map((svc, i) => (
-                <div key={i} style={{ padding: 14, borderRadius: 12, background: 'rgba(108,60,225,0.04)', border: '1px solid rgba(108,60,225,0.10)' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-                    <span style={{ fontSize: 12.5, fontWeight: 700, color: '#D4D2F0' }}>{svc.name}</span>
-                    <span style={{ fontSize: 9.5, fontWeight: 700, padding: '2px 8px', borderRadius: 100, background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.22)', color: '#34D399' }}>OPERACIONAL</span>
-                  </div>
-                  <p style={{ fontSize: 11.5, color: '#5A5A78', margin: '0 0 6px' }}>{svc.desc}</p>
-                  <p style={{ fontSize: 11, fontFamily: 'monospace', color: '#0EB5C6', margin: 0 }}>Latencia: {svc.latency}</p>
-                </div>
-              ))}
+            <div style={{ padding: '28px 20px', textAlign: 'center' }}>
+              <Server style={{ width: 26, height: 26, color: '#4A4870', marginBottom: 10 }} />
+              <p style={{ fontSize: 13, fontWeight: 600, color: '#9CA3AF', margin: '0 0 4px' }}>
+                Sin datos de salud
+              </p>
+              <p style={{ fontSize: 11.5, color: '#5A5A78', margin: 0 }}>
+                No se pudo consultar el estado de los microservicios. Esto puede
+                significar que el gateway está caído — no que los servicios estén bien.
+              </p>
             </div>
           )}
         </div>

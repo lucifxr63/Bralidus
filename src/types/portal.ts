@@ -1,19 +1,17 @@
 // ─── Animus Developer Portal — Shared Types ─────────────────────────────
 
+// 'evidences', 'macro', 'fase2' y 'fase3' se retiraron el 29-jul-2026: no
+// tenían dato real detrás (ver nota en pages/DeveloperPortal.tsx).
 export type Tab =
   | 'overview'
   | 'costs'
-  | 'evidences'
   | 'quotas'
-  | 'macro'
   | 'forensic'
   | 'graph'
   | 'playground'
   | 'audit'
   | 'apikeys'
   | 'services'
-  | 'fase2'
-  | 'fase3'
   | 'bcn'
   | 'docs'
   | 'profile';

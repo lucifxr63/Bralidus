@@ -4,8 +4,8 @@ import { Shield } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import {
-  Activity, Zap, Database, ShieldCheck, TrendingDown, Radio,
-  Brain, Play, Search, Key, Server, BookOpen, ShoppingBag,
+  Activity, Zap, ShieldCheck, Radio,
+  Brain, Play, Search, Key, Server, BookOpen,
   Plus, Menu, X, ChevronDown, ChevronRight, LogOut, User, Scale,
 } from 'lucide-react';
 import type { Tab } from '@/types/portal';
@@ -29,8 +29,6 @@ const NAV_SECTIONS: NavSection[] = [
     title: 'Mercado Público (B2G)',
     items: [
       { id: 'overview',  label: 'Resumen',            icon: Activity },
-      { id: 'fase2',     label: 'Fase 2 Comercial',   icon: ShoppingBag,  badge: 'v2.0', badgeColor: '#F59E0B' },
-      { id: 'fase3',     label: 'Fase 3 IA Predictiva', icon: Brain,     badge: 'v3.0', badgeColor: '#C084FC' },
     ],
   },
   {
@@ -38,8 +36,6 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { id: 'bcn',       label: 'Ley Chile BCN',      icon: Scale,        badge: 'BCN',  badgeColor: '#10B981' },
       { id: 'costs',     label: 'Costos RaaS',        icon: Zap,          badge: 'MoE',  badgeColor: '#0EB5C6' },
-      { id: 'evidences', label: 'Muro Evidencias',    icon: Database,     badge: 'MoP',  badgeColor: '#8B5CF6' },
-      { id: 'macro',     label: 'Intel Macro',        icon: TrendingDown, badge: 'FRED', badgeColor: '#F59E0B' },
       { id: 'forensic',  label: 'Radar Forense',      icon: Radio },
       { id: 'graph',     label: 'Knowledge Graph',    icon: Brain },
     ],
@@ -438,13 +434,9 @@ export function PortalLayout({ activeTab, setActiveTab, onNewKey, children }: Po
 function getTabTitle(tab: Tab): string {
   const titles: Record<Tab, string> = {
     overview:   'Resumen del Portal',
-    fase2:      'Mercado Público · Fase 2 Comercial',
-    fase3:      'Mercado Público · Fase 3 IA Predictiva & Modalidades',
     bcn:        'Ley Chile · Biblioteca del Congreso Nacional (BCN)',
     costs:      'Costos RaaS · MoE',
-    evidences:  'Muro de Evidencias',
     quotas:     'Cuotas & Tiers',
-    macro:      'Inteligencia Macroeconómica',
     forensic:   'Radar Forense',
     graph:      'Knowledge Graph',
     playground: 'Playground API',
@@ -460,13 +452,9 @@ function getTabTitle(tab: Tab): string {
 function getTabSubtitle(tab: Tab): string {
   const subtitles: Record<Tab, string> = {
     overview:   'Estado del sistema Animus, estadísticas y actividad reciente.',
-    fase2:      'Analítica de precios, perfil 360° de compradores/proveedores, webhooks y exportaciones masivas.',
-    fase3:      'Scoring de compatibilidad, predicción Win Probability %, recomendador algorítmico y modalidades B2G.',
     bcn:        'Buscador jurídico, estructura JSON de normas, alertas regulatorias e historial de versiones BCN.',
     costs:      'Detalle de consumo de tokens y créditos del motor Mixture of Experts (MoE).',
-    evidences:  'Log de evidencias RAG y citas de procedencia procesadas.',
     quotas:     'Consumo vs límites por tier. Alertas y upgrades de plan.',
-    macro:      'Indicadores del Banco Central de Chile y series macroeconómicas FRED.',
     forensic:   'Auditoría y detección de patrones de conflicto o duplicidad.',
     graph:      'Visualización de relaciones en la base de conocimiento.',
     playground: 'Prueba endpoints interactivamente con tu API Key.',
