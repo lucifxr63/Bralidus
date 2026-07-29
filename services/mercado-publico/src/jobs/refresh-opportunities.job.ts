@@ -33,6 +33,17 @@ import { AppError } from '../shared/errors/app-error.js';
 
 const JOB_NAME = 'refresh-opportunities';
 
+/**
+ * Sobre esta fracción de intentos fallidos, la corrida se reporta 'failed'
+ * aunque algunos items hayan pasado. Es lo que hace que la alerta de ops se
+ * dispare: `sendOpsAlert` sólo mira `status === 'failed'`.
+ *
+ * Medio es deliberadamente exigente para un job de refresco: re-consultar
+ * detalles que YA se ingirieron antes debería fallar poco. Si falla la mitad,
+ * hay algo roto aguas arriba y se quiere saber.
+ */
+const FAILURE_RATE_THRESHOLD = 0.5;
+
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 
 // ── Helpers puros (testeables) ────────────────────────────────
@@ -221,16 +232,41 @@ export async function runRefreshOpportunitiesJob(): Promise<void> {
     // con la invocación. notifyLicitus nunca lanza.
     await notifyLicitus(events);
 
+    // El estado se decide por TASA de fallo, no por "hubo al menos un éxito".
+    //
+    // Antes era `failed > 0 && refreshed === 0`, o sea que un solo acierto
+    // bastaba para reportar 'success'. El 2026-07-29 este job cerró en
+    // 'success' con refreshed=1 y failed=149 — y como la alerta de ops sólo
+    // mira `status === 'failed'`, nadie se enteró de que el 99% se caía.
+    // El mismo patrón que veníamos corrigiendo en el gateway, acá adentro.
+    const attempted = stats.refreshed + stats.failed;
+    const failureRate = attempted > 0 ? stats.failed / attempted : 0;
+    const degraded = failureRate >= FAILURE_RATE_THRESHOLD;
+
     await syncLogRepository.complete(logId, {
-      status: stats.failed > 0 && stats.refreshed === 0 ? 'failed' : 'success',
+      status: degraded ? 'failed' : 'success',
       totalFound: stats.candidates,
       totalProcessed: stats.candidates,
       totalSucceeded: stats.refreshed,
       totalFailed: stats.failed,
       totalSkipped: stats.skipped,
+      ...(degraded
+        ? {
+            errorCodes: ['HIGH_FAILURE_RATE'],
+            errorDetails: [
+              {
+                failureRate: Number(failureRate.toFixed(3)),
+                threshold: FAILURE_RATE_THRESHOLD,
+                refreshed: stats.refreshed,
+                failed: stats.failed,
+              },
+            ],
+          }
+        : {}),
       metadata: {
         statusChanges: stats.statusChanges,
         eventsEmitted: stats.eventsEmitted,
+        failureRate: Number(failureRate.toFixed(3)),
       },
     });
 

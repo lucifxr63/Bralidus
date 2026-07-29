@@ -80,12 +80,26 @@ export const SQL = {
    * Los status finales ('7' desierta, '8' adjudicada, '15' revocada, '18'/'19')
    * no se refrescan. status_code se guarda como TEXT ('5' o '05' según fuente).
    */
+  /*
+   * Candidatos para el refresh dirigido.
+   *
+   * Se excluye 'compra_agil' además de 'private': refresh-opportunities
+   * re-consulta el detalle contra `publico/licitaciones.json` (API v1), y los
+   * códigos COT NO existen ahí — pedirlos devuelve error. Antes entraban al
+   * lote y fallaban todos; peor aún, a los 5 fallos seguidos se abría el
+   * circuit breaker de ese endpoint y arrastraba también a las licitaciones
+   * legítimas del mismo lote. El 2026-07-29 esto daba 150 de 150 fallidas.
+   *
+   * Las Compras Ágiles no quedan sin refrescar: `sync-compra-agil` corre en
+   * modo incremental (COMPRA_AGIL_INCREMENTAL_HOURS) contra la API v2, que es
+   * la única que las conoce.
+   */
   FIND_REFRESH_CANDIDATES: `
     SELECT * FROM (
       SELECT DISTINCT ON (id) id, external_code, status_code, closing_at, priority FROM (
         SELECT o.id, o.external_code, o.status_code, o.closing_at, 1 AS priority
         FROM opportunities o
-        WHERE o.source_type <> 'private'
+        WHERE o.source_type NOT IN ('private', 'compra_agil')
           AND (
             EXISTS (SELECT 1 FROM saved_opportunities s WHERE s.opportunity_id = o.id)
             OR EXISTS (SELECT 1 FROM opportunity_pipeline p WHERE p.opportunity_id = o.id)
@@ -95,13 +109,13 @@ export const SQL = {
         UNION ALL
         SELECT o.id, o.external_code, o.status_code, o.closing_at, 2
         FROM opportunities o
-        WHERE o.source_type <> 'private'
+        WHERE o.source_type NOT IN ('private', 'compra_agil')
           AND o.status_code IN ('5','05')
           AND o.closing_at BETWEEN NOW() AND NOW() + INTERVAL '72 hours'
         UNION ALL
         SELECT o.id, o.external_code, o.status_code, o.closing_at, 3
         FROM opportunities o
-        WHERE o.source_type <> 'private'
+        WHERE o.source_type NOT IN ('private', 'compra_agil')
           AND o.status_code IN ('5','05','6','06')
           AND o.closing_at BETWEEN NOW() - INTERVAL '30 days' AND NOW()
           AND o.award_act_url IS NULL

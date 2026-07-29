@@ -20,6 +20,9 @@ import { AppError } from '../shared/errors/app-error.js';
 
 const JOB_NAME = 'enrich-ordenes';
 
+/** Ver la nota en refresh-opportunities.job.ts: mismo criterio, misma razón. */
+const FAILURE_RATE_THRESHOLD = 0.5;
+
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 
 // ── Helper puro (testeable) ───────────────────────────────────
@@ -116,15 +119,37 @@ export async function runEnrichOrdenesJob(): Promise<void> {
       if (env.SYNC_REQUEST_DELAY_MS > 0) await sleep(env.SYNC_REQUEST_DELAY_MS);
     }
 
+    // Estado por TASA de fallo, no por "hubo al menos un éxito" — mismo criterio
+    // y misma razón que en refresh-opportunities.job.ts (ver nota allá): con la
+    // condición anterior, un único acierto enmascaraba cualquier cantidad de
+    // fallos y la alerta de ops nunca se disparaba.
+    const attempted = stats.enriched + stats.failed;
+    const failureRate = attempted > 0 ? stats.failed / attempted : 0;
+    const degraded = failureRate >= FAILURE_RATE_THRESHOLD;
+
     await syncLogRepository.complete(logId, {
-      status: stats.failed > 0 && stats.enriched === 0 ? 'failed' : 'success',
+      status: degraded ? 'failed' : 'success',
       totalFound: stats.candidates,
       totalProcessed: stats.candidates,
       totalSucceeded: stats.enriched,
       totalFailed: stats.failed,
+      ...(degraded
+        ? {
+            errorCodes: ['HIGH_FAILURE_RATE'],
+            errorDetails: [
+              {
+                failureRate: Number(failureRate.toFixed(3)),
+                threshold: FAILURE_RATE_THRESHOLD,
+                enriched: stats.enriched,
+                failed: stats.failed,
+              },
+            ],
+          }
+        : {}),
       metadata: {
         stillIncomplete: stats.stillIncomplete,
         notFound: stats.notFound,
+        failureRate: Number(failureRate.toFixed(3)),
       },
     });
 
