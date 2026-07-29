@@ -3,9 +3,10 @@ import react from '@vitejs/plugin-react';
 import path from 'path';
 import fs from 'fs';
 
+const BUILD_VERSION = Date.now().toString();
+
 // Genera un archivo public/version.json con timestamp único de compilación
 const versionPlugin = () => {
-  const version = Date.now().toString();
   return {
     name: 'vite-plugin-version',
     buildStart() {
@@ -15,7 +16,7 @@ const versionPlugin = () => {
       }
       fs.writeFileSync(
         path.join(publicDir, 'version.json'),
-        JSON.stringify({ version, builtAt: new Date().toISOString() }, null, 2)
+        JSON.stringify({ version: BUILD_VERSION, builtAt: new Date().toISOString() }, null, 2)
       );
     },
   };
@@ -24,7 +25,7 @@ const versionPlugin = () => {
 export default defineConfig({
   plugins: [react(), versionPlugin()],
   define: {
-    __APP_BUILD_TIME__: JSON.stringify(Date.now().toString()),
+    __APP_BUILD_TIME__: JSON.stringify(BUILD_VERSION),
   },
   resolve: {
     alias: {

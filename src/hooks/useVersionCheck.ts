@@ -1,15 +1,17 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { toast } from 'sonner';
 
 interface VersionData {
   version: string;
   builtAt?: string;
 }
 
-export function useVersionCheck(intervalSeconds = 30) {
+export function useVersionCheck(intervalSeconds = 15) {
   const [hasUpdate, setHasUpdate] = useState(false);
   const initialVersionRef = useRef<string | null>(
     typeof __APP_BUILD_TIME__ !== 'undefined' ? __APP_BUILD_TIME__ : null
   );
+  const notifiedRef = useRef(false);
 
   const checkVersion = useCallback(async () => {
     try {
@@ -31,9 +33,29 @@ export function useVersionCheck(intervalSeconds = 30) {
         return;
       }
 
-      // Si la versión del servidor difiere de la local, marcamos update
+      // Si la versión del servidor difiere de la local, marcamos update y notificamos
       if (data.version !== initialVersionRef.current) {
         setHasUpdate(true);
+        if (!notifiedRef.current) {
+          notifiedRef.current = true;
+          toast.message('⚡ Nueva versión disponible', {
+            description: 'Se ha publicado una actualización en producción. Haz clic para refrescar la página y cargar los cambios.',
+            action: {
+              label: 'Actualizar ahora',
+              onClick: () => {
+                if ('caches' in window) {
+                  caches.keys().then((names) => {
+                    names.forEach((name) => caches.delete(name));
+                  });
+                }
+                const url = new URL(window.location.href);
+                url.searchParams.set('v', Date.now().toString());
+                window.location.replace(url.toString());
+              },
+            },
+            duration: 20000,
+          });
+        }
       }
     } catch (err) {
       // Si el fetch falla (ej: sin conexión momentánea), ignoramos en silencio
@@ -41,36 +63,41 @@ export function useVersionCheck(intervalSeconds = 30) {
   }, []);
 
   useEffect(() => {
-    // Comprobar versión al inicio por si cambió mientras no estaba cargado
     checkVersion();
-
-    // Comprobar periódicamente
     const interval = setInterval(checkVersion, intervalSeconds * 1000);
 
-    // Comprobar cuando el usuario vuelve a la pestaña
-    const handleFocus = () => {
-      checkVersion();
+    const handleActivity = () => {
+      if (document.visibilityState === 'visible') {
+        checkVersion();
+      }
     };
-    window.addEventListener('focus', handleFocus);
+
+    window.addEventListener('focus', handleActivity);
+    document.addEventListener('visibilitychange', handleActivity);
 
     return () => {
       clearInterval(interval);
-      window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('focus', handleActivity);
+      document.removeEventListener('visibilitychange', handleActivity);
     };
   }, [checkVersion, intervalSeconds]);
 
   const hardRefresh = useCallback(() => {
-    // Limpiar service workers y cachés de almacenamiento estático
     if ('caches' in window) {
       caches.keys().then((names) => {
         names.forEach((name) => caches.delete(name));
       });
     }
 
-    // Recargar con cache-buster para forzar la bajada del nuevo index.html y assets
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then((registrations) => {
+        registrations.forEach((reg) => reg.unregister());
+      });
+    }
+
     const url = new URL(window.location.href);
-    url.searchParams.set('refresh', Date.now().toString());
-    window.location.href = url.toString();
+    url.searchParams.set('v', Date.now().toString());
+    window.location.replace(url.toString());
   }, []);
 
   return {
