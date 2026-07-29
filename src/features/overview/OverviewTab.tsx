@@ -21,6 +21,48 @@ export function OverviewTab({ stats, loading, logs, onNavigate }: OverviewTabPro
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+      {/* Quick Connect AI & API Banner */}
+      <div style={{
+        background: 'linear-gradient(90deg, rgba(108,60,225,0.18), rgba(14,181,198,0.15))',
+        border: '1px solid rgba(108,60,225,0.4)',
+        borderRadius: 14,
+        padding: '14px 20px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        flexWrap: 'wrap',
+        gap: 12
+      }}>
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 800, color: '#F3F2FD', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span>🔌 ¿Listo para conectar tu API o Asistente de IA (Cursor / Claude)?</span>
+            <span style={{ fontSize: 10, background: 'rgba(14,181,198,0.2)', color: '#0EB5C6', padding: '2px 7px', borderRadius: 4, fontWeight: 700 }}>
+              llms.txt Ready
+            </span>
+          </div>
+          <div style={{ fontSize: 12, color: '#A8A6C8', marginTop: 3 }}>
+            Copia la Base URL de Producción y los snippets para IDE en nuestro Hub de Conexión.
+          </div>
+        </div>
+        <button
+          onClick={() => onNavigate('apikeys')}
+          style={{
+            background: 'linear-gradient(135deg, #6C3CE1, #0EB5C6)',
+            border: 'none',
+            borderRadius: 8,
+            padding: '8px 16px',
+            color: '#fff',
+            fontSize: 12,
+            fontWeight: 700,
+            cursor: 'pointer',
+            boxShadow: '0 4px 14px rgba(108,60,225,0.35)',
+            transition: 'transform 0.15s',
+          }}
+        >
+          Ir al Hub de Conexión →
+        </button>
+      </div>
+
       {/* KPI Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14 }}>
         {kpis.map(({ label, value, icon: Icon, accent, bg }) => (

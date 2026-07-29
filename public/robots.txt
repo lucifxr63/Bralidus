@@ -1,0 +1,23 @@
+# robots.txt para Animus Engine / Bralidus RaaS Developer Portal
+# Sigue el estándar moderno de accesibilidad para LLMs y Agentes IA (Fintoc / llms.txt standard)
+
+User-agent: *
+Allow: /
+Allow: /llms.txt
+Allow: /llms-full.txt
+Allow: /api-reference.md
+
+# Crawlers específicos de IA autorizados para indexación e ingesta documental
+User-agent: GPTBot
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Cursor
+Allow: /
+
+Sitemap: https://bralidus.vercel.app/sitemap.xml

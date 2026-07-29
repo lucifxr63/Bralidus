@@ -8,6 +8,7 @@ import {
   List, Search, ChevronDown, ChevronUp,
 } from 'lucide-react';
 import type { ApiKey, WebhookSub, ApiUsageLog } from '@/types/portal';
+import { ApiConnectionHub } from './ApiConnectionHub';
 
 const LOGS_PER_PAGE = 15;
 
@@ -131,6 +132,7 @@ export function ApiKeysTab({ keys, setKeys, logs, loading, webhooks, setWebhooks
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <ApiConnectionHub />
 
       {/* ── API Keys ────────────────────────────────── */}
       <div style={cardStyle}>
