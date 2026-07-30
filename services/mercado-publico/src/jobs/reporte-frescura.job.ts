@@ -318,28 +318,67 @@ export async function runReporteFrescuraJob(): Promise<void> {
 
     // ── Publicación ──────────────────────────────────────────────────────────
     const degradadas = filas.filter((f) => f.estado !== '✅').length;
+    const serviciosConIncidentes = filas.filter((f) => f.estado !== '✅');
 
-    const campos = filas.map((f) => ({
+    const camposTodos = filas.map((f) => ({
       name: `${f.estado} ${f.etiqueta}`,
       value: `**${f.valor}**\n${f.detalle}`,
       inline: true,
     }));
 
-    const resumen = degradadas === 0
+    const camposIncidentes = serviciosConIncidentes.map((f) => ({
+      name: `${f.estado} ${f.etiqueta}`,
+      value: `**${f.valor}**\n${f.detalle}`,
+      inline: true,
+    }));
+
+    const resumenFrescura = degradadas === 0
       ? '**Todo al día.** Ninguna de las 11 fuentes requiere atención en Animus Engine.'
       : `**${degradadas} de ${filas.length} fuentes** requieren atención en el mapa 360°.`;
 
+    // 1. Canal #ops-frescura (Radiografía completa 360°)
     await sendOpsAlert({
       level: degradadas === 0 ? 'info' : 'warn',
       channel: 'frescura',
       title: `Frescura de datos · Animus Engine 360° · ${new Date().toISOString().slice(0, 10)}`,
-      detail: resumen,
-      fields: campos,
+      detail: resumenFrescura,
+      fields: camposTodos,
       footer: `${filas.length} fuentes medidas · Animus Engine 360°`,
       dedupeKey: `frescura-360:${new Date().toISOString().slice(0, 10)}`,
     });
 
-    logger.info({ filas: filas.length, degradadas }, `[${JOB_NAME}] reporte publicado`);
+    // 2. Canal #ops-latido (Latido de los 11 servicios)
+    const resumenLatido = degradadas === 0
+      ? '**11/11 servicios activos y sincronizados.** Latido 360° saludable en Animus Engine.'
+      : `**Latido 360°:** ${degradadas} de ${filas.length} servicios presentan rezago o interrupción.`;
+
+    await sendOpsAlert({
+      level: degradadas === 0 ? 'info' : 'warn',
+      channel: 'latido',
+      title: `Latido 360° · Estado de 11 servicios · ${new Date().toISOString().slice(0, 10)}`,
+      detail: resumenLatido,
+      fields: camposTodos,
+      footer: `${filas.length} servicios monitoreados · Latido 360° · Animus Engine`,
+      dedupeKey: `latido-360:${new Date().toISOString().slice(0, 10)}`,
+    });
+
+    // 3. Canal #ops-incidentes (Sólo si hay servicios con errores o degradaciones en los 11 servicios)
+    if (serviciosConIncidentes.length > 0) {
+      const tieneError = serviciosConIncidentes.some((f) => f.estado === '❌');
+      const resumenIncidentes = `**Reporte de Incidentes 360°:** Se han detectado problemas en **${serviciosConIncidentes.length} de ${filas.length} servicios** del mapa de datos Animus Engine. Recreación automática y alertas activadas.`;
+
+      await sendOpsAlert({
+        level: tieneError ? 'error' : 'warn',
+        channel: 'incidentes',
+        title: `¡Atención! ${serviciosConIncidentes.length} de ${filas.length} servicios con incidentes (360°) · ${new Date().toISOString().slice(0, 10)}`,
+        detail: resumenIncidentes,
+        fields: camposIncidentes,
+        footer: `Incidentes en ${serviciosConIncidentes.length}/${filas.length} servicios · Animus Engine 360°`,
+        dedupeKey: `incidentes-360:${new Date().toISOString().slice(0, 10)}`,
+      });
+    }
+
+    logger.info({ filas: filas.length, degradadas }, `[${JOB_NAME}] reporte publicado en frescura, latido e incidentes`);
   } catch (err) {
     // El reporte no debe tumbar nada, pero su propio fallo sí es un incidente:
     // sin él se pierde justamente la señal de que algo envejeció.
