@@ -90,7 +90,7 @@ export function CompanyIdentityGate({ children }: { children: React.ReactNode })
         <h2 style={{ color: '#EDEDF5', fontSize: '1.25rem', fontWeight: 700, margin: 0, paddingRight: '2rem' }}>Identificá tu empresa</h2>
         <p style={{ color: '#9A9AB0', fontSize: '0.85rem', margin: '0.4rem 0 1.25rem' }}>
           Usamos el RUT de tu <strong>empresa</strong> (no tu RUT personal) para el análisis
-          societario y macro. Se guarda una vez y lo comparte todo el ecosistema Scouttech.
+          de compras públicas y macro. Se guarda una vez y lo comparte todo el ecosistema Scouttech.
         </p>
         <form onSubmit={handleSubmit} style={{ display: 'grid', gap: '0.75rem' }}>
           <input type="text" value={rut} onChange={(e) => setRut(e.target.value)}

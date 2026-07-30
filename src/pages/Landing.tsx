@@ -38,7 +38,7 @@ const IconLogo = () => (
 );
 
 // ── Types for Interactive Console ──────────────────────────────────────────
-type ConsoleTabId = 'b2g' | 'macro' | 'rag' | 'spulse' | 'moe';
+type ConsoleTabId = 'b2g' | 'macro' | 'rag' | 'moe';
 
 interface ConsoleTab {
   id: ConsoleTabId;
@@ -182,41 +182,9 @@ const result = await animusFetch('/rag/query', {
       credits: 3,
     },
   },
-  {
-    id: 'spulse',
-    label: '4. S-Pulse Societario',
-    badge: 'S-PULSE',
-    color: '#2563EB', // blue-600
-    method: 'GET',
-    path: '/api/v1/data/spulse/companies/76123456K/network',
-    description: 'Grafo societario chileno 360° con socios, % de participación, directiva y trazabilidad en Diario Oficial.',
-    curlCommand: `curl -X GET "https://fcdhcntyvsydnvjwopfe.supabase.co/functions/v1/api-v1/data/spulse/companies/76123456K/network" \\
-  -H "Authorization: Bearer demo_public_key"`,
-    tsCode: `import { animusFetch } from '@scouttech/animus-sdk';
-
-const mesh = await animusFetch('/data/spulse/companies/76123456K/network');
-console.log('Nodos societarios:', mesh.data.nodes.length);
-console.log('Participaciones:', mesh.data.edges);`,
-    responseJson: `{
-  "data": {
-    "nodes": [
-      { "id": "76123456K", "label": "Scouttech SpA", "type": "company", "social_capital_clp": 150000000 },
-      { "id": "12345678-9", "label": "Luciano Larraín", "type": "person", "share_pct": 60.0 }
-    ],
-    "edges": [
-      { "source": "12345678-9", "target": "76123456K", "relationship": "shareholder", "weight": 60.0 }
-    ]
-  }
-}`,
-    sourceStatus: {
-      type: 'live',
-      label: '🟢 Live S-Pulse Graph',
-      source: 'Diario Oficial / Conservador',
-      sha256: 'sha256: 5f2e1d0b9a8c7e6f...',
-      latencyMs: 110,
-      credits: 5,
-    },
-  },
+  // S-Pulse (grafo societario) salió de la consola: quedó en stand-by y ya no
+  // expone API. La pestaña mostraba "🟢 Live S-Pulse Graph" sobre un endpoint
+  // que responde 503 — una demo en vivo que fallaba en la landing pública.
   {
     id: 'moe',
     label: '5. MoE GraphRAG (5 Expertos)',
@@ -318,20 +286,10 @@ const CORE_MODULES: CoreModule[] = [
       'POST /rag/documents/file',
     ],
   },
+  // S-Pulse era la 05 y se anunciaba como ESTABLE con tres endpoints que hoy
+  // responden 503. Fuera hasta que vuelva a exponer API.
   {
     number: '05',
-    title: 'S-Pulse (Grafo Societario)',
-    color: '#2563EB',
-    badge: 'ESTABLE',
-    benefit: 'Ficha 360° de empresas chilenas por RUT, malla societaria con nodos y aristas para renderizado de holdings, directivas y detección de conflictos de interés B2G.',
-    endpoints: [
-      'GET /data/spulse/companies/search',
-      'GET /data/spulse/companies/:rut/network',
-      'POST /data/companies/:rut/b2g-conflicts',
-    ],
-  },
-  {
-    number: '06',
     title: 'Webhooks, Reportes y MCP',
     color: '#059669',
     badge: 'BETA',
@@ -394,7 +352,7 @@ const FAQ_ITEMS = [
   },
   {
     q: '¿Cómo integro Animus con agentes como Claude Desktop o Cursor IDE?',
-    a: 'Animus Engine expone un servidor nativo compatible con el Model Context Protocol (MCP). Puedes añadir el servidor a tu archivo de configuración de Claude o Cursor y consultar licitaciones, datos macro o grafos societarios directamente en lenguaje natural.',
+    a: 'Animus Engine expone un servidor nativo compatible con el Model Context Protocol (MCP). Puedes añadir el servidor a tu archivo de configuración de Claude o Cursor y consultar licitaciones o datos macro directamente en lenguaje natural.',
   },
   {
     q: '¿Cuáles son los límites del Plan Free / Evaluación?',
@@ -499,7 +457,7 @@ export function Landing() {
 
           {/* Subtitle */}
           <p className="text-base sm:text-lg text-slate-600 max-w-2xl mx-auto leading-relaxed">
-            Conecta una sola API a Mercado Público, indicadores económicos, RAG documental en pgvector, grafos societarios S-Pulse y análisis con citas verificables.
+            Conecta una sola API a Mercado Público, indicadores económicos, RAG documental en pgvector y análisis con citas verificables.
           </p>
 
           {/* CTAs */}

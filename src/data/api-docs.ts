@@ -519,66 +519,10 @@ export const API_DOCS: EndpointDoc[] = [
     responseExample: '{\n  "data": { "metrics": { "m1_annual_volume_clp": 125000000 } }\n}',
     errorCodes: ['401 Unauthorized']
   },
-  {
-    section: 'Datos Económicos & Macro',
-    method: 'GET', path: '/api/v1/data/companies/:rut/profile', color: '#2DD4BF',
-    description: 'S-Pulse: Perfil societario canónico (RUT, Razón Social, Fecha Constitución Diario Oficial, Capital Social).',
-    params: [
-      { name: 'rut', type: 'string', required: true, description: 'RUT de la empresa' }
-    ],
-    responseExample: '{\n  "data": { "legal_name": "Electromedicina Chile SpA", "company_type": "SpA", "social_capital_clp": 150000000 }\n}',
-    errorCodes: ['401 Unauthorized', '400 Invalid RUT']
-  },
-  {
-    section: 'Datos Económicos & Macro',
-    method: 'GET', path: '/api/v1/data/companies/:rut/ownership-mesh', color: '#2DD4BF',
-    description: 'S-Pulse: Malla societaria completa (Nodos de personas/sociedades y % de participación accionararia).',
-    params: [
-      { name: 'rut', type: 'string', required: true, description: 'RUT de la empresa' }
-    ],
-    responseExample: '{\n  "data": [ { "partner_name": "Luciano Alonso Larraín", "ownership_percentage": 60.0, "role": "shareholder" } ]\n}',
-    errorCodes: ['401 Unauthorized']
-  },
-  {
-    section: 'Datos Económicos & Macro',
-    method: 'GET', path: '/api/v1/data/companies/:rut/legal-representatives', color: '#2DD4BF',
-    description: 'S-Pulse: Lista de representantes legales vigentes y facultades de administración inscritas.',
-    params: [
-      { name: 'rut', type: 'string', required: true, description: 'RUT de la empresa' }
-    ],
-    responseExample: '{\n  "data": [ { "name": "Luciano Alonso Larraín", "role": "Representante Legal Principal", "powers": ["Firma Bancaria"] } ]\n}',
-    errorCodes: ['401 Unauthorized']
-  },
-  {
-    section: 'Datos Económicos & Macro',
-    method: 'GET', path: '/api/v1/data/companies/:rut/related-parties', color: '#2DD4BF',
-    description: 'S-Pulse: Red de sociedades relacionadas (matrices, filiales y empresas hermanas con socios compartidos).',
-    params: [
-      { name: 'rut', type: 'string', required: true, description: 'RUT de la empresa' }
-    ],
-    responseExample: '{\n  "data": [ { "company_name": "Inversiones Médicas del Sur SpA", "relationship_type": "matriz" } ]\n}',
-    errorCodes: ['401 Unauthorized']
-  },
-  {
-    section: 'Datos Económicos & Macro',
-    method: 'POST', path: '/api/v1/data/companies/:rut/b2g-conflicts', color: '#2DD4BF',
-    description: 'S-Pulse: Detector de conflictos de interés B2G y cruzamiento de socios en licitaciones de Mercado Público.',
-    params: [
-      { name: 'rut', type: 'string', required: true, description: 'RUT de la empresa' }
-    ],
-    responseExample: '{\n  "data": { "conflict_detected": false, "risk_level": "LOW", "pep_matches": [] }\n}',
-    errorCodes: ['401 Unauthorized']
-  },
-  {
-    section: 'Datos Económicos & Macro',
-    method: 'GET', path: '/api/v1/data/companies/search', color: '#2DD4BF',
-    description: 'S-Pulse: Buscador predictivo de empresas por RUT o Razón Social.',
-    params: [
-      { name: 'q', type: 'string', required: true, description: 'Término de búsqueda (RUT o Razón Social)' }
-    ],
-    responseExample: '{\n  "data": [ { "rut": "76.543.210-K", "legal_name": "Electromedicina Chile SpA" } ]\n}',
-    errorCodes: ['401 Unauthorized']
-  },
+  // Acá vivían seis endpoints de S-Pulse (profile, ownership-mesh,
+  // legal-representatives, related-parties, b2g-conflicts, search). S-Pulse
+  // quedó en stand-by y todos responden 503: documentarlos era prometer algo
+  // que no se puede cumplir. Vuelven cuando vuelva a exponer API.
   {
     section: 'Datos Económicos & Macro',
     method: 'GET', path: '/api/v1/data/labor', color: '#2DD4BF',
@@ -1026,47 +970,10 @@ export const API_DOCS: EndpointDoc[] = [
     errorCodes: ['401 Unauthorized']
   },
 
-  // ── SECCIÓN 5: Grafo Societario y Mallas (S-Pulse) ─────────────────────────
-  {
-    section: 'Grafo Societario (S-Pulse)',
-    method: 'GET', path: '/api/v1/data/spulse/companies/search', color: '#3B82F6',
-    description: 'Buscador de empresas por razón social o RUT (mínimo 2 caracteres) en el registro societario chileno.',
-    params: [
-      { name: 'q', type: 'string', required: true, description: 'Término de búsqueda o RUT' },
-    ],
-    responseExample: '{\n  "data": [{ "rut": "76123456K", "business_name": "Scouttech SpA" }]\n}',
-    errorCodes: ['401 Unauthorized', '503 S-Pulse no disponible'],
-  },
-  {
-    section: 'Grafo Societario (S-Pulse)',
-    method: 'GET', path: '/api/v1/data/spulse/companies/:rut/profile', color: '#3B82F6',
-    description: 'Ficha 360° societaria: composición de socios, % de participación, directiva y banderas de riesgo.',
-    params: [
-      { name: 'rut', type: 'string', required: true, description: 'RUT de la empresa (ej: 76123456K)' },
-    ],
-    responseExample: '{\n  "data": {\n    "company": { "business_name": "Scouttech SpA" },\n    "members": [{ "name": "Luciano", "share_percentage": 50 }]\n  }\n}',
-    errorCodes: ['401 Unauthorized', '503 S-Pulse no disponible'],
-  },
-  {
-    section: 'Grafo Societario (S-Pulse)',
-    method: 'GET', path: '/api/v1/data/spulse/companies/:rut/network', color: '#3B82F6',
-    description: 'Grafo de redes: Nodos y aristas formateados para renderizar mallas societarias y holdings en la interfaz UI.',
-    params: [
-      { name: 'rut', type: 'string', required: true, description: 'RUT de la empresa' },
-    ],
-    responseExample: '{\n  "data": { "nodes": [...], "edges": [...] }\n}',
-    errorCodes: ['401 Unauthorized', '503 S-Pulse no disponible'],
-  },
-  {
-    section: 'Grafo Societario (S-Pulse)',
-    method: 'GET', path: '/api/v1/data/spulse/relationships/:rel_id/source', color: '#3B82F6',
-    description: 'Trazabilidad legal auditable: Muestra el extracto del Diario Oficial o escritura fuente de la relación.',
-    params: [
-      { name: 'rel_id', type: 'string', required: true, description: 'ID de la relación societaria' },
-    ],
-    responseExample: '{\n  "data": { "source_document": "Diario Oficial Edición 43.102", "date": "2024-05-12" }\n}',
-    errorCodes: ['401 Unauthorized'],
-  },
+  // La SECCIÓN 5 era "Grafo Societario y Mallas (S-Pulse)" con cuatro endpoints
+  // (search, profile, network, relationships/:id/source). S-Pulse pasó a
+  // stand-by sin API y todos respondían 503 — la sección entera generaba una
+  // pestaña de explorador que fallaba a la vista. Se retira completa.
 
   // ── SECCIÓN 6: Webhooks & Validación ─────────────────────────────────────
   {
@@ -1232,20 +1139,9 @@ export const ENDPOINTS: readonly PlaygroundEndpoint[] = [
     color: '#EC4899',
     defaultBody: JSON.stringify({ texts: ['Información corporativa privada para consultas RAG.'], metadata: { source: 'demo' } }, null, 2),
   },
-  {
-    method: 'GET',
-    path: '/api/v1/data/spulse/companies/search?q=Scouttech',
-    label: 'S-Pulse — Buscador de Empresas y RUTs',
-    color: '#3B82F6',
-    defaultBody: '',
-  },
-  {
-    method: 'GET',
-    path: '/api/v1/data/spulse/companies/76123456K/profile',
-    label: 'S-Pulse — Ficha 360° Societaria y Malla',
-    color: '#3B82F6',
-    defaultBody: '',
-  },
+  // Se quitaron dos presets de S-Pulse: eran los únicos del playground que
+  // devolvían 503 al apretar "Enviar", justo en la pantalla que existe para
+  // que el desarrollador compruebe que la API responde.
   {
     method: 'POST',
     path: '/mcp/v1/tools/call',

@@ -603,15 +603,8 @@ export function AdminPage() {
                     </div>
                   </div>
 
-                  <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 4 }}>
-                      <span>S-Pulse Grafo Societario</span>
-                      <span style={{ color: '#10B981', fontWeight: 600 }}>7% (7,490 pts)</span>
-                    </div>
-                    <div style={{ height: 6, background: 'rgba(255,255,255,0.1)', borderRadius: 3, overflow: 'hidden' }}>
-                      <div style={{ width: '7%', height: '100%', background: '#10B981' }} />
-                    </div>
-                  </div>
+                  {/* Se quitó la barra "S-Pulse Grafo Societario" (7%): S-Pulse
+                      está en stand-by, así que ese consumo hoy es cero. */}
                 </div>
               </div>
 

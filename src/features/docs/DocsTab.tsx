@@ -5,7 +5,6 @@ import { MercadoPublicoLiveTable } from '@/components/MercadoPublicoLiveTable';
 import { EconomyLiveExplorer } from '@/components/explorers/EconomyLiveExplorer';
 import { IntelligenceLiveExplorer } from '@/components/explorers/IntelligenceLiveExplorer';
 import { VectorVaultLiveExplorer } from '@/components/explorers/VectorVaultLiveExplorer';
-import { SpulseLiveExplorer } from '@/components/explorers/SpulseLiveExplorer';
 import { WebhooksLiveExplorer } from '@/components/explorers/WebhooksLiveExplorer';
 
 interface DocsTabProps { onPlayground: () => void; }
@@ -61,8 +60,9 @@ export function DocsTab({ onPlayground }: DocsTabProps) {
         return <IntelligenceLiveExplorer />;
       case 'RAG & Vault Vectorial':
         return <VectorVaultLiveExplorer />;
-      case 'Grafo Societario (S-Pulse)':
-        return <SpulseLiveExplorer />;
+      // La sección 'Grafo Societario (S-Pulse)' se retiró: S-Pulse quedó en
+      // stand-by sin API, y el explorador pegaba a /data/companies/:rut/profile
+      // y /ownership-mesh, que responden 503.
       case 'Webhooks & Servicios':
         return <WebhooksLiveExplorer />;
       default:
@@ -84,7 +84,7 @@ export function DocsTab({ onPlayground }: DocsTabProps) {
                 <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 100, background: 'rgba(139,92,246,0.12)', border: '1px solid rgba(139,92,246,0.3)', color: '#A78BFA' }}>OpenAPI 3.0</span>
               </div>
               <p style={{ fontSize: 13.5, color: '#9896B8', maxWidth: 680, margin: 0, lineHeight: 1.6 }}>
-                Explora interactivamente Mercado Público (B2G), Indicadores Macroeconómicos (BCCh, FRED), Animus MoE GraphRAG, RAG Vectorial pgvector, Grafo Societario S-Pulse y Webhooks.
+                Explora interactivamente Mercado Público (B2G), Indicadores Macroeconómicos (BCCh, FRED), Animus MoE GraphRAG, RAG Vectorial pgvector y Webhooks.
               </p>
             </div>
 

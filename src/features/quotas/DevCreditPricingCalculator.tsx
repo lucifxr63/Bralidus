@@ -14,9 +14,10 @@ interface CostTierSample {
 
 const SAMPLE_ENDPOINTS: CostTierSample[] = [
   { name: 'GET /api/v1/data/economy (Snapshot Macro)', category: 'Macro Data', credits: 1, baseInfraCostUsd: 0.002 },
-  { name: 'GET /api/v1/data/spulse/companies/* (Ficha Corporativa)', category: 'Grafo Societario', credits: 2, baseInfraCostUsd: 0.005 },
+  // Salieron dos muestras que dependían de S-Pulse (ficha corporativa y la
+  // herramienta MCP de malla societaria): con S-Pulse en stand-by, poner su
+  // precio en la calculadora es cotizar algo que no se entrega.
   { name: 'POST /api/v1/rag/query (Búsqueda Vectorial pgvector)', category: 'Vault Vectorial', credits: 5, baseInfraCostUsd: 0.012 },
-  { name: 'MCP Tool: animus_get_corporate_mesh (Malla Societaria S-Pulse)', category: 'Animus MCP Server', credits: 10, baseInfraCostUsd: 0.025 },
   { name: 'POST /api/v1/intel/query (GraphRAG Unificado)', category: 'Intelligence', credits: 15, baseInfraCostUsd: 0.040 },
   { name: 'GET /api/v1/mercado-publico/licitaciones (Licitaciones B2G)', category: 'Mercado Público B2G', credits: 25, baseInfraCostUsd: 0.080 },
   { name: 'POST /api/v1/mercado-publico/ai/scoring (Score Compatibilidad IA)', category: 'IA Predictiva', credits: 25, baseInfraCostUsd: 0.085 },

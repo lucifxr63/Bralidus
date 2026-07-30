@@ -381,22 +381,9 @@ function buildMeta(svc: ServiceInfo): ServiceMeta {
       },
     },
 
-    spulse: {
-      description: 'S-Pulse — Grafo societario chileno con trazabilidad legal. Mapea la red de socios, participaciones accionales, directores cruzados y señales de riesgo en sociedades chilenas.',
-      schema: 'GET /api/v1/data/spulse/companies/search?q= -> [{ rut, name, status }]\nGET /api/v1/data/spulse/companies/:rut/profile -> { rut, name, partners: [{ name, percentage }], legal_signals }\nGET /api/v1/data/spulse/companies/:rut/network -> { nodes, edges }',
-      test_label: 'Test S-Pulse (RUT 76.086.428-5)',
-      run_test: async () => {
-        const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-        const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL ?? 'https://fcdhcntyvsydnvjwopfe.supabase.co';
-        const { data: { session } } = await supabase.auth.getSession();
-        const token = session?.access_token ?? anonKey;
-        const res = await fetch(`${SUPABASE_URL}/functions/v1/api-v1/api/v1/data/spulse/companies/76086428-5/profile`, {
-          headers: { 'Authorization': `Bearer ${token}`, 'apikey': anonKey || '' }
-        });
-        if (!res.ok) throw new Error(`HTTP ${res.status} — ${res.statusText}`);
-        return await res.json();
-      },
-    },
+    // Se retiró la entrada `spulse`: traía un botón "Test S-Pulse" que pegaba a
+    // /data/spulse/companies/:rut/profile y siempre tiraba HTTP 503. Un test que
+    // sólo puede fallar no informa nada. Vuelve si S-Pulse reexpone API.
   };
 
   return map[id] ?? {

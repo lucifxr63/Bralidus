@@ -118,16 +118,12 @@ const ALL_ENDPOINT_COSTS: EndpointCostItem[] = [
   { endpoint: 'GET /api/v1/rag/embedding-profiles', category: 'RAG & Vault Vectorial', cost: 1, type: 'Catálogo Modelos Embedding' },
   { endpoint: 'POST /api/v1/rag/ingest/text', category: 'RAG & Vault Vectorial', cost: 10, type: 'Ingesta RAG Directa' },
 
-  // 🕸️ Grafo Societario (S-Pulse)
-  { endpoint: 'GET /api/v1/data/spulse/companies/search', category: 'Grafo Societario (S-Pulse)', cost: 2, type: 'Búsqueda Empresas S-Pulse' },
-  { endpoint: 'GET /api/v1/data/spulse/companies/:rut/profile', category: 'Grafo Societario (S-Pulse)', cost: 5, type: 'Ficha Corporativa S-Pulse por RUT' },
-  { endpoint: 'GET /api/v1/data/spulse/companies/:rut/network', category: 'Grafo Societario (S-Pulse)', cost: 10, type: 'Grafo Socios & Participaciones' },
-  { endpoint: 'GET /api/v1/data/companies/:rut/legal-representatives', category: 'Grafo Societario (S-Pulse)', cost: 5, type: 'Representantes Legales Diario Oficial' },
-  { endpoint: 'POST /api/v1/data/companies/:rut/b2g-conflicts', category: 'Grafo Societario (S-Pulse)', cost: 25, type: 'Detector Conflictos B2G & PEP' },
+  // Se retiró la categoría "Grafo Societario (S-Pulse)" (5 endpoints): S-Pulse
+  // quedó en stand-by. Cobrar créditos por endpoints que responden 503 sería
+  // cobrar por nada.
 
   // 🤖 Animus MCP Server (Model Context Protocol)
   { endpoint: 'MCP Tool: animus_search_b2g_tenders', category: 'Animus MCP Server (Model Context Protocol)', cost: 25, type: 'MCP Agéntico B2G Licitaciones' },
-  { endpoint: 'MCP Tool: animus_get_corporate_mesh', category: 'Animus MCP Server (Model Context Protocol)', cost: 10, type: 'MCP Agéntico Grafo S-Pulse' },
   { endpoint: 'MCP Tool: animus_get_macro_indicators', category: 'Animus MCP Server (Model Context Protocol)', cost: 1, type: 'MCP Agéntico Macro Snapshot' },
   { endpoint: 'MCP Tool: animus_query_moe_graphrag', category: 'Animus MCP Server (Model Context Protocol)', cost: 35, type: 'MCP Agéntico Mixture of Experts' },
   { endpoint: 'MCP Tool: animus_predict_win_probability', category: 'Animus MCP Server (Model Context Protocol)', cost: 40, type: 'MCP Agéntico Win Probability %' },
@@ -142,7 +138,6 @@ export function QuotasTab({ usageCount }: QuotasTabProps) {
     'Datos Económicos & Macro': false,
     'GraphRAG & Intelligence': false,
     'RAG & Vault Vectorial': false,
-    'Grafo Societario (S-Pulse)': false,
     'Animus MCP Server (Model Context Protocol)': true,
   });
 
