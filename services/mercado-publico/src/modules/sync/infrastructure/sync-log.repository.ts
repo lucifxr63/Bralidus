@@ -131,21 +131,36 @@ class SyncLogRepository {
         ? Math.round((new Date(finishedAt).getTime() - new Date(startedAt).getTime()) / 1000)
         : null;
 
-    const cifras =
-      `procesadas=${input.totalProcessed} · ok=${input.totalSucceeded} · fallidas=${input.totalFailed}` +
-      (input.totalSkipped ? ` · omitidas=${input.totalSkipped}` : '') +
-      (segundos != null ? ` · ${segundos}s` : '');
+    const n = (v: number | undefined): string => Number(v ?? 0).toLocaleString('es-CL');
+
+    // Métricas como campos del embed en vez de una línea concatenada: se leen
+    // de un vistazo y Discord las acomoda en columnas.
+    const campos = [
+      { name: 'Encontradas', value: n(input.totalFound) },
+      { name: 'Procesadas', value: n(input.totalProcessed) },
+      { name: 'Exitosas', value: n(input.totalSucceeded) },
+      { name: 'Fallidas', value: n(input.totalFailed) },
+      ...(input.totalSkipped ? [{ name: 'Omitidas', value: n(input.totalSkipped) }] : []),
+      ...(segundos != null ? [{ name: 'Duración', value: `${segundos}s` }] : []),
+    ];
+
+    // Tasa de acierto: la cifra que dice si la corrida sirvió, sin hacer cuentas.
+    const intentadas = (input.totalSucceeded ?? 0) + (input.totalFailed ?? 0);
+    if (intentadas > 0) {
+      const tasa = ((input.totalSucceeded ?? 0) / intentadas) * 100;
+      campos.push({ name: 'Acierto', value: `${tasa.toFixed(1)}%` });
+    }
 
     if (input.status === 'failed') {
       void sendOpsAlert({
         level: 'error',
         channel: 'incidentes',
         title: `Sync '${jobName}' falló`,
-        detail:
-          `encontradas=${input.totalFound}, ${cifras}` +
-          (input.errorDetails?.length
-            ? `\n${JSON.stringify(input.errorDetails[0]).slice(0, 200)}`
-            : ''),
+        detail: input.errorDetails?.length
+          ? `\`\`\`json\n${JSON.stringify(input.errorDetails[0]).slice(0, 300)}\n\`\`\``
+          : undefined,
+        fields: campos,
+        footer: jobName,
         // Cada corrida es un hecho distinto: sin una clave única, la ventana de
         // dedupe de 30 min se tragaría el aviso de la corrida siguiente.
         dedupeKey: `sync-failed:${id}`,
@@ -161,8 +176,9 @@ class SyncLogRepository {
       void sendOpsAlert({
         level: input.status === 'partial' ? 'warn' : 'info',
         channel: canalDeLatido(jobName),
-        title: `Sync '${jobName}' — ${input.status}`,
-        detail: `encontradas=${input.totalFound} · ${cifras}`,
+        title: `${jobName} — ${input.status}`,
+        fields: campos,
+        footer: jobName,
         dedupeKey: `sync-done:${id}`,
       });
     }

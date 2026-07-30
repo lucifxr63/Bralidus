@@ -164,21 +164,30 @@ export async function runReporteFrescuraJob(): Promise<void> {
     }
 
     // ── Publicación ──────────────────────────────────────────────────────────
-    const ancho = Math.max(...filas.map((f) => f.etiqueta.length));
-    const cuerpo = filas
-      .map((f) => `${f.estado} \`${f.etiqueta.padEnd(ancho)}\` **${f.valor}** — ${f.detalle}`)
-      .join('\n');
-
     const degradadas = filas.filter((f) => f.estado !== '✅').length;
+
+    // Cada fuente es un campo del embed: el semáforo va en el nombre y el dato
+    // en el valor, así Discord los alinea en columnas y el estado se ve sin
+    // leer. Un bloque de texto plano obliga a recorrerlo entero.
+    const campos = filas.map((f) => ({
+      name: `${f.estado} ${f.etiqueta}`,
+      value: `**${f.valor}**\n${f.detalle}`,
+      inline: true,
+    }));
+
+    // Encabezado con el veredicto primero: es lo único que hay que leer si todo
+    // está bien.
     const resumen = degradadas === 0
-      ? 'Todo al día.'
-      : `${degradadas} fuente(s) con atención pendiente.`;
+      ? '**Todo al día.** Ninguna fuente requiere atención.'
+      : `**${degradadas} de ${filas.length} fuentes** requieren atención.`;
 
     await sendOpsAlert({
       level: degradadas === 0 ? 'info' : 'warn',
       channel: 'frescura',
-      title: `Frescura de datos — ${new Date().toISOString().slice(0, 10)}`,
-      detail: `${cuerpo}\n\n${resumen}`,
+      title: `Frescura de datos · ${new Date().toISOString().slice(0, 10)}`,
+      detail: resumen,
+      fields: campos,
+      footer: `${filas.length} fuentes medidas`,
       // Un reporte por día: la clave lleva la fecha para que el dedupe de 30 min
       // no bloquee el del día siguiente pero sí un doble disparo del mismo día.
       dedupeKey: `frescura:${new Date().toISOString().slice(0, 10)}`,

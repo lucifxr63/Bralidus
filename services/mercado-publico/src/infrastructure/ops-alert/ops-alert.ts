@@ -1,5 +1,5 @@
 /**
- * Alerting de operaciones — ruteo por canal.
+ * Alerting de operaciones — ruteo por canal y presentación en embeds.
  *
  * SIEMPRE loguea (queda en la observabilidad de Vercel aunque no haya webhook)
  * y además publica en el canal de Discord que corresponda al TIPO de aviso.
@@ -17,15 +17,24 @@
  *   incidentes   → algo está roto AHORA y alguien tiene que mirar. Sólo rojo.
  *   latido       → toda corrida programada, salga bien o mal. Su valor está en
  *                  el hueco: si dejan de llegar mensajes, algo se detuvo.
- *   frescura     → digest de antigüedad del dato. Un job puede correr "bien" y
- *                  el dato envejecer igual (pasó con /data/macro: 82 días viejo
- *                  con todo en verde).
- *   degradación  → lo que "funciona" mientras miente: RAG sin corpus, fallbacks
- *                  sirviendo en lugar del dato real, mocks, cortes por cuota.
- *                  No exige acción inmediata; acumulado dice dónde está podrido.
+ *   frescura     → digest de antigüedad del dato.
+ *   degradación  → lo que "funciona" mientras miente.
+ *   pjud         → excepción: canal POR FUENTE. Sus FALLOS igual van a
+ *                  incidentes, para no fragmentar el único lugar donde mirar.
  *
- * Si el canal de un tipo no está configurado, cae a `incidentes` para no perder
- * el aviso — es preferible un canal mezclado a un aviso mudo.
+ * Si el canal de un tipo no está configurado, cae a `incidentes`: es preferible
+ * un canal mezclado a un aviso mudo.
+ *
+ * PRESENTACIÓN
+ * ------------
+ * Se publica como EMBED de Discord: color por severidad, métricas en campos
+ * separados y footer con servicio y hora. Un muro de texto plano obliga a leer
+ * la línea entera para saber si algo anda mal; con color y campos eso se ve de
+ * un vistazo, que es la diferencia entre un canal que se mira y uno que se
+ * ignora.
+ *
+ * Se manda además `content`/`text` como respaldo: cubre Slack y cualquier
+ * cliente que no renderice embeds.
  */
 
 import { env } from '../../app/env.js';
@@ -44,10 +53,22 @@ export type OpsAlertLevel = 'info' | 'warn' | 'error';
  */
 export type OpsChannel = 'incidentes' | 'latido' | 'frescura' | 'degradacion' | 'pjud';
 
+/** Campo del embed. `inline` los acomoda en columnas (Discord pone hasta 3). */
+export interface OpsField {
+  name: string;
+  value: string;
+  inline?: boolean;
+}
+
 export interface OpsAlert {
   level: OpsAlertLevel;
   title: string;
+  /** Texto libre bajo el título. Admite markdown de Discord. */
   detail?: string;
+  /** Métricas estructuradas. Se renderizan como campos del embed. */
+  fields?: OpsField[];
+  /** Línea al pie: contexto de origen (job, duración, fuente). */
+  footer?: string;
   /** Default: 'incidentes' para error, 'latido' para el resto. */
   channel?: OpsChannel;
   /** Clave de dedupe del webhook (default: `title`). Ver `DEDUPE_WINDOW_MS`. */
@@ -97,6 +118,35 @@ function urlDeCanal(channel: OpsChannel): string | undefined {
 
 const EMOJI: Record<OpsAlertLevel, string> = { error: '🔴', warn: '🟡', info: '🟢' };
 
+/** Color de la barra lateral del embed. Es la señal que se lee sin leer. */
+const COLOR: Record<OpsAlertLevel, number> = {
+  error: 0xe0_4f_5f, // rojo
+  warn: 0xe0_a4_4f, // ámbar
+  info: 0x4f_e0_8a, // verde
+};
+
+/** Nombre legible del canal para el footer. */
+const NOMBRE_CANAL: Record<OpsChannel, string> = {
+  incidentes: 'Incidentes',
+  latido: 'Latido',
+  frescura: 'Frescura de datos',
+  degradacion: 'Degradación',
+  pjud: 'Poder Judicial',
+};
+
+/**
+ * Respaldo en texto plano del embed.
+ * Discord ignora `content` si hay embeds; Slack ignora `embeds` y usa `text`.
+ */
+function textoPlano(alert: OpsAlert): string {
+  const partes = [`${EMOJI[alert.level]} **${alert.title}**`];
+  if (alert.detail) partes.push(alert.detail);
+  if (alert.fields?.length) {
+    partes.push(alert.fields.map((f) => `${f.name}: ${f.value}`).join(' · '));
+  }
+  return partes.join('\n');
+}
+
 export async function sendOpsAlert(alert: OpsAlert): Promise<void> {
   const channel = alert.channel ?? canalPorDefecto(alert.level);
 
@@ -114,15 +164,43 @@ export async function sendOpsAlert(alert: OpsAlert): Promise<void> {
     return;
   }
 
-  const content = `${EMOJI[alert.level]} **${alert.title}**${alert.detail ? `\n${alert.detail}` : ''}`;
+  const plano = textoPlano(alert);
+  const embed = {
+    title: `${EMOJI[alert.level]}  ${alert.title}`.slice(0, 256),
+    ...(alert.detail ? { description: alert.detail.slice(0, 4096) } : {}),
+    color: COLOR[alert.level],
+    // Discord admite hasta 25 campos por embed.
+    ...(alert.fields?.length
+      ? {
+          fields: alert.fields.slice(0, 25).map((f) => ({
+            name: f.name.slice(0, 256),
+            value: (f.value || '—').slice(0, 1024),
+            inline: f.inline ?? true,
+          })),
+        }
+      : {}),
+    footer: { text: `mp-sync · ${NOMBRE_CANAL[channel]}${alert.footer ? ` · ${alert.footer}` : ''}`.slice(0, 2048) },
+    timestamp: new Date().toISOString(),
+  };
+
   try {
-    // `content` = Discord, `text` = Slack — mandar ambos cubre los dos sin config.
     const res = await fetch(url, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ content, text: content }),
+      // `embeds` = Discord. `text` = Slack, que ignora embeds. Mandar ambos
+      // cubre los dos sin configuración por destino.
+      body: JSON.stringify({ embeds: [embed], text: plano }),
     });
-    if (!res.ok) logger.warn({ status: res.status, channel }, '[ops-alert] webhook respondió no-OK');
+    if (!res.ok) {
+      // Un embed mal formado da 400 y el aviso se perdería del todo. Se
+      // reintenta en texto plano: mejor feo que mudo.
+      logger.warn({ status: res.status, channel }, '[ops-alert] embed rechazado, reintentando en texto');
+      await fetch(url, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ content: plano, text: plano }),
+      }).catch(() => {});
+    }
   } catch (err) {
     logger.warn({ err, channel }, '[ops-alert] fallo al enviar webhook');
   }

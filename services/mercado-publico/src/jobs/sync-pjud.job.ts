@@ -195,8 +195,16 @@ export async function runSyncPjudJob(anio?: number): Promise<void> {
         // Va a la sala de PJUD y no a degradación general: es información sobre
         // ESTA fuente, y ahí es donde se lee junto a su latido.
         channel: 'pjud',
-        title: `PJUD: ${vacias.length} serie(s) sin datos`,
-        detail: `Año ${anioObjetivo}. Respondieron 200 pero vacías:\n${vacias.join(', ')}`,
+        title: `${vacias.length} serie(s) sin datos`,
+        detail:
+          'Respondieron HTTP 200 pero sin filas. No es un fallo de red: ' +
+          'la fuente dejó de publicar esas series.',
+        fields: [
+          { name: 'Año', value: String(anioObjetivo) },
+          { name: 'Sin datos', value: `${vacias.length} de ${series.length}` },
+          { name: 'Series', value: vacias.join('\n'), inline: false },
+        ],
+        footer: 'estadisticaservices.pjud.cl',
         dedupeKey: `pjud-vacias:${anioObjetivo}`,
       });
     }
