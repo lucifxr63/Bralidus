@@ -24,7 +24,9 @@ interface ServiceMeta {
   run_test: () => Promise<unknown>;
 }
 
-const ANIMUS_URL = 'https://animuspy-production.up.railway.app';
+// BralidusPY se migró de Railway a Vercel. El host viejo devuelve 404, así que
+// los "test de servicio" de este modal fallaban sin decir por qué.
+const ANIMUS_URL = 'https://api.animus.scouttech.lat';
 
 function buildMeta(svc: ServiceInfo): ServiceMeta {
   const id = svc.id;

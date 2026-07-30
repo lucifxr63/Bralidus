@@ -6,7 +6,7 @@ import { describe, it, expect, beforeAll } from 'vitest';
  * and MoE (Mixture of Experts) error handling.
  */
 
-const BASE_URL = process.env.VITE_BRALIDUS_API_URL || 'https://braliduspy-production.up.railway.app';
+const BASE_URL = process.env.VITE_BRALIDUS_API_URL || 'https://api.animus.scouttech.lat';
 const TEST_API_KEY = process.env.VITE_TEST_BRALIDUS_KEY || 'sk_test_demo123456789';
 
 describe('Bralidus API Suite — Health & Availability', () => {

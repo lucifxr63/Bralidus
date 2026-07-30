@@ -46,7 +46,9 @@ jobs:
       # ausente.
       - name: 🧪 Run E2E Integration Tests
         env:
-          VITE_BRALIDUS_API_URL: https://braliduspy-production.up.railway.app
+          # BralidusPY se migró de Railway a Vercel. El host de Railway devuelve
+          # 404, así que estos E2E habrían fallado igual con la key puesta.
+          VITE_BRALIDUS_API_URL: https://api.animus.scouttech.lat
           VITE_TEST_BRALIDUS_KEY: ${{ secrets.BRALIDUS_TEST_API_KEY }}
         run: |
           if [ -z "${VITE_TEST_BRALIDUS_KEY:-}" ]; then
