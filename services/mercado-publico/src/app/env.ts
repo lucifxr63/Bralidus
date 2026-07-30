@@ -150,6 +150,10 @@ const envSchema = z.object({
   OPS_WEBHOOK_LATIDO: z.string().url().optional(), // toda corrida programada
   OPS_WEBHOOK_FRESCURA: z.string().url().optional(), // digest de antigüedad del dato
   OPS_WEBHOOK_DEGRADACION: z.string().url().optional(), // lo que "funciona" mintiendo
+  // Canal POR FUENTE, no por tipo de acción: sigue la ingesta del Poder Judicial
+  // por separado. Los fallos reales igual van a incidentes, para que ese siga
+  // siendo el único lugar donde mirar cuando algo se rompe.
+  OPS_WEBHOOK_PJUD: z.string().url().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

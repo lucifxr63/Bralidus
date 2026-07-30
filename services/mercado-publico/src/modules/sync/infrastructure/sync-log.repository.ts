@@ -1,7 +1,18 @@
 import { query, queryOne } from '../../../infrastructure/database/client/pg-client.js';
 import { logger } from '../../../infrastructure/logging/logger.js';
-import { sendOpsAlert } from '../../../infrastructure/ops-alert/ops-alert.js';
+import { sendOpsAlert, type OpsChannel } from '../../../infrastructure/ops-alert/ops-alert.js';
 import type { JobHealthRaw } from '../domain/job-health.js';
+
+/**
+ * Jobs con sala propia en Discord. Sólo afecta al LATIDO: los fallos de estos
+ * jobs siguen yendo a `incidentes` para que ese canal no se fragmente por
+ * fuente y siga siendo el único lugar donde mirar cuando algo se rompe.
+ */
+const CANAL_POR_JOB: Record<string, OpsChannel> = {
+  'sync-pjud': 'pjud',
+};
+
+const canalDeLatido = (jobName: string): OpsChannel => CANAL_POR_JOB[jobName] ?? 'latido';
 
 /** Corridas 'running' más viejas que esto se consideran huérfanas/atascadas. */
 const STALE_RUNNING_HOURS = 2;
@@ -143,9 +154,13 @@ class SyncLogRepository {
       // 'partial' va al latido, no a incidentes: la corrida terminó y el dato
       // entró. Que un abort por cuota o un puñado de 504 de MP suene igual que
       // una caída haría que incidentes deje de significar algo.
+      //
+      // Los jobs con sala propia mandan ahí su latido. Sólo el latido: sus
+      // fallos siguen yendo a incidentes (rama de arriba), para que ese canal
+      // no se fragmente por fuente.
       void sendOpsAlert({
         level: input.status === 'partial' ? 'warn' : 'info',
-        channel: 'latido',
+        channel: canalDeLatido(jobName),
         title: `Sync '${jobName}' — ${input.status}`,
         detail: `encontradas=${input.totalFound} · ${cifras}`,
         dedupeKey: `sync-done:${id}`,

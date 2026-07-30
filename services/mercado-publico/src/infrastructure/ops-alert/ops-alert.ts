@@ -33,8 +33,16 @@ import { logger } from '../logging/logger.js';
 
 export type OpsAlertLevel = 'info' | 'warn' | 'error';
 
-/** Canal de destino. Deriva del tipo de aviso, no del servicio que lo emite. */
-export type OpsChannel = 'incidentes' | 'latido' | 'frescura' | 'degradacion';
+/**
+ * Canal de destino. Los cuatro primeros derivan del TIPO de aviso.
+ *
+ * `pjud` es la excepción: es un canal POR FUENTE, para seguir la ingesta del
+ * Poder Judicial por separado. Se acepta la inconsistencia a propósito, pero
+ * los fallos reales de esa ingesta siguen yendo a `incidentes` — si cada fuente
+ * se llevara sus propios errores, no quedaría un solo lugar donde mirar cuando
+ * algo se rompe, que es justamente lo que hace útil a ese canal.
+ */
+export type OpsChannel = 'incidentes' | 'latido' | 'frescura' | 'degradacion' | 'pjud';
 
 export interface OpsAlert {
   level: OpsAlertLevel;
@@ -80,6 +88,9 @@ function urlDeCanal(channel: OpsChannel): string | undefined {
     latido: env.OPS_WEBHOOK_LATIDO,
     frescura: env.OPS_WEBHOOK_FRESCURA,
     degradacion: env.OPS_WEBHOOK_DEGRADACION,
+    // Sin canal propio, la ingesta de PJUD cae al latido general en vez de
+    // perderse: sigue siendo un latido, sólo que sin sala dedicada.
+    pjud: env.OPS_WEBHOOK_PJUD ?? env.OPS_WEBHOOK_LATIDO,
   };
   return porCanal[channel] ?? env.OPS_WEBHOOK_URL;
 }

@@ -192,7 +192,9 @@ export async function runSyncPjudJob(anio?: number): Promise<void> {
     if (vacias.length > 0) {
       void sendOpsAlert({
         level: 'warn',
-        channel: 'degradacion',
+        // Va a la sala de PJUD y no a degradación general: es información sobre
+        // ESTA fuente, y ahí es donde se lee junto a su latido.
+        channel: 'pjud',
         title: `PJUD: ${vacias.length} serie(s) sin datos`,
         detail: `Año ${anioObjetivo}. Respondieron 200 pero vacías:\n${vacias.join(', ')}`,
         dedupeKey: `pjud-vacias:${anioObjetivo}`,
