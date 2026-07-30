@@ -142,7 +142,14 @@ const envSchema = z.object({
 
   // ── Alerting de ops ──────────────────────────────────────────
   // Sin URL las alertas solo se loguean (mismo gating que en Licitus).
-  OPS_WEBHOOK_URL: z.string().url().optional(),
+  // Canales de ops. Se separan por QUÉ HACER al ver el mensaje, no por servicio
+  // (ver la cabecera de infrastructure/ops-alert/ops-alert.ts).
+  // Si falta el de un tipo, ese aviso cae a OPS_WEBHOOK_URL: preferible un canal
+  // mezclado a un aviso mudo.
+  OPS_WEBHOOK_URL: z.string().url().optional(), // incidentes — sólo rojo
+  OPS_WEBHOOK_LATIDO: z.string().url().optional(), // toda corrida programada
+  OPS_WEBHOOK_FRESCURA: z.string().url().optional(), // digest de antigüedad del dato
+  OPS_WEBHOOK_DEGRADACION: z.string().url().optional(), // lo que "funciona" mintiendo
 });
 
 export type Env = z.infer<typeof envSchema>;

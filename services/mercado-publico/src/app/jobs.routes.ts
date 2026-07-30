@@ -8,6 +8,7 @@ import { syncCompraAgilWorkflow } from '../workflows/sync-compra-agil.workflow.j
 import { refreshOpportunitiesWorkflow } from '../workflows/refresh-opportunities.workflow.js';
 import { buildBuyerProfilesWorkflow } from '../workflows/build-buyer-profiles.workflow.js';
 import { enrichOrdenesWorkflow } from '../workflows/enrich-ordenes.workflow.js';
+import { reporteFrescuraWorkflow } from '../workflows/reporte-frescura.workflow.js';
 import { syncProgress } from '../jobs/sync-progress.store.js';
 import { syncLogRepository } from '../modules/sync/infrastructure/sync-log.repository.js';
 import { deriveJobHealth, overallHealth, JOB_EXPECTED_INTERVAL_HOURS } from '../modules/sync/domain/job-health.js';
@@ -49,6 +50,8 @@ const JOBS: Record<string, JobStarter> = {
   // no alcanza para drenar la cola de enriquecimiento (ver el comentario del
   // workflow). También permite verificarlo sin esperar un sync completo.
   'enrich-ordenes': () => start(enrichOrdenesWorkflow, []),
+  // Sólo mide y publica: no ingesta nada. Va al canal de frescura.
+  'reporte-frescura': () => start(reporteFrescuraWorkflow, []),
 };
 
 export const jobsRoutes = new Hono();

@@ -128,6 +128,7 @@ class SyncLogRepository {
     if (input.status === 'failed') {
       void sendOpsAlert({
         level: 'error',
+        channel: 'incidentes',
         title: `Sync '${jobName}' falló`,
         detail:
           `encontradas=${input.totalFound}, ${cifras}` +
@@ -139,8 +140,12 @@ class SyncLogRepository {
         dedupeKey: `sync-failed:${id}`,
       });
     } else {
+      // 'partial' va al latido, no a incidentes: la corrida terminó y el dato
+      // entró. Que un abort por cuota o un puñado de 504 de MP suene igual que
+      // una caída haría que incidentes deje de significar algo.
       void sendOpsAlert({
-        level: 'info',
+        level: input.status === 'partial' ? 'warn' : 'info',
+        channel: 'latido',
         title: `Sync '${jobName}' — ${input.status}`,
         detail: `encontradas=${input.totalFound} · ${cifras}`,
         dedupeKey: `sync-done:${id}`,

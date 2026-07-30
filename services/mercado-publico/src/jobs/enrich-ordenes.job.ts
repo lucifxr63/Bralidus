@@ -22,6 +22,7 @@ import {
   FAILURE_RATE_THRESHOLD,
 } from '../modules/sync/domain/run-status.js';
 import { AppError } from '../shared/errors/app-error.js';
+import { sendOpsAlert } from '../infrastructure/ops-alert/ops-alert.js';
 
 const JOB_NAME = 'enrich-ordenes';
 
@@ -149,6 +150,15 @@ export async function runEnrichOrdenesJob(): Promise<void> {
               { codigo: candidate.externalCode, procesadas: stats.enriched },
               `[${JOB_NAME}] MP saturado (429) — cortando la corrida sin gastar intentos`,
             );
+            // Degradación: la corrida no falló, se contuvo. Si esto aparece
+            // seguido, el ritmo (ENRICH_DELAY_MS) hay que revisarlo.
+            void sendOpsAlert({
+              level: 'warn',
+              channel: 'degradacion',
+              title: 'Enriquecimiento de OCs cortado por saturación de MP',
+              detail: `Se enriquecieron ${stats.enriched} antes del 429. La cola queda intacta — ninguna fila gastó intento.`,
+              dedupeKey: 'enrich-throttled',
+            });
             break;
           }
 

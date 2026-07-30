@@ -133,8 +133,12 @@ class CompraAgilClient {
         // solo quema tiempo y deja el resto de la corrida igual de muerta.
         if (isQuotaExhausted(err)) {
           logger.error({ path }, 'API Compra Ágil: cuota diaria agotada');
+          // Degradación, no incidente: la cuota se agota por diseño cuando hay
+          // volumen, el sync corta limpio y retoma mañana. Mandarlo a incidentes
+          // lo haría sonar todos los días y el rojo perdería sentido.
           void sendOpsAlert({
-            level: 'error',
+            level: 'warn',
+            channel: 'degradacion',
             title: 'Cuota diaria de la API Compra Ágil agotada',
             detail:
               'La API respondió 429. La cuota se restablece al inicio del próximo día calendario; el sync se detiene hasta entonces.',

@@ -24,6 +24,9 @@ on:
     - cron: '0 7 * * *'      # sync-compra-agil (03:00 Chile)
     - cron: '15 */6 * * *'   # refresh-opportunities (cada 6 h a los :15)
     - cron: '0 3 * * 0'      # build-buyer-profiles (dom 03:00)
+    - cron: '30 12 * * *'    # reporte-frescura (08:30 Chile) — despues de que
+                             # corrieron los syncs de la madrugada, para que el
+                             # digest de la mañana refleje la noche.
   workflow_dispatch:
     inputs:
       job:
@@ -93,6 +96,7 @@ jobs:
               '0 7 * * *')     JOB=sync-compra-agil ;;
               '15 */6 * * *')  JOB=refresh-opportunities ;;
               '0 3 * * 0')     JOB=build-buyer-profiles ;;
+              '30 12 * * *')   JOB=reporte-frescura ;;
               *) echo "::error::schedule no mapeado: $SCHED"; exit 1 ;;
             esac
             BODY='{}'
