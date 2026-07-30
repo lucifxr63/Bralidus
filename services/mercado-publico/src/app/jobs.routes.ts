@@ -7,6 +7,7 @@ import { syncOrdenesWorkflow } from '../workflows/sync-ordenes.workflow.js';
 import { syncCompraAgilWorkflow } from '../workflows/sync-compra-agil.workflow.js';
 import { refreshOpportunitiesWorkflow } from '../workflows/refresh-opportunities.workflow.js';
 import { buildBuyerProfilesWorkflow } from '../workflows/build-buyer-profiles.workflow.js';
+import { enrichOrdenesWorkflow } from '../workflows/enrich-ordenes.workflow.js';
 import { syncProgress } from '../jobs/sync-progress.store.js';
 import { syncLogRepository } from '../modules/sync/infrastructure/sync-log.repository.js';
 import { deriveJobHealth, overallHealth, JOB_EXPECTED_INTERVAL_HOURS } from '../modules/sync/domain/job-health.js';
@@ -44,6 +45,10 @@ const JOBS: Record<string, JobStarter> = {
   'sync-compra-agil': (o) => start(syncCompraAgilWorkflow, [o]),
   'refresh-opportunities': () => start(refreshOpportunitiesWorkflow, []),
   'build-buyer-profiles': () => start(buildBuyerProfilesWorkflow, []),
+  // Disparable por su cuenta, no sólo encadenado a sync-ordenes: un lote diario
+  // no alcanza para drenar la cola de enriquecimiento (ver el comentario del
+  // workflow). También permite verificarlo sin esperar un sync completo.
+  'enrich-ordenes': () => start(enrichOrdenesWorkflow, []),
 };
 
 export const jobsRoutes = new Hono();

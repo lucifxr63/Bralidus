@@ -182,10 +182,15 @@ class MercadoPublicoClient {
     }
 
     if (lastError instanceof AppError) throw lastError;
-    throw AppError.externalApiError(
-      `Mercado Público API failed for ${path}`,
-      extractDetail(lastError),
-    );
+    // `httpStatus` en los detalles: sin él el llamador no puede distinguir un
+    // 429 (throttling — la fila SÍ es enriquecible, sólo hay que ir más lento)
+    // de un fallo real. enrich-ordenes lo necesita para no gastar un intento
+    // de los 5 disponibles en filas que sólo fueron rechazadas por ritmo.
+    const finalStatus = isHttpError(lastError) && lastError.status > 0 ? lastError.status : undefined;
+    throw AppError.externalApiError(`Mercado Público API failed for ${path}`, {
+      ...(extractDetail(lastError) as Record<string, unknown> | undefined),
+      httpStatus: finalStatus,
+    });
   }
 }
 

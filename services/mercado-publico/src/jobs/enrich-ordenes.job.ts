@@ -25,7 +25,36 @@ import { AppError } from '../shared/errors/app-error.js';
 
 const JOB_NAME = 'enrich-ordenes';
 
+/**
+ * Intervalo entre consultas al detalle de OC.
+ *
+ * SYNC_REQUEST_DELAY_MS (200 ms) sirve para los LISTADOS, que toleran ese ritmo.
+ * El endpoint de detalle no: rechaza con 429 "Hemos detectado que existen
+ * peticiones simultáneas". Medido contra la API el 2026-07-29, secuencialmente:
+ *
+ *    200 ms  ->  25% de éxito   (9 de 12 con 429)
+ *   1000 ms  ->  50%
+ *   2500 ms  -> 100%            (0 con 429)
+ *
+ * El 25% explica exactamente lo que se veía en producción: ok=29 de 150 en cada
+ * corrida. No era que las OCs no existieran — era el ritmo.
+ *
+ * Con 2.5 s y el techo de 300 s de una función Vercel entran ~100 por corrida,
+ * de ahí que ENRICH_OC_MAX_ITEMS deba acompañar este valor.
+ */
+const ENRICH_DELAY_MS = 2500;
+
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * True si el error viene de que MP nos está frenando (429), no de la fila.
+ * El cliente preserva el status en `details.httpStatus`.
+ */
+function esThrottling(err: unknown): boolean {
+  if (!(err instanceof AppError)) return false;
+  const d = err.details as { httpStatus?: number } | undefined;
+  return d?.httpStatus === 429;
+}
 
 // ── Helper puro (testeable) ───────────────────────────────────
 
@@ -54,6 +83,8 @@ interface EnrichStats {
   stillIncomplete: number;
   notFound: number;
   failed: number;
+  /** Cortes por 429 de MP. No son fallos de la fila — no consumen intento. */
+  throttled: number;
 }
 
 export async function runEnrichOrdenesJob(): Promise<void> {
@@ -83,6 +114,7 @@ export async function runEnrichOrdenesJob(): Promise<void> {
     stillIncomplete: 0,
     notFound: 0,
     failed: 0,
+    throttled: 0,
   };
 
   try {
@@ -103,8 +135,31 @@ export async function runEnrichOrdenesJob(): Promise<void> {
         } else {
           stats.failed++;
           const error = err instanceof Error ? err.message : String(err);
+
+          // Throttling NO es un fallo de la fila: MP rechaza por "peticiones
+          // simultáneas" y esa OC sigue siendo perfectamente enriquecible. Si se
+          // le consumiera un intento, 5 corridas con el ritmo mal calibrado la
+          // excluirían para siempre de una cola de la que nunca tuvo la culpa.
+          //
+          // Se corta la corrida entera: MP ya está saturado y seguir pidiendo
+          // sólo suma 429s. La próxima corrida retoma con la cola intacta.
+          if (esThrottling(err)) {
+            stats.throttled++;
+            logger.warn(
+              { codigo: candidate.externalCode, procesadas: stats.enriched },
+              `[${JOB_NAME}] MP saturado (429) — cortando la corrida sin gastar intentos`,
+            );
+            break;
+          }
+
           logger.warn({ codigo: candidate.externalCode, error }, `[${JOB_NAME}] Enrichment failed`);
-          if (env.SYNC_REQUEST_DELAY_MS > 0) await sleep(env.SYNC_REQUEST_DELAY_MS);
+          // Un fallo real SÍ consume intento: sin esto la fila vuelve idéntica
+          // en la próxima corrida (el orden del query es determinista) y ocupa
+          // el presupuesto para siempre. Era la razón de que las 78.829 filas
+          // pendientes tuvieran enrichment_attempts = 0 y de que cada corrida
+          // acertara siempre las mismas ~30 de 150.
+          await purchaseOrderRepository.incrementEnrichmentAttempts(candidate.externalCode);
+          await sleep(ENRICH_DELAY_MS);
           continue;
         }
       }
@@ -118,7 +173,8 @@ export async function runEnrichOrdenesJob(): Promise<void> {
         await purchaseOrderRepository.incrementEnrichmentAttempts(candidate.externalCode);
       }
 
-      if (env.SYNC_REQUEST_DELAY_MS > 0) await sleep(env.SYNC_REQUEST_DELAY_MS);
+      // Ritmo propio del endpoint de detalle, no el de los listados.
+      await sleep(ENRICH_DELAY_MS);
     }
 
     // Estado por TASA de fallo (regla compartida en run-status.ts), no por
@@ -152,6 +208,9 @@ export async function runEnrichOrdenesJob(): Promise<void> {
         stillIncomplete: stats.stillIncomplete,
         notFound: stats.notFound,
         failureRate: Number(failureRate.toFixed(3)),
+        // Si esto sube, MP está frenando y el ritmo hay que revisarlo — no es
+        // que las OCs no se puedan enriquecer.
+        throttled: stats.throttled,
       },
     });
 

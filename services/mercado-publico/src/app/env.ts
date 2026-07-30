@@ -123,7 +123,14 @@ const envSchema = z.object({
     .string()
     .transform((v) => v === 'true')
     .default('true'),
-  ENRICH_OC_MAX_ITEMS: z.coerce.number().int().min(1).max(1000).default(150),
+  // Tope por corrida del enriquecimiento. Debe entrar en el techo de 300 s de
+  // una función Vercel al ritmo que tolera el endpoint de detalle de MP
+  // (2,5 s por consulta — ver ENRICH_DELAY_MS en enrich-ordenes.job.ts):
+  // 100 x 2,5 s = 250 s, con margen.
+  //
+  // El default anterior (150) daba 375 s y no cabía; la corrida se cortaba a
+  // mitad de lote. Subir esto exige subir el techo de la función primero.
+  ENRICH_OC_MAX_ITEMS: z.coerce.number().int().min(1).max(1000).default(100),
 
   // ── Callback a Licitus (post-proceso de producto) ────────────
   // La ingesta NO corre análisis LLM, matching ni notificaciones: eso vive en
