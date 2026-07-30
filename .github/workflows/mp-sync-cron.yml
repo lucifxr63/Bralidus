@@ -27,6 +27,10 @@ on:
     - cron: '30 12 * * *'    # reporte-frescura (08:30 Chile) — despues de que
                              # corrieron los syncs de la madrugada, para que el
                              # digest de la mañana refleje la noche.
+    - cron: '0 5 * * 1'      # sync-pjud (lunes 01:00 Chile). Semanal y no diario
+                             # porque la fuente publica series ANUALES: correrlo
+                             # a diario serian 11 requests para reescribir lo
+                             # mismo. Ver docs/PJUD_API_HALLAZGOS.md.
   workflow_dispatch:
     inputs:
       job:
@@ -97,6 +101,7 @@ jobs:
               '15 */6 * * *')  JOB=refresh-opportunities ;;
               '0 3 * * 0')     JOB=build-buyer-profiles ;;
               '30 12 * * *')   JOB=reporte-frescura ;;
+              '0 5 * * 1')     JOB=sync-pjud ;;
               *) echo "::error::schedule no mapeado: $SCHED"; exit 1 ;;
             esac
             BODY='{}'
