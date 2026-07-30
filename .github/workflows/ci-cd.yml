@@ -1,5 +1,16 @@
 name: Bralidus Developer Portal CI/CD
 
+# OJO CON LAS RUTAS
+# -----------------
+# Este workflow vive en el repo del PORTAL (lucifxr63/Bralidus), donde
+# package.json, src/ y services/ están en la RAÍZ. Estaba escrito con rutas del
+# monorepo (`validateai-developer-portal/...`, `validateai/supabase/...`), que
+# acá no existen — venía copiado de aquel contexto y nunca se adaptó.
+#
+# Sumado a que un `if` de step usaba el contexto `secrets` (invalido ahí), el
+# archivo era rechazado al parsearse: 10 corridas seguidas fallando en 0 s sin
+# ejecutar un solo paso. Nunca corrió el typecheck, ni los tests, ni el build.
+
 on:
   push:
     branches: [ main, master ]
@@ -21,25 +32,30 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-          cache-dependency-path: 'validateai-developer-portal/package-lock.json'
+          cache-dependency-path: 'package-lock.json'
 
       - name: Install Dependencies
-        working-directory: validateai-developer-portal
         run: npm ci
 
       - name: 🔍 TypeScript Strict Typecheck
-        working-directory: validateai-developer-portal
         run: npx tsc --noEmit
 
+      # Los E2E pegan contra la API real de Bralidus. Sin la key son ruido rojo
+      # que no dice nada del commit, así que se saltean explícitamente en vez de
+      # fallar: el pipeline debe romperse por el código, no por configuración
+      # ausente.
       - name: 🧪 Run E2E Integration Tests
-        working-directory: validateai-developer-portal
         env:
           VITE_BRALIDUS_API_URL: https://braliduspy-production.up.railway.app
           VITE_TEST_BRALIDUS_KEY: ${{ secrets.BRALIDUS_TEST_API_KEY }}
-        run: npx vitest run e2e/bralidus-api.spec.ts
+        run: |
+          if [ -z "${VITE_TEST_BRALIDUS_KEY:-}" ]; then
+            echo "::warning::Sin BRALIDUS_TEST_API_KEY — se omiten los E2E contra la API real"
+            exit 0
+          fi
+          npx vitest run e2e/bralidus-api.spec.ts
 
       - name: 🏗️ Production Vite Build
-        working-directory: validateai-developer-portal
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
@@ -49,35 +65,13 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: dist-portal
-          path: validateai-developer-portal/dist/
+          path: dist/
 
-  deploy-supabase-functions:
-    name: 🚀 Deploy Supabase Edge Functions
-    needs: validate-and-test
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: Setup Supabase CLI
-        uses: supabase/setup-cli@v1
-        with:
-          version: latest
-
-      - name: Deploy Edge Functions
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
-        run: |
-          if [ -n "${SUPABASE_ACCESS_TOKEN:-}" ]; then
-            echo "Deploying Supabase Edge Functions..."
-            cd validateai/supabase
-            supabase functions deploy api-v1 --project-ref ${{ secrets.SUPABASE_PROJECT_ID }}
-          else
-            echo "SUPABASE_ACCESS_TOKEN not set. Skipping automated function deployment."
-          fi
+  # NOTA: el despliegue de las Supabase Edge Functions NO vive acá.
+  # Las funciones están en el monorepo (lucifxr63/stars), y ese repo tiene su
+  # propio `deploy-functions.yml` que despliega sólo las que cambiaron. El job
+  # que había en este archivo hacía `cd validateai/supabase`, una ruta que en
+  # este repo no existe: nunca pudo haber funcionado.
 
   deploy-frontend:
     name: 🌐 Deploy Frontend to Vercel
@@ -87,14 +81,7 @@ jobs:
 
     # El secret se expone como env del job para poder condicionar el step con
     # `env.VERCEL_TOKEN`. El contexto `secrets` NO está disponible en un `if` de
-    # step: usarlo ahí invalida el workflow ENTERO y GitHub lo rechaza al
-    # parsearlo, sin ejecutar un solo job.
-    #
-    # Eso es exactamente lo que venía pasando: 10 corridas consecutivas
-    # fallando en 0 s (nunca corrió el typecheck, ni los tests, ni el build) y
-    # nadie lo notó, porque un fallo instantáneo se parece a "no había nada que
-    # hacer". Los despliegues se venían haciendo a mano sin que el pipeline
-    # existiera de verdad.
+    # step: usarlo ahí invalida el workflow entero (ver nota de arriba).
     env:
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
 
@@ -106,7 +93,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: dist-portal
-          path: validateai-developer-portal/dist/
+          path: dist/
 
       - name: Deploy to Vercel Action
         uses: amondnet/vercel-action@v25
@@ -115,14 +102,13 @@ jobs:
           vercel-token: ${{ secrets.VERCEL_TOKEN }}
           vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
           vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-          working-directory: validateai-developer-portal
           vercel-args: '--prod'
 
   notificar:
     name: 📣 Avisar a la sala de control
     # Un job resumen en vez de notificar desde cada uno: interesa el resultado
-    # del pipeline completo, no tres avisos sueltos que hay que correlacionar.
-    needs: [validate-and-test, deploy-supabase-functions, deploy-frontend]
+    # del pipeline completo, no avisos sueltos que hay que correlacionar.
+    needs: [validate-and-test, deploy-frontend]
     if: always() && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
     runs-on: ubuntu-latest
 
@@ -134,14 +120,13 @@ jobs:
         env:
           HOOK: ${{ secrets.DISCORD_DEPLOYS_WEBHOOK }}
           TESTS: ${{ needs.validate-and-test.result }}
-          FUNCS: ${{ needs.deploy-supabase-functions.result }}
           FRONT: ${{ needs.deploy-frontend.result }}
         run: |
           [ -z "${HOOK:-}" ] && { echo "Sin DISCORD_DEPLOYS_WEBHOOK — se omite el aviso"; exit 0; }
 
-          # Verde sólo si TODO pasó. Un 'skipped' cuenta como no-verde: significa
-          # que algo no corrió y eso no es un despliegue exitoso.
-          if [ "$TESTS" = "success" ] && [ "$FUNCS" = "success" ] && [ "$FRONT" = "success" ]; then
+          # Verde sólo si todo pasó. Un 'skipped' cuenta como no-verde: significa
+          # que algo no corrió, y eso no es un despliegue exitoso.
+          if [ "$TESTS" = "success" ] && [ "$FRONT" = "success" ]; then
             COLOR=5234826; EMOJI="🟢"; ESTADO="desplegado"
           else
             COLOR=14700383; EMOJI="🔴"; ESTADO="con problemas"
@@ -149,8 +134,8 @@ jobs:
 
           icono() { case "$1" in success) echo "✅";; failure) echo "❌";; skipped) echo "⏭️";; *) echo "⚠️";; esac; }
 
-          # jq -Rs escapa el mensaje de commit: los titulos traen comillas,
-          # backticks y saltos de linea que romperian el JSON armado a mano.
+          # jq -Rs escapa el mensaje de commit: los títulos traen comillas,
+          # backticks y saltos de línea que romperían el JSON armado a mano.
           MSG=$(git log -1 --pretty=%s | jq -Rs '.')
           SHA=$(git rev-parse --short HEAD)
 
@@ -158,7 +143,6 @@ jobs:
                 --arg emoji "$EMOJI" --arg estado "$ESTADO" --arg sha "$SHA" \
                 --arg actor "${{ github.actor }}" --argjson color "$COLOR" \
                 --arg tests "$(icono "$TESTS") $TESTS" \
-                --arg funcs "$(icono "$FUNCS") $FUNCS" \
                 --arg front "$(icono "$FRONT") $FRONT" \
                 '{embeds:[{
                    title: ($emoji + "  Portal Bralidus " + $estado),
@@ -166,10 +150,9 @@ jobs:
                    color: $color,
                    fields: [
                      {name:"Tests & build", value:$tests, inline:true},
-                     {name:"Edge Functions", value:$funcs, inline:true},
-                     {name:"Frontend",       value:$front, inline:true},
-                     {name:"Commit",         value:$sha,   inline:true},
-                     {name:"Autor",          value:$actor, inline:true}
+                     {name:"Frontend",      value:$front, inline:true},
+                     {name:"Commit",        value:$sha,   inline:true},
+                     {name:"Autor",         value:$actor, inline:true}
                    ],
                    footer:{text:"ci-cd · Deploys"}
                  }]}' \
