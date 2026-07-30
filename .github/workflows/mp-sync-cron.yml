@@ -52,7 +52,12 @@ jobs:
           SCHED: ${{ github.event.schedule }}
           EVENT: ${{ github.event_name }}
           DISPATCH: ${{ github.event.inputs.job }}
-          OPTIONS: ${{ github.event.inputs.options }}
+          # Comillas simples OBLIGATORIAS: sin ellas YAML lee el JSON como flow
+          # mapping y lo re-serializa sin las comillas dobles
+          # ({"a":"b"} -> {a:b}). Eso llega al servicio como JSON invalido,
+          # `c.req.json()` lanza, y la corrida cae al default silenciosamente —
+          # las opciones de una corrida manual se perdían sin decir nada.
+          OPTIONS: '${{ github.event.inputs.options }}'
         run: |
           set -euo pipefail
 
