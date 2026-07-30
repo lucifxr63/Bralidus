@@ -1,565 +1,1278 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import {
+  Terminal,
+  Cpu,
+  Database,
+  Shield,
+  ArrowRight,
+  CheckCircle2,
+  Code2,
+  Layers,
+  Lock,
+  FileText,
+  Copy,
+  Check,
+  Activity,
+  Sparkles,
+  Server,
+  ChevronDown,
+  ChevronUp,
+  AlertTriangle,
+  BookOpen,
+} from 'lucide-react';
 
-// ── Icons inline para no depender de lucide en esta página ────────────────────
-const IconArrow = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M5 12h14M12 5l7 7-7 7" />
-  </svg>
-);
-const IconZap = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-  </svg>
-);
-const IconBrain = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96-.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 1.98-3A2.5 2.5 0 0 1 9.5 2Z"/>
-    <path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96-.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-1.98-3A2.5 2.5 0 0 0 14.5 2Z"/>
-  </svg>
-);
-const IconDatabase = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5V19A9 3 0 0 0 21 19V5"/><path d="M3 12A9 3 0 0 0 21 12"/>
-  </svg>
-);
-const IconShield = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-  </svg>
-);
-const IconTrendingUp = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>
-  </svg>
-);
-const IconCode = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
-  </svg>
-);
-const IconGlobe = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+// ── Icons inline originales (Estilo Animus / Scouttech) ──────────────────────
+const IconLogo = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+    <circle cx="12" cy="12" r="3" fill="white" />
+    <circle cx="4" cy="6" r="2" fill="rgba(255,255,255,0.7)" />
+    <circle cx="20" cy="6" r="2" fill="rgba(255,255,255,0.7)" />
+    <circle cx="4" cy="18" r="2" fill="rgba(255,255,255,0.7)" />
+    <circle cx="20" cy="18" r="2" fill="rgba(255,255,255,0.7)" />
+    <line x1="6" y1="7" x2="10" y2="11" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5" />
+    <line x1="18" y1="7" x2="14" y2="11" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5" />
+    <line x1="6" y1="17" x2="10" y2="13" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5" />
+    <line x1="18" y1="17" x2="14" y2="13" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5" />
   </svg>
 );
 
-// ── Types ─────────────────────────────────────────────────────────────────────
+// ── Types for Interactive Console ──────────────────────────────────────────
+type ConsoleTabId = 'b2g' | 'macro' | 'rag' | 'spulse' | 'moe';
 
-interface Expert {
-  id: string;
-  name: string;
-  icon: React.ReactNode;
+interface ConsoleTab {
+  id: ConsoleTabId;
+  label: string;
+  badge: string;
   color: string;
-  bg: string;
-  border: string;
+  method: 'GET' | 'POST';
+  path: string;
   description: string;
-  keywords: string[];
+  curlCommand: string;
+  tsCode: string;
+  responseJson: string;
+  sourceStatus: {
+    type: 'live' | 'cache' | 'resilience';
+    label: string;
+    source: string;
+    sha256: string;
+    latencyMs: number;
+    credits: number;
+  };
 }
 
-interface DataSource {
-  name: string;
-  type: string;
-  typeColor: string;
-  description: string;
-}
+const CONSOLE_TABS: ConsoleTab[] = [
+  {
+    id: 'b2g',
+    label: '1. Mercado Público (B2G)',
+    badge: 'B2G',
+    color: '#D97706', // amber-600
+    method: 'GET',
+    path: '/api/v1/mercado-publico/licitaciones?estado=publicada',
+    description: 'Búsqueda unificada de licitaciones públicas (LE/LP), Compras Ágiles y órdenes de compra de ChileCompra.',
+    curlCommand: `curl -X GET "https://fcdhcntyvsydnvjwopfe.supabase.co/functions/v1/api-v1/mercado-publico/licitaciones?estado=publicada" \\
+  -H "Authorization: Bearer demo_public_key" \\
+  -H "Content-Type: application/json"`,
+    tsCode: `import { animusFetch } from '@scouttech/animus-sdk';
 
-// ── Data ──────────────────────────────────────────────────────────────────────
-
-const EXPERTS: Expert[] = [
+const tenders = await animusFetch('/mercado-publico/licitaciones', {
+  params: { estado: 'publicada', limit: 5 },
+  apiKey: process.env.ANIMUS_API_KEY,
+});
+console.log(tenders.data);`,
+    responseJson: `{
+  "data": [
+    {
+      "id": "lic_9921",
+      "external_code": "1234-56-LE26",
+      "title": "Servicio de Mantenimiento e Infraestructura Cloud TI",
+      "status_code": "publicada",
+      "buyer_name": "Ministerio de Educación (MINEDUC)",
+      "amount_clp_est": 185000000,
+      "closing_date": "2026-08-15T16:00:00Z"
+    }
+  ],
+  "meta": { "page": 1, "page_size": 20, "total": 142 }
+}`,
+    sourceStatus: {
+      type: 'live',
+      label: '🟢 Live ChileCompra',
+      source: 'Mercado Público API v1',
+      sha256: 'sha256: 8f9e2d7c4a1b0e3f...',
+      latencyMs: 98,
+      credits: 2,
+    },
+  },
   {
     id: 'macro',
-    name: 'Experto Macroeconómico',
-    icon: <IconTrendingUp />,
-    color: '#A78BFA',
-    bg: 'rgba(139,92,246,0.08)',
-    border: 'rgba(139,92,246,0.20)',
-    description: 'PIB, CPI, Fed Funds Rate, M2 Money Supply, spread curva 10Y-2Y, IED Chile, producción industrial',
-    keywords: ['pib', 'gdp', 'inflación', 'tasa fed', 'macro', 'recesión', 'banco central'],
+    label: '2. Datos Económicos & Macro',
+    badge: 'MACRO',
+    color: '#0D9488', // teal-600
+    method: 'GET',
+    path: '/api/v1/data/economy',
+    description: 'Snapshot macroeconómico chileno en tiempo real (UF, UTM, TPM, IPC, Dólar, Cobre) normalizado.',
+    curlCommand: `curl -X GET "https://fcdhcntyvsydnvjwopfe.supabase.co/functions/v1/api-v1/data/economy" \\
+  -H "Authorization: Bearer demo_public_key"`,
+    tsCode: `import { animusFetch } from '@scouttech/animus-sdk';
+
+const macroSnapshot = await animusFetch('/data/economy');
+console.log('UF Actual:', macroSnapshot.data.uf_clp);
+console.log('TPM BCCh:', macroSnapshot.data.tpm_pct);`,
+    responseJson: `{
+  "data": {
+    "uf_clp": 38450.22,
+    "utm_clp": 67810.00,
+    "tpm_pct": 5.25,
+    "usd_clp": 948.50,
+    "copper_usd_lb": 4.28,
+    "updated_at": "2026-07-30T12:00:00Z"
+  }
+}`,
+    sourceStatus: {
+      type: 'cache',
+      label: '🟡 Caché Cron (30m)',
+      source: 'BCCh / SII / FRED',
+      sha256: 'sha256: 3c4a1f8e9b0d2a1e...',
+      latencyMs: 42,
+      credits: 1,
+    },
   },
   {
-    id: 'mercados',
-    name: 'Experto en Mercados',
-    icon: <IconTrendingUp />,
-    color: '#34D399',
-    bg: 'rgba(52,211,153,0.08)',
-    border: 'rgba(52,211,153,0.20)',
-    description: 'S&P 500, NASDAQ, IPSA, cobre, litio, WTI, oro, VIX, USD/CLP, ETFs LATAM, Tesoro 10Y',
-    keywords: ['ipsa', 'bolsa', 'cobre', 'litio', 'vix', 'forex', 'nasdaq'],
+    id: 'rag',
+    label: '3. RAG & Vaults Vectoriales',
+    badge: 'RAG',
+    color: '#0284C7', // sky-600
+    method: 'POST',
+    path: '/api/v1/rag/query',
+    description: 'Búsqueda híbrida (HNSW vectorial + coincidencia léxica con reranking) y ubicación exacta por página.',
+    curlCommand: `curl -X POST "https://fcdhcntyvsydnvjwopfe.supabase.co/functions/v1/api-v1/rag/query" \\
+  -H "Authorization: Bearer val_live_88a1b2c3d..." \\
+  -H "Content-Type: application/json" \\
+  -d '{"query":"¿Qué exige la Ley 21.719 de datos personales en Chile?","search":{"mode":"hybrid"}}'`,
+    tsCode: `import { animusFetch } from '@scouttech/animus-sdk';
+
+const result = await animusFetch('/rag/query', {
+  method: 'POST',
+  body: {
+    query: '¿Qué exige la Ley 21.719 de datos personales en Chile?',
+    search: { mode: 'hybrid', top_k: 5, rerank: true },
+  },
+});`,
+    responseJson: `{
+  "data": {
+    "query_id": "qry_01K8...",
+    "results": [
+      {
+        "rank": 1,
+        "chunk_id": "chk_ley_21719_art4",
+        "document_title": "Ley 21.719 Protección Datos.pdf",
+        "location": { "page": 12, "section": "Título II - Deberes" },
+        "content_snippet": "El responsable de datos deberá implementar medidas de seguridad...",
+        "scores": { "vector": 0.88, "lexical": 0.79, "reranker": 0.94, "final": 0.91 }
+      }
+    ]
+  }
+}`,
+    sourceStatus: {
+      type: 'live',
+      label: '🟢 Live pgvector',
+      source: 'Vault Corporativo Privado',
+      sha256: 'sha256: 7d1a9e8c4b2f0c5a...',
+      latencyMs: 135,
+      credits: 3,
+    },
   },
   {
-    id: 'unit_economics',
-    name: 'Experto Unit Economics',
-    icon: <IconZap />,
-    color: '#F59E0B',
-    bg: 'rgba(245,158,11,0.08)',
-    border: 'rgba(245,158,11,0.20)',
-    description: 'CAC, LTV, NRR, Gross Churn, Burn Rate, Cash Runway, Payback Period, M&A estratégico LatAm',
-    keywords: ['cac', 'ltv', 'nrr', 'churn', 'burn', 'runway', 'mrr'],
+    id: 'spulse',
+    label: '4. S-Pulse Societario',
+    badge: 'S-PULSE',
+    color: '#2563EB', // blue-600
+    method: 'GET',
+    path: '/api/v1/data/spulse/companies/76123456K/network',
+    description: 'Grafo societario chileno 360° con socios, % de participación, directiva y trazabilidad en Diario Oficial.',
+    curlCommand: `curl -X GET "https://fcdhcntyvsydnvjwopfe.supabase.co/functions/v1/api-v1/data/spulse/companies/76123456K/network" \\
+  -H "Authorization: Bearer demo_public_key"`,
+    tsCode: `import { animusFetch } from '@scouttech/animus-sdk';
+
+const mesh = await animusFetch('/data/spulse/companies/76123456K/network');
+console.log('Nodos societarios:', mesh.data.nodes.length);
+console.log('Participaciones:', mesh.data.edges);`,
+    responseJson: `{
+  "data": {
+    "nodes": [
+      { "id": "76123456K", "label": "Scouttech SpA", "type": "company", "social_capital_clp": 150000000 },
+      { "id": "12345678-9", "label": "Luciano Larraín", "type": "person", "share_pct": 60.0 }
+    ],
+    "edges": [
+      { "source": "12345678-9", "target": "76123456K", "relationship": "shareholder", "weight": 60.0 }
+    ]
+  }
+}`,
+    sourceStatus: {
+      type: 'live',
+      label: '🟢 Live S-Pulse Graph',
+      source: 'Diario Oficial / Conservador',
+      sha256: 'sha256: 5f2e1d0b9a8c7e6f...',
+      latencyMs: 110,
+      credits: 5,
+    },
   },
   {
-    id: 'legal',
-    name: 'Experto Legal y Regulatorio',
-    icon: <IconShield />,
-    color: '#F87171',
-    bg: 'rgba(248,113,113,0.08)',
-    border: 'rgba(248,113,113,0.20)',
-    description: 'Ley Fintech 21.521 CMF, Ley Datos 21.719 GDPR Chile, Ley Ciberseguridad 21.663, SpA, INAPI',
-    keywords: ['cmf', 'gdpr', 'spa', 'vesting', 'inapi', 'marcas', 'regulatorio'],
+    id: 'moe',
+    label: '5. MoE GraphRAG (5 Expertos)',
+    badge: 'INTEL',
+    color: '#E11D48', // rose-600
+    method: 'POST',
+    path: '/api/v1/intel/query',
+    description: 'Enrutamiento automático entre 5 expertos (Macro, Markets, Unit Econ, Legal, Estrategia B2G) con evidencia.',
+    curlCommand: `curl -X POST "https://fcdhcntyvsydnvjwopfe.supabase.co/functions/v1/api-v1/intel/query" \\
+  -H "Authorization: Bearer val_live_88a1b2c3d..." \\
+  -H "Content-Type: application/json" \\
+  -d '{"query":"¿Cómo afecta la tasa de la Fed a startups fintech chilenas?","routing":"auto"}'`,
+    tsCode: `import { animusFetch } from '@scouttech/animus-sdk';
+
+const analysis = await animusFetch('/intel/query', {
+  method: 'POST',
+  body: {
+    query: '¿Cómo afecta la tasa de la Fed a startups fintech chilenas?',
+    routing: 'auto',
   },
-  {
-    id: 'estrategia',
-    name: 'Experto Estrategia & GTM',
-    icon: <IconGlobe />,
-    color: '#0EB5C6',
-    bg: 'rgba(14,181,198,0.08)',
-    border: 'rgba(14,181,198,0.20)',
-    description: 'Moat network effects, Blue Ocean, GTM LatAm WhatsApp-first, TRL/CRL, Corfo Semilla, sesgos fundadores',
-    keywords: ['moat', 'gtm', 'corfo', 'trl', 'sesgo', 'whatsapp', 'tracción'],
+});`,
+    responseJson: `{
+  "data": {
+    "answer_id": "ans_01K9X...",
+    "executive_summary": "La política monetaria de la Fed impacta directamente al costo de fondeo y liquidez de fintechs chilenas...",
+    "experts_consulted": ["macro", "unit_economics", "legal"],
+    "citations": [
+      { "id": "cit_bcch_tpm", "source": "Banco Central de Chile", "verified": true }
+    ]
+  }
+}`,
+    sourceStatus: {
+      type: 'live',
+      label: '🟢 Live MoE GraphRAG',
+      source: 'Gating Network 5 Expertos',
+      sha256: 'sha256: 9a8b7c6d5e4f3a2b...',
+      latencyMs: 142,
+      credits: 10,
+    },
   },
 ];
 
-const DATA_SOURCES: DataSource[] = [
-  { name: 'FRED',          type: 'Macro USA',     typeColor: '#A78BFA', description: 'GDP, CPI, Fed Funds, M2, curva 10Y-2Y' },
-  { name: 'yfinance',      type: 'Mercados',      typeColor: '#34D399', description: 'IPSA, S&P 500, cobre, litio, VIX, USD/CLP' },
-  { name: 'BCCH',          type: 'Macro Chile',   typeColor: '#0EB5C6', description: 'Comunicados y minutas Banco Central PDF' },
-  { name: 'CMF Chile',     type: 'Regulatorio',   typeColor: '#F87171', description: 'Hechos Esenciales de empresas reguladas' },
-  { name: 'SEIA',          type: 'Alternativas',  typeColor: '#F59E0B', description: 'Proyectos de inversión aprobados Chile' },
-  { name: 'Diario Oficial',type: 'Alternativas',  typeColor: '#F59E0B', description: 'Boletín Concursal + publicaciones legales' },
-  { name: 'ChileCompra',   type: 'B2G',           typeColor: '#60A5FA', description: 'Licitaciones y métricas de proveedores' },
-  { name: 'OpenBB',        type: 'Extendido',     typeColor: '#8B5CF6', description: 'World Bank Chile, FRED extendido (opcional)' },
-];
+// ── Modules Data (6 Módulos con estado) ────────────────────────────────────
+interface CoreModule {
+  number: string;
+  title: string;
+  color: string;
+  badge: 'ESTABLE' | 'BETA' | 'ROADMAP';
+  benefit: string;
+  endpoints: string[];
+}
 
-const CODE_LINES = [
-  { indent: 0, text: 'POST /query/moe',       color: '#FB7185', bold: true },
-  { indent: 0, text: '{',                      color: '#E2E8F0' },
-  { indent: 1, text: '"query":',               color: '#FDA4AF', suffix: ' "¿Cómo afecta la Fed a una fintech seed?",', suffixColor: '#FCA5A5' },
-  { indent: 1, text: '"startup_context":',     color: '#FDA4AF', suffix: ' {', suffixColor: '#E2E8F0' },
-  { indent: 2, text: '"industry":',            color: '#FECDD3', suffix: ' "fintech",', suffixColor: '#FCA5A5' },
-  { indent: 2, text: '"stage":',               color: '#FECDD3', suffix: ' "seed",', suffixColor: '#FCA5A5' },
-  { indent: 2, text: '"geography":',           color: '#FECDD3', suffix: ' "chile"', suffixColor: '#FCA5A5' },
-  { indent: 1, text: '}',                      color: '#E2E8F0' },
-  { indent: 0, text: '}',                      color: '#E2E8F0' },
-  { indent: 0, text: '',                       color: '#E2E8F0' },
-  { indent: 0, text: '// Response',            color: '#94A3B8', bold: false },
-  { indent: 0, text: '{',                      color: '#E2E8F0' },
-  { indent: 1, text: '"experts_activated":',   color: '#FDA4AF', suffix: ' ["macro","unit_economics"],', suffixColor: '#FECDD3' },
-  { indent: 1, text: '"graph_hits":',          color: '#FDA4AF', suffix: ' 4,', suffixColor: '#FCA5A5' },
-  { indent: 1, text: '"vector_hits":',         color: '#FDA4AF', suffix: ' 2,', suffixColor: '#FCA5A5' },
-  { indent: 1, text: '"context_for_llm":',     color: '#FDA4AF', suffix: ' "## Contexto Macro..."', suffixColor: '#FCA5A5' },
-  { indent: 0, text: '}',                      color: '#E2E8F0' },
-];
-
-const STATS = [
-  { value: '25', label: 'Industrias', sub: 'routing dinámico' },
-  { value: '31', label: 'Grupos', sub: 'de entidades' },
-  { value: '5',  label: 'Experts MoE', sub: 'especializados' },
-  { value: '1536', label: 'Dims', sub: 'OpenAI embeddings' },
-];
-
-const HOW_IT_WORKS = [
+const CORE_MODULES: CoreModule[] = [
   {
-    step: '01',
-    title: 'Envías el contexto',
-    desc: 'POST /query/moe con startup_context: industria, etapa y geografía. Animus entiende tu startup.',
-    icon: <IconCode />,
-    color: '#F43F5E',
+    number: '01',
+    title: 'Mercado Público (B2G)',
+    color: '#D97706',
+    badge: 'ESTABLE',
+    benefit: 'Consulta unificada de licitaciones públicas (LE/LP), Compras Ágiles (< 300 UTM), órdenes de compra y perfiles de compradores públicos chilenos en tiempo real con fallback resiliente.',
+    endpoints: [
+      'GET /mercado-publico/licitaciones',
+      'GET /mercado-publico/compra-agil',
+      'GET /mercado-publico/proveedores/:rut',
+    ],
   },
   {
-    step: '02',
-    title: 'GatingNetwork activa Experts',
-    desc: 'El router de 2 etapas (keyword scan + fallback semántico) selecciona los Experts relevantes y traversa el knowledge graph.',
-    icon: <IconBrain />,
+    number: '02',
+    title: 'Datos Económicos & Macro',
+    color: '#0D9488',
+    badge: 'ESTABLE',
+    benefit: 'Series normalizadas de Chile (UF, UTM, TPM, IPC, Dólar, Euro, Cobre), datos federales de Estados Unidos (FRED), indicadores de empleo INE y Boletín Concursal judicial.',
+    endpoints: [
+      'GET /data/economy',
+      'GET /data/macro',
+      'GET /data/companies/insolvencies',
+    ],
+  },
+  {
+    number: '03',
+    title: 'Animus Intelligence (MoE)',
     color: '#E11D48',
+    badge: 'ESTABLE',
+    benefit: 'Enrutamiento automático entre 5 Expertos (Macro, Mercados, Unit Economics, Legal, Estrategia B2G) y evaluaciones deterministas de Fit y Riesgo con evidencia citable.',
+    endpoints: [
+      'POST /intel/query',
+      'POST /intel/assessments/tender-fit',
+      'POST /intel/assessments/company-risk',
+    ],
   },
   {
-    step: '03',
-    title: 'Contexto listo para tu LLM',
-    desc: 'Recibes Markdown estructurado con nodos GRAPH + VECTOR rankeados por relevancia, listo para inyectar en tu prompt.',
-    icon: <IconZap />,
-    color: '#BE123C',
+    number: '04',
+    title: 'RAG & Vaults Vectoriales',
+    color: '#0284C7',
+    badge: 'ESTABLE',
+    benefit: 'Ingesta de archivos PDF, DOCX o TXT con chunking semántico, almacenamiento en pgvector y búsqueda híbrida (HNSW + léxica) con rerank y ubicación por página.',
+    endpoints: [
+      'POST /rag/query',
+      'POST /rag/vaults',
+      'POST /rag/documents/file',
+    ],
+  },
+  {
+    number: '05',
+    title: 'S-Pulse (Grafo Societario)',
+    color: '#2563EB',
+    badge: 'ESTABLE',
+    benefit: 'Ficha 360° de empresas chilenas por RUT, malla societaria con nodos y aristas para renderizado de holdings, directivas y detección de conflictos de interés B2G.',
+    endpoints: [
+      'GET /data/spulse/companies/search',
+      'GET /data/spulse/companies/:rut/network',
+      'POST /data/companies/:rut/b2g-conflicts',
+    ],
+  },
+  {
+    number: '06',
+    title: 'Webhooks, Reportes y MCP',
+    color: '#059669',
+    badge: 'BETA',
+    benefit: 'Suscripción a alertas en tiempo real (Radar Forense, nuevas licitaciones), colas asíncronas para informes PDF/Markdown y protocolo MCP nativo para Claude y Cursor.',
+    endpoints: [
+      'POST /webhooks',
+      'POST /intel/reports',
+      'POST /mcp/v1/tools/call',
+    ],
   },
 ];
 
-// ── Component ─────────────────────────────────────────────────────────────────
+// ── Security Center Items ──────────────────────────────────────────────────
+const SECURITY_ITEMS = [
+  {
+    title: 'Aislamiento por Tenant & Workspace',
+    description: 'Políticas de Row-Level Security (RLS) en Supabase Postgres. Cada documento o consulta queda confinado estrictamente a la sesión autenticada.',
+    icon: <Lock className="w-5 h-5 text-rose-600" />,
+  },
+  {
+    title: 'Gestión y Hash SHA-256 de API Keys',
+    description: 'El token crudo jamás se persiste ni aparece en logs. Almacenamos únicamente el hash criptográfico para autorizar peticiones de forma segura.',
+    icon: <Shield className="w-5 h-5 text-rose-600" />,
+  },
+  {
+    title: 'Cero Entrenamiento con Datos Privados',
+    description: 'Tus documentos indexados en Vaults privados nunca son utilizados para entrenar modelos fundacionales ni compartidos entre organizaciones.',
+    icon: <Database className="w-5 h-5 text-rose-600" />,
+  },
+  {
+    title: 'Trazabilidad y Verificación SHA-256',
+    description: 'Cada cifra o afirmación legal devuelta incluye un hash de integridad sha256 verificable con su documento o decreto fuente oficial.',
+    icon: <CheckCircle2 className="w-5 h-5 text-emerald-600" />,
+  },
+  {
+    title: 'Transparencia en Fallbacks B2G',
+    description: 'Si el portal del Estado está en mantenimiento, el sistema reporta explícitamente el estado con un badge ámbar para no confundir caché con dato en vivo.',
+    icon: <AlertTriangle className="w-5 h-5 text-amber-600" />,
+  },
+  {
+    title: 'DPA & Normativa Chilena',
+    description: 'Cumplimiento continuo con la Ley de Protección de Datos Personales 21.719 y la normativa de seguridad de la Ley Fintec 21.521 (CMF).',
+    icon: <FileText className="w-5 h-5 text-rose-600" />,
+  },
+];
+
+// ── FAQ Items ──────────────────────────────────────────────────────────────
+const FAQ_ITEMS = [
+  {
+    q: '¿Qué diferencia a Animus Engine de Validus o Bralidus?',
+    a: 'Animus Engine es el producto comercial y la API orientada a desarrolladores (CTOs, AI engineers y equipos tech). Bralidus es nuestra infraestructura técnica de ingesta, scraping y normalización RaaS ("Powered by Bralidus"). Validus es la plataforma vertical orientada a founders y analistas que validan emprendimientos de forma guiada.',
+  },
+  {
+    q: '¿Qué sucede cuando el portal oficial de Mercado Público está en mantenimiento?',
+    a: 'Para evitar que tu aplicación o copiloto falle durante ventanas de mantenimiento de ChileCompra, Animus activa automáticamente la capa de "Resiliencia B2G", respondiendo con datos en caché verificado o etiquetando explícitamente la respuesta con un código de fallback para total honestidad técnica.',
+  },
+  {
+    q: '¿Cómo funciona la autenticación y qué es demo_public_key?',
+    a: 'En producción se utiliza un token Bearer privado (ej: val_live_...). Para evaluar en nuestro Playground o pruebas de desarrollo rápido, puedes usar demo_public_key, la cual opera con rate-limits acotados (30 req/min) y cuotas del plan Free sin requerir registro de tarjeta de crédito.',
+  },
+  {
+    q: '¿Cómo integro Animus con agentes como Claude Desktop o Cursor IDE?',
+    a: 'Animus Engine expone un servidor nativo compatible con el Model Context Protocol (MCP). Puedes añadir el servidor a tu archivo de configuración de Claude o Cursor y consultar licitaciones, datos macro o grafos societarios directamente en lenguaje natural.',
+  },
+  {
+    q: '¿Cuáles son los límites del Plan Free / Evaluación?',
+    a: 'El Plan Free incluye 500 créditos mensuales y una ráfaga máxima de 30 peticiones por minuto. Es completamente gratuito para siempre y te da acceso a todos los endpoints en modo lectura y consultas RAG de evaluación.',
+  },
+];
 
 export function Landing() {
   const navigate = useNavigate();
-  const [typedLines, setTypedLines] = useState(0);
-  const [inView, setInView] = useState(false);
-  const codeRef = useRef<HTMLDivElement>(null);
+  const [activeTab, setActiveTab] = useState<ConsoleTabId>('b2g');
+  const [codeMode, setCodeMode] = useState<'curl' | 'ts'>('ts');
+  const [copied, setCopied] = useState(false);
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
 
-  // Animate code lines when section in view
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      ([entry]) => { if (entry.isIntersecting) setInView(true); },
-      { threshold: 0.3 },
-    );
-    if (codeRef.current) observer.observe(codeRef.current);
-    return () => observer.disconnect();
-  }, []);
+  const currentTab = CONSOLE_TABS.find((t) => t.id === activeTab) || CONSOLE_TABS[0];
 
-  useEffect(() => {
-    if (!inView) return;
-    let i = 0;
-    const timer = setInterval(() => {
-      i++;
-      setTypedLines(i);
-      if (i >= CODE_LINES.length) clearInterval(timer);
-    }, 80);
-    return () => clearInterval(timer);
-  }, [inView]);
-
-  const getExpertStyles = (id: string) => {
-    switch (id) {
-      case 'macro': return { text: 'text-purple-600', border: 'border-purple-200', bg: 'bg-purple-50' };
-      case 'mercados': return { text: 'text-emerald-600', border: 'border-emerald-200', bg: 'bg-emerald-50' };
-      case 'unit_economics': return { text: 'text-amber-600', border: 'border-amber-200', bg: 'bg-amber-50' };
-      case 'legal': return { text: 'text-rose-600', border: 'border-rose-200', bg: 'bg-rose-50' };
-      default: return { text: 'text-sky-600', border: 'border-sky-200', bg: 'bg-sky-50' };
-    }
-  };
-
-  const getSourceStyles = (type: string) => {
-    switch (type) {
-      case 'Macro USA': return { text: 'text-purple-700 font-bold bg-purple-50 border-purple-200' };
-      case 'Mercados': return { text: 'text-emerald-700 font-bold bg-emerald-50 border-emerald-200' };
-      case 'Macro Chile': return { text: 'text-sky-700 font-bold bg-sky-50 border-sky-200' };
-      case 'Regulatorio': return { text: 'text-rose-700 font-bold bg-rose-50 border-rose-200' };
-      case 'Alternativas': return { text: 'text-amber-700 font-bold bg-amber-50 border-amber-200' };
-      case 'B2G': return { text: 'text-blue-700 font-bold bg-blue-50 border-blue-200' };
-      default: return { text: 'text-violet-700 font-bold bg-violet-50 border-violet-200' };
-    }
+  const handleCopy = (text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans selection:bg-rose-600 selection:text-white overflow-x-hidden relative">
-      
-      {/* Decorative background gradients */}
-      <div className="absolute top-0 inset-x-0 h-[600px] bg-gradient-to-b from-rose-50/60 to-transparent pointer-events-none" />
-      <div className="absolute top-[20%] right-[-10%] w-[30vw] h-[30vw] rounded-full bg-rose-50/40 blur-[100px] pointer-events-none" />
-      <div className="absolute bottom-[20%] left-[-10%] w-[35vw] h-[35vw] rounded-full bg-amber-50/40 blur-[100px] pointer-events-none" />
+      {/* Decorative background gradients originales del estilo Scouttech */}
+      <div className="absolute top-0 inset-x-0 h-[600px] bg-gradient-to-b from-rose-50/70 to-transparent pointer-events-none" />
+      <div className="absolute top-[18%] right-[-8%] w-[28vw] h-[28vw] rounded-full bg-rose-100/50 blur-[100px] pointer-events-none" />
+      <div className="absolute bottom-[20%] left-[-10%] w-[35vw] h-[35vw] rounded-full bg-amber-100/40 blur-[100px] pointer-events-none" />
 
-      {/* ── Nav ─────────────────────────────────────────────────────────── */}
-      <nav className="sticky top-0 z-50 border-b border-slate-200 bg-white/90 backdrop-blur-md px-6 h-16 flex items-center justify-between">
-        {/* Logo */}
-        <div className="flex items-center gap-2.5">
+      {/* ── Navbar Developer-First (Estilo Animus original) ───────────── */}
+      <header className="sticky top-0 z-50 border-b border-slate-200/80 bg-white/90 backdrop-blur-md px-6 h-16 flex items-center justify-between">
+        <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate('/')}>
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-rose-600 shadow-md shadow-rose-600/20">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-              <circle cx="12" cy="12" r="3" fill="white"/>
-              <circle cx="4" cy="6" r="2" fill="rgba(255,255,255,0.7)"/>
-              <circle cx="20" cy="6" r="2" fill="rgba(255,255,255,0.7)"/>
-              <circle cx="4" cy="18" r="2" fill="rgba(255,255,255,0.7)"/>
-              <circle cx="20" cy="18" r="2" fill="rgba(255,255,255,0.7)"/>
-              <line x1="6" y1="7" x2="10" y2="11" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5"/>
-              <line x1="18" y1="7" x2="14" y2="11" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5"/>
-              <line x1="6" y1="17" x2="10" y2="13" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5"/>
-              <line x1="18" y1="17" x2="14" y2="13" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5"/>
-            </svg>
+            <IconLogo />
           </div>
-          <span className="font-heading font-extrabold text-lg text-slate-900 tracking-tight">
-            Animus
-          </span>
+          <div>
+            <div className="font-heading font-extrabold text-base text-slate-900 tracking-tight flex items-center gap-2">
+              Animus Engine
+              <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200">
+                v2.0
+              </span>
+            </div>
+            <div className="text-[10px] text-slate-500 font-medium">
+              by Scouttech · <span className="text-rose-600 font-semibold">Powered by Bralidus</span>
+            </div>
+          </div>
         </div>
 
-        {/* Nav links */}
-        <div className="flex items-center gap-6">
-          <a href="#how-it-works" className="text-sm font-medium text-slate-650 transition-colors hover:text-rose-600">
-            Cómo funciona
+        <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-slate-650">
+          <a href="#modulos" className="hover:text-rose-600 transition-colors">
+            Módulos
           </a>
-          <a href="#experts" className="text-sm font-medium text-slate-650 transition-colors hover:text-rose-600">
-            Experts
+          <a href="#consola" className="hover:text-rose-600 transition-colors">
+            Consola
           </a>
-          <a href="#api" className="text-sm font-medium text-slate-655 transition-colors hover:text-rose-600">
-            API Reference
+          <a href="#dx" className="hover:text-rose-600 transition-colors">
+            SDK & MCP
           </a>
+          <a href="#seguridad" className="hover:text-rose-600 transition-colors">
+            Seguridad
+          </a>
+          <a href="#precios" className="hover:text-rose-600 transition-colors">
+            Precios
+          </a>
+          <a href="#ecosistema" className="hover:text-rose-600 transition-colors">
+            Ecosistema
+          </a>
+        </nav>
+
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => navigate('/dashboard')}
+            className="hidden sm:flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-100 border border-slate-300 shadow-sm transition-all"
+          >
+            <BookOpen className="w-3.5 h-3.5 text-rose-600" />
+            Docs & Portal
+          </button>
           <button
             onClick={() => navigate('/login')}
-            className="ml-2 inline-flex items-center justify-center rounded-xl bg-rose-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-rose-500 hover:scale-[1.02] active:scale-[0.98] transition-all"
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold text-white bg-rose-600 hover:bg-rose-500 shadow-md shadow-rose-600/20 transition-all"
           >
-            Acceder
+            Probar API Gratis
+            <ArrowRight className="w-3.5 h-3.5" />
           </button>
         </div>
-      </nav>
+      </header>
 
-      {/* ── Hero ────────────────────────────────────────────────────────── */}
-      <section className="relative overflow-hidden pt-16 pb-20 md:pt-24 md:pb-28 px-6 text-center">
-        {/* Grid background */}
-        <div className="absolute inset-0 pointer-events-none opacity-20" style={{
-          backgroundImage: 'linear-gradient(#f43f5e 1px, transparent 1px), linear-gradient(90deg, #f43f5e 1px, transparent 1px)',
-          backgroundSize: '48px 48px',
-        }} />
-
-        <div className="relative max-w-4xl mx-auto space-y-6">
-          {/* Tagline */}
-          <div className="inline-flex items-center gap-2 rounded-full border border-rose-100 bg-rose-50 px-3.5 py-1 text-xs font-semibold text-rose-700 shadow-sm">
-            <span className="h-1.5 w-1.5 rounded-full bg-rose-600 animate-ping" />
-            <span>GraphRAG · Mixture of Experts · FRED + yfinance + BCCH</span>
+      {/* ── 1. Hero & Interactive Console ─────────────────────────────── */}
+      <section className="relative pt-16 pb-24 px-6 overflow-hidden">
+        <div className="max-w-6xl mx-auto text-center space-y-8">
+          {/* Eyebrow badge */}
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white border border-rose-200 text-xs font-mono font-semibold text-rose-700 shadow-sm">
+            <Sparkles className="w-3.5 h-3.5 text-rose-600" />
+            <span>ANIMUS ENGINE · BY SCOUTTECH · POWERED BY BRALIDUS</span>
           </div>
 
           {/* Headline */}
-          <h1 className="font-heading text-4xl font-extrabold tracking-tight sm:text-6xl text-slate-900 leading-[1.1] md:leading-none">
-            <span className="bg-gradient-to-r from-red-600 via-rose-500 to-rose-600 bg-clip-text text-transparent">
-              Inteligencia macro.
-            </span>
-            <br />
-            A un API call de distancia.
+          <h1 className="text-4xl sm:text-6xl font-extrabold tracking-tight text-slate-900 max-w-4xl mx-auto leading-[1.1]">
+            La capa de inteligencia para construir software con{' '}
+            <span className="text-rose-600">datos de Chile</span>.
           </h1>
 
-          {/* Subheadline */}
-          <p className="text-base sm:text-lg text-slate-600 leading-relaxed max-w-2xl mx-auto">
-            Animus convierte el contexto de tu startup en <strong className="text-rose-600 font-semibold">GraphRAG dinámico</strong> — macro, mercados, regulatorio y unit economics — listo para inyectar en tu LLM.
+          {/* Subtitle */}
+          <p className="text-base sm:text-lg text-slate-600 max-w-2xl mx-auto leading-relaxed">
+            Conecta una sola API a Mercado Público, indicadores económicos, RAG documental en pgvector, grafos societarios S-Pulse y análisis con citas verificables.
           </p>
 
           {/* CTAs */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-2">
             <button
               onClick={() => navigate('/login')}
-              className="w-full sm:w-auto inline-flex items-center justify-center rounded-xl bg-rose-600 px-6 py-3.5 text-base font-semibold text-white shadow-md shadow-rose-600/10 hover:bg-rose-500 hover:shadow-rose-600/20 hover:-translate-y-0.5 transition-all group"
+              className="w-full sm:w-auto flex items-center justify-center gap-2.5 px-8 py-4 rounded-2xl font-bold text-sm text-white bg-rose-600 hover:bg-rose-500 shadow-xl shadow-rose-600/25 hover:scale-[1.02] active:scale-[0.98] transition-all"
             >
-              Acceder al Dashboard
-              <span className="ml-2 transition-transform group-hover:translate-x-1">
-                <IconArrow />
-              </span>
+              Probar API Gratis
+              <ArrowRight className="w-4 h-4" />
             </button>
-            <a
-              href="#api"
-              className="w-full sm:w-auto inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-6 py-3.5 text-base font-semibold text-slate-700 hover:bg-slate-50 transition-all hover:-translate-y-0.5"
+            <button
+              onClick={() => navigate('/dashboard')}
+              className="w-full sm:w-auto flex items-center justify-center gap-2 px-7 py-4 rounded-2xl font-bold text-sm text-slate-700 bg-white hover:bg-slate-100 border border-slate-300 shadow-sm transition-all"
             >
-              Ver la API
-            </a>
+              <Terminal className="w-4 h-4 text-rose-600" />
+              Explorar Documentación
+            </button>
           </div>
-        </div>
-      </section>
 
-      {/* ── Stats bar ───────────────────────────────────────────────────── */}
-      <section className="px-6 pb-20 max-w-4xl mx-auto">
-        <div className="grid gap-px bg-slate-200 rounded-2xl overflow-hidden border border-slate-200 shadow-sm md:grid-cols-4">
-          {STATS.map((s, i) => (
-            <div key={i} className="bg-white p-6 text-center hover:bg-slate-50/50 transition-colors">
-              <div className="font-heading text-4xl font-extrabold bg-gradient-to-br from-red-600 to-rose-600 bg-clip-text text-transparent">
-                {s.value}
+          {/* Microcopy trust */}
+          <div className="flex flex-wrap items-center justify-center gap-6 text-xs text-slate-500 font-mono pt-2">
+            <span className="flex items-center gap-1.5">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> 500 créditos de evaluación
+            </span>
+            <span className="flex items-center gap-1.5">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Sin tarjeta de crédito
+            </span>
+            <span className="flex items-center gap-1.5">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> SDK TypeScript
+            </span>
+            <span className="flex items-center gap-1.5">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Compatible con MCP (Claude/Cursor)
+            </span>
+          </div>
+
+          {/* ── Interactive Console Component (High Contrast on Light Card) ── */}
+          <div id="consola" className="mt-12 text-left rounded-3xl border border-slate-200 bg-white shadow-xl overflow-hidden">
+            {/* Top Bar / Tabs */}
+            <div className="flex flex-wrap items-center justify-between border-b border-slate-200 bg-slate-100/70 px-4 py-3 gap-3">
+              <div className="flex flex-wrap items-center gap-1.5">
+                {CONSOLE_TABS.map((tab) => {
+                  const isActive = tab.id === activeTab;
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveTab(tab.id)}
+                      className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all ${
+                        isActive
+                          ? 'bg-white text-slate-900 shadow-sm border border-slate-200 font-bold'
+                          : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+                      }`}
+                    >
+                      <span
+                        className="w-2 h-2 rounded-full"
+                        style={{ backgroundColor: tab.color }}
+                      />
+                      {tab.label}
+                    </button>
+                  );
+                })}
               </div>
-              <div className="text-sm font-bold text-slate-800 mt-1.5">{s.label}</div>
-              <div className="text-xs text-slate-500 mt-0.5">{s.sub}</div>
+
+              {/* Toggle cURL / TypeScript */}
+              <div className="flex items-center bg-white rounded-lg p-1 border border-slate-300 shadow-sm">
+                <button
+                  onClick={() => setCodeMode('ts')}
+                  className={`px-3 py-1 rounded-md text-xs font-mono font-medium transition-all ${
+                    codeMode === 'ts'
+                      ? 'bg-rose-50 text-rose-700 border border-rose-200 font-bold'
+                      : 'text-slate-500 hover:text-slate-900'
+                  }`}
+                >
+                  TypeScript SDK
+                </button>
+                <button
+                  onClick={() => setCodeMode('curl')}
+                  className={`px-3 py-1 rounded-md text-xs font-mono font-medium transition-all ${
+                    codeMode === 'curl'
+                      ? 'bg-rose-50 text-rose-700 border border-rose-200 font-bold'
+                      : 'text-slate-500 hover:text-slate-900'
+                  }`}
+                >
+                  cURL
+                </button>
+              </div>
             </div>
-          ))}
+
+            {/* Subheader: path & description */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between px-6 py-3.5 border-b border-slate-200 bg-slate-50 gap-2">
+              <div className="flex items-center gap-2.5 font-mono text-xs">
+                <span
+                  className="px-2 py-0.5 rounded font-bold text-[11px]"
+                  style={{
+                    backgroundColor: `${currentTab.color}15`,
+                    color: currentTab.color,
+                    border: `1px solid ${currentTab.color}40`,
+                  }}
+                >
+                  {currentTab.method}
+                </span>
+                <span className="text-slate-900 font-semibold">{currentTab.path}</span>
+              </div>
+              <p className="text-xs text-slate-600">{currentTab.description}</p>
+            </div>
+
+            {/* Code & Response Grid (Dark code areas inside clean white card) */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-slate-200">
+              {/* Left: Request */}
+              <div className="p-6 space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 flex items-center gap-1.5 font-mono">
+                    <Terminal className="w-3.5 h-3.5 text-rose-600" />
+                    {codeMode === 'ts' ? 'REQUEST (TYPESCRIPT SDK)' : 'REQUEST (CURL)'}
+                  </span>
+                  <button
+                    onClick={() =>
+                      handleCopy(
+                        codeMode === 'ts'
+                          ? currentTab.tsCode
+                          : currentTab.curlCommand
+                      )
+                    }
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-xs font-mono text-slate-700 border border-slate-300 transition-colors"
+                  >
+                    {copied ? (
+                      <>
+                        <Check className="w-3 h-3 text-emerald-600" /> Copiado
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3 h-3" /> Copiar
+                      </>
+                    )}
+                  </button>
+                </div>
+                <pre className="text-xs font-mono text-slate-200 bg-slate-950 p-4 rounded-xl border border-slate-800 overflow-x-auto leading-relaxed shadow-inner">
+                  <code>
+                    {codeMode === 'ts'
+                      ? currentTab.tsCode
+                      : currentTab.curlCommand}
+                  </code>
+                </pre>
+              </div>
+
+              {/* Right: Response */}
+              <div className="p-6 space-y-4 bg-slate-50/50">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 flex items-center gap-1.5 font-mono">
+                    <Activity className="w-3.5 h-3.5 text-emerald-600" />
+                    RESPUESTA JSON (200 OK)
+                  </span>
+                  <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold">
+                    {currentTab.sourceStatus.label}
+                  </span>
+                </div>
+                <pre className="text-xs font-mono text-emerald-300 bg-slate-950 p-4 rounded-xl border border-slate-800 overflow-x-auto leading-relaxed shadow-inner">
+                  <code>{currentTab.responseJson}</code>
+                </pre>
+              </div>
+            </div>
+
+            {/* Bottom Proof Bar of Console */}
+            <div className="flex flex-wrap items-center justify-between border-t border-slate-200 bg-slate-50 px-6 py-3 text-xs font-mono text-slate-600 gap-4">
+              <div className="flex items-center gap-2">
+                <span className="text-slate-500">Hash de integridad:</span>
+                <span className="text-emerald-700 font-bold">
+                  {currentTab.sourceStatus.sha256}
+                </span>
+              </div>
+              <div className="flex items-center gap-6">
+                <div>
+                  <span className="text-slate-500">Latencia: </span>
+                  <span className="text-slate-900 font-bold">
+                    {currentTab.sourceStatus.latencyMs} ms
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-500">Consumo: </span>
+                  <span className="text-rose-600 font-bold">
+                    {currentTab.sourceStatus.credits} créditos
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-500">Fuente: </span>
+                  <span className="text-slate-900 font-bold">
+                    {currentTab.sourceStatus.source}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
-      {/* ── How It Works ────────────────────────────────────────────────── */}
-      <section id="how-it-works" className="py-20 border-t border-slate-200 bg-white px-6 shadow-sm">
-        <div className="max-w-4xl mx-auto space-y-12">
-          <div className="text-center space-y-3">
-            <span className="text-xs font-bold uppercase tracking-wider text-rose-600">Flujo</span>
-            <h2 className="font-heading text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
-              Cómo funciona Animus
-            </h2>
+      {/* ── 2. Verified Metrics Bar (Estilo Scouttech original) ─────────── */}
+      <section className="border-y border-slate-200 bg-white py-10 px-6">
+        <div className="max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
+          <div>
+            <div className="text-2xl sm:text-3xl font-extrabold font-mono text-slate-900">
+              0% Alucinaciones
+            </div>
+            <div className="text-xs text-slate-500 mt-1">
+              Citas verificadas con SHA-256
+            </div>
+          </div>
+          <div>
+            <div className="text-2xl sm:text-3xl font-extrabold font-mono text-rose-600">
+              &lt; 140 ms
+            </div>
+            <div className="text-xs text-slate-500 mt-1">
+              Latencia media de respuesta API
+            </div>
+          </div>
+          <div>
+            <div className="text-2xl sm:text-3xl font-extrabold font-mono text-slate-900">
+              5 Expertos MoE
+            </div>
+            <div className="text-xs text-slate-500 mt-1">
+              Enrutamiento especializado GraphRAG
+            </div>
+          </div>
+          <div>
+            <div className="text-2xl sm:text-3xl font-extrabold font-mono text-emerald-600">
+              100% Aislado
+            </div>
+            <div className="text-xs text-slate-500 mt-1">
+              Row-Level Security por Tenant
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── 3. Problem & Solution (Conectar · Comprender · Verificar) ─── */}
+      <section className="py-24 px-6 max-w-6xl mx-auto space-y-16">
+        <div className="text-center max-w-3xl mx-auto space-y-4">
+          <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900">
+            El fin de la fragmentación de datos públicos en Chile
+          </h2>
+          <p className="text-slate-600 text-sm sm:text-base">
+            Integrar información chilena solía requerir seis scrapers frágiles, parsers de PDF rotos y servidores caídos. Animus transforma ese caos en una sola infraestructura API-First y LLM-First.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          {/* Card 1 */}
+          <div className="p-8 rounded-3xl bg-white border border-slate-200/80 shadow-sm space-y-4 hover:shadow-md hover:border-rose-300 transition-all">
+            <div className="w-12 h-12 rounded-2xl bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-600">
+              <Layers className="w-6 h-6" />
+            </div>
+            <h3 className="text-xl font-bold text-slate-900">1. Conectar</h3>
+            <p className="text-sm text-slate-600 leading-relaxed">
+              Una sola API estandarizada para consultar licitaciones, compras ágiles, indicadores macroeconómicos y datos del Diario Oficial sin lidiar con scrapers ni portales estatales caídos.
+            </p>
           </div>
 
-          <div className="grid gap-6 md:grid-cols-3">
-            {HOW_IT_WORKS.map((step, i) => (
-              <div key={i} className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm hover:border-rose-300 hover:shadow-md transition-all relative overflow-hidden group">
-                <div className="absolute top-4 right-6 font-heading font-extrabold text-slate-100 text-5xl select-none group-hover:text-rose-500/5 transition-colors font-mono">
-                  {step.step}
+          {/* Card 2 */}
+          <div className="p-8 rounded-3xl bg-white border border-slate-200/80 shadow-sm space-y-4 hover:shadow-md hover:border-rose-300 transition-all">
+            <div className="w-12 h-12 rounded-2xl bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-600">
+              <Cpu className="w-6 h-6" />
+            </div>
+            <h3 className="text-xl font-bold text-slate-900">2. Comprender</h3>
+            <p className="text-sm text-slate-600 leading-relaxed">
+              Enrutamiento inteligente entre 5 expertos de dominio (MoE), búsqueda semántica vectorial en pgvector y mallas societarias chilenas 360° para copilotos y sistemas de análisis.
+            </p>
+          </div>
+
+          {/* Card 3 */}
+          <div className="p-8 rounded-3xl bg-white border border-slate-200/80 shadow-sm space-y-4 hover:shadow-md hover:border-rose-300 transition-all">
+            <div className="w-12 h-12 rounded-2xl bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-600">
+              <Shield className="w-6 h-6" />
+            </div>
+            <h3 className="text-xl font-bold text-slate-900">3. Verificar</h3>
+            <p className="text-sm text-slate-600 leading-relaxed">
+              Cada cifra o conclusión normativa devuelta cuenta con una cita criptográfica SHA-256 e hipervínculo auditable a la fuente oficial original. Cero alucinaciones.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* ── 4. Core Modules (6 módulos con su estado y paleta clara) ──── */}
+      <section id="modulos" className="py-24 px-6 bg-slate-100/60 border-t border-slate-200">
+        <div className="max-w-6xl mx-auto space-y-16">
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+            <div>
+              <span className="text-xs font-mono font-bold uppercase tracking-widest text-rose-600">
+                ARQUITECTURA DE DOMINIOS
+              </span>
+              <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 mt-2">
+                Los 6 Módulos Cardinales de Animus
+              </h2>
+            </div>
+            <p className="text-sm text-slate-600 max-w-md">
+              En lugar de 65 endpoints dispersos, organizamos nuestra capacidad en seis módulos claros con estado verificado de disponibilidad.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {CORE_MODULES.map((mod) => (
+              <div
+                key={mod.number}
+                className="p-7 rounded-3xl bg-white border border-slate-200 shadow-sm flex flex-col justify-between hover:border-slate-300 hover:shadow-md transition-all space-y-6"
+              >
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span
+                      className="text-xs font-mono font-bold px-2.5 py-1 rounded-md"
+                      style={{
+                        backgroundColor: `${mod.color}15`,
+                        color: mod.color,
+                        border: `1px solid ${mod.color}40`,
+                      }}
+                    >
+                      {mod.badge}
+                    </span>
+                    <span className="font-mono text-sm text-slate-400 font-bold">
+                      {mod.number}
+                    </span>
+                  </div>
+
+                  <h3 className="text-xl font-extrabold text-slate-900">
+                    {mod.title}
+                  </h3>
+                  <p className="text-sm text-slate-600 leading-relaxed">
+                    {mod.benefit}
+                  </p>
                 </div>
-                <div className="h-10 w-10 rounded-lg bg-rose-50 border border-rose-100 text-rose-600 flex items-center justify-center shrink-0 mb-4">
-                  {step.icon}
+
+                <div className="space-y-3 pt-4 border-t border-slate-100">
+                  <div className="text-[11px] font-mono text-slate-500 font-semibold">
+                    ENDPOINTS CANÓNICOS:
+                  </div>
+                  <div className="space-y-1 font-mono text-xs text-slate-700">
+                    {mod.endpoints.map((ep) => (
+                      <div
+                        key={ep}
+                        className="p-1.5 rounded bg-slate-50 border border-slate-200"
+                      >
+                        {ep}
+                      </div>
+                    ))}
+                  </div>
                 </div>
-                <h3 className="font-heading font-bold text-slate-900 text-lg mb-2">
-                  {step.title}
-                </h3>
-                <p className="text-xs text-slate-500 leading-relaxed">{step.desc}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ── Experts Grid ────────────────────────────────────────────────── */}
-      <section id="experts" className="py-20 max-w-4xl mx-auto px-6">
-        <div className="space-y-12">
-          <div className="text-center space-y-3">
-            <span className="text-xs font-bold uppercase tracking-wider text-rose-600">Mixture of Experts</span>
-            <h2 className="font-heading text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
-              5 Experts especializados
-            </h2>
-            <p className="text-sm text-slate-500 max-w-xl mx-auto">
-              El GatingNetwork activa los expertos más relevantes para tu query — sin configuración manual.
-            </p>
-          </div>
-
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {EXPERTS.map(expert => {
-              const styles = getExpertStyles(expert.id);
-              return (
-                <div key={expert.id} className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm hover:border-rose-300 hover:-translate-y-1 hover:shadow-md transition-all">
-                  <div className="flex items-center gap-3.5 mb-4">
-                    <div className={`h-10 w-10 rounded-lg flex items-center justify-center border shrink-0 ${styles.bg} ${styles.border} ${styles.text}`}>
-                      {expert.icon}
-                    </div>
-                    <h3 className="font-heading font-bold text-slate-900 text-sm">
-                      {expert.name}
-                    </h3>
-                  </div>
-                  <p className="text-xs text-slate-500 leading-relaxed mb-4">{expert.description}</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {expert.keywords.slice(0, 4).map(kw => (
-                      <span key={kw} className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${styles.bg} ${styles.border} ${styles.text}`}>
-                        {kw}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+      {/* ── 5. Developer Experience (SDK & MCP) ───────────────────────── */}
+      <section id="dx" className="py-24 px-6 max-w-6xl mx-auto space-y-16">
+        <div className="text-center max-w-3xl mx-auto space-y-4">
+          <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900">
+            Developer Experience: SDK TypeScript & MCP Nativo
+          </h2>
+          <p className="text-slate-600 text-sm sm:text-base">
+            Diseñado por desarrolladores para desarrolladores. Integra inteligencia y datos chilenos en tu app con promesas tipadas o empodera a tus asistentes IA.
+          </p>
         </div>
-      </section>
 
-      {/* ── Data Sources ─────────────────────────────────────────────────── */}
-      <section className="py-20 border-t border-slate-200 bg-white px-6 shadow-sm">
-        <div className="max-w-4xl mx-auto space-y-12">
-          <div className="text-center space-y-3">
-            <span className="text-xs font-bold uppercase tracking-wider text-rose-600">Fuentes de datos</span>
-            <h2 className="font-heading text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
-              Datos reales. Sin mocks.
-            </h2>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4">
-            {DATA_SOURCES.map(src => {
-              const styles = getSourceStyles(src.type);
-              return (
-                <div key={src.name} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm hover:border-rose-300 transition-all flex flex-col justify-between space-y-3">
-                  <div className="flex justify-between items-start gap-2">
-                    <span className="font-heading font-bold text-slate-900 text-sm">
-                      {src.name}
-                    </span>
-                    <span className={`text-[9px] px-2 py-0.5 rounded-full border ${styles.text}`}>
-                      {src.type}
-                    </span>
-                  </div>
-                  <p className="text-xs text-slate-500 leading-relaxed">{src.description}</p>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* SDK TypeScript */}
+          <div className="p-8 rounded-3xl bg-white border border-slate-200/80 shadow-sm space-y-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-600">
+                  <Code2 className="w-5 h-5" />
                 </div>
-              );
-            })}
-          </div>
-        </div>
-      </section>
-
-      {/* ── API Preview ─────────────────────────────────────────────────── */}
-      <section id="api" className="py-20 max-w-4xl mx-auto px-6">
-        <div className="space-y-12">
-          <div className="text-center space-y-3">
-            <span className="text-xs font-bold uppercase tracking-wider text-rose-600">API Reference</span>
-            <h2 className="font-heading text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
-              Una llamada. Todo el contexto.
-            </h2>
-          </div>
-
-          <div ref={codeRef} className="bg-slate-950 border border-slate-800 rounded-2xl overflow-hidden shadow-xl max-w-3xl mx-auto relative">
-            <div className="absolute top-0 right-0 h-20 w-20 bg-rose-500/5 rounded-full blur-xl pointer-events-none" />
-            
-            {/* Terminal header */}
-            <div className="bg-slate-900 px-5 py-3 border-b border-slate-800/80 flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-red-500" />
-              <div className="w-3 h-3 rounded-full bg-amber-500" />
-              <div className="w-3 h-3 rounded-full bg-emerald-500" />
-              <span className="ml-3 text-xs text-slate-400 font-mono">
-                POST https://animus.railway.app/query/moe
+                <div>
+                  <h3 className="font-bold text-slate-900 text-lg">
+                    SDK TypeScript / JavaScript
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Autocompletado de tipos, reintentos automáticos y caché
+                  </p>
+                </div>
+              </div>
+              <span className="text-xs font-mono text-rose-700 bg-rose-50 px-2 py-1 rounded border border-rose-200 font-bold">
+                npm i @scouttech/animus-sdk
               </span>
             </div>
 
-            {/* Code body */}
-            <div className="p-6 font-mono text-xs md:text-sm text-slate-300 leading-relaxed overflow-x-auto">
-              {CODE_LINES.map((line, i) => (
-                <div key={i} style={{
-                  opacity: i < typedLines ? 1 : 0,
-                  transform: i < typedLines ? 'translateX(0)' : 'translateX(-8px)',
-                  transition: 'opacity 0.15s, transform 0.15s',
-                  paddingLeft: line.indent * 24,
-                }}>
-                  {line.text && (
-                    <span style={{ color: line.color, fontWeight: line.bold ? 700 : 400 }}>
-                      {line.text}
-                    </span>
-                  )}
-                  {line.suffix && (
-                    <span style={{ color: line.suffixColor }}>{line.suffix}</span>
-                  )}
-                  {!line.text && !line.suffix && <span>&nbsp;</span>}
+            <pre className="text-xs font-mono text-slate-200 bg-slate-950 p-5 rounded-2xl border border-slate-800 overflow-x-auto shadow-inner">
+              <code>{`import { createAnimusClient } from '@scouttech/animus-sdk';
+
+const animus = createAnimusClient({
+  apiKey: process.env.ANIMUS_API_KEY,
+});
+
+// Consulta tipada con autocompletado e inferencia
+const fit = await animus.intel.assessTenderFit({
+  companyRut: '76.123.456-K',
+  tenderCode: '1234-56-LE26',
+});
+
+console.log('Fit Score:', fit.score); // 88 / 100`}</code>
+            </pre>
+          </div>
+
+          {/* Model Context Protocol (MCP) */}
+          <div className="p-8 rounded-3xl bg-white border border-slate-200/80 shadow-sm space-y-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-600">
+                  <Server className="w-5 h-5" />
                 </div>
-              ))}
-              {/* Cursor */}
-              {typedLines < CODE_LINES.length && (
-                <span className="inline-block w-2 h-4 bg-rose-600 animate-pulse align-middle ml-1" />
-              )}
+                <div>
+                  <h3 className="font-bold text-slate-900 text-lg">
+                    Servidor MCP (Model Context Protocol)
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Conecta Animus con Claude Desktop o Cursor IDE sin código
+                  </p>
+                </div>
+              </div>
+              <span className="text-xs font-mono text-rose-700 bg-rose-50 px-2 py-1 rounded border border-rose-200 font-bold">
+                /mcp/v1/tools/call
+              </span>
             </div>
+
+            <pre className="text-xs font-mono text-slate-200 bg-slate-950 p-5 rounded-2xl border border-slate-800 overflow-x-auto shadow-inner">
+              <code>{`// Configuración claude_desktop_config.json
+{
+  "mcpServers": {
+    "animus-chile": {
+      "command": "npx",
+      "args": ["-y", "@scouttech/animus-mcp"],
+      "env": {
+        "ANIMUS_API_KEY": "val_live_88a1b2..."
+      }
+    }
+  }
+}
+// Herramientas disponibles: animus_search_b2g_tenders,
+// animus_intel_query, animus_get_corporate_mesh...`}</code>
+            </pre>
           </div>
         </div>
       </section>
 
-      {/* ── CTA Final ───────────────────────────────────────────────────── */}
-      <section className="py-20 px-6">
-        <div className="max-w-3xl mx-auto">
-          <div className="bg-gradient-to-br from-rose-50/40 to-rose-100/10 border border-rose-200 rounded-3xl p-10 text-center space-y-6 relative overflow-hidden shadow-md">
-            {/* Glow */}
-            <div className="h-14 w-14 rounded-full bg-rose-600 text-white flex items-center justify-center mx-auto shadow-md shadow-rose-600/20 animate-pulse">
-              <IconDatabase />
-            </div>
-            <h2 className="font-heading text-3xl font-extrabold text-slate-900">
-              Empieza ahora
+      {/* ── 6. Security Center ────────────────────────────────────────── */}
+      <section id="seguridad" className="py-24 px-6 bg-slate-100/60 border-y border-slate-200">
+        <div className="max-w-6xl mx-auto space-y-16">
+          <div className="text-center max-w-3xl mx-auto space-y-4">
+            <span className="text-xs font-mono font-bold uppercase tracking-widest text-rose-600">
+              SECURITY CENTER & COMPLIANCE
+            </span>
+            <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900">
+              Confianza técnica y seguridad sin letra chica
             </h2>
-            <p className="text-sm text-slate-500 max-w-md mx-auto leading-relaxed">
-              Accede con tu email institucional, genera una API Key y haz tu primer request en menos de 5 minutos.
+            <p className="text-slate-600 text-sm sm:text-base">
+              Nunca entrenamos con tus documentos privados. Tu información está aislada y las aserciones incluyen prueba de integridad criptográfica.
             </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {SECURITY_ITEMS.map((item, idx) => (
+              <div
+                key={idx}
+                className="p-7 rounded-3xl bg-white border border-slate-200 shadow-sm space-y-4"
+              >
+                <div className="w-11 h-11 rounded-2xl bg-rose-50 border border-rose-200 flex items-center justify-center">
+                  {item.icon}
+                </div>
+                <h3 className="text-lg font-bold text-slate-900">{item.title}</h3>
+                <p className="text-sm text-slate-600 leading-relaxed">
+                  {item.description}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── 7. Pricing by Credits ─────────────────────────────────────── */}
+      <section id="precios" className="py-24 px-6 max-w-6xl mx-auto space-y-16">
+        <div className="text-center max-w-3xl mx-auto space-y-4">
+          <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900">
+            Precios por créditos simples y escalables
+          </h2>
+          <p className="text-slate-600 text-sm sm:text-base">
+            Paga únicamente por los créditos que consumes. Sin compromisos forzosos ni barreras de entrada para desarrolladores.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          {/* Free */}
+          <div className="p-7 rounded-3xl bg-white border border-slate-200 shadow-sm flex flex-col justify-between space-y-8">
+            <div className="space-y-4">
+              <div className="text-xs font-mono font-bold text-slate-500 uppercase">
+                Free / Trial
+              </div>
+              <div className="text-3xl font-extrabold text-slate-900">$0</div>
+              <p className="text-xs text-slate-500">
+                Para evaluar en playgrounds e integrar tu primer prototipo.
+              </p>
+              <ul className="text-xs text-slate-700 space-y-2.5 font-mono pt-2">
+                <li className="flex items-center gap-2">
+                  <Check className="w-3.5 h-3.5 text-emerald-600" /> 500 créditos/mes
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="w-3.5 h-3.5 text-emerald-600" /> Ráfaga: 30 req/min
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="w-3.5 h-3.5 text-emerald-600" /> Todos los endpoints en lectura
+                </li>
+              </ul>
+            </div>
             <button
               onClick={() => navigate('/login')}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-rose-600 px-6 py-3.5 text-base font-semibold text-white shadow-md hover:bg-rose-500 hover:scale-[1.02] active:scale-[0.98] transition-all group"
+              className="w-full py-3 rounded-xl font-bold text-xs bg-slate-900 hover:bg-slate-800 text-white transition-all shadow-sm"
             >
-              Acceder con email
-              <IconArrow />
+              Comenzar Gratis
+            </button>
+          </div>
+
+          {/* Starter */}
+          <div className="p-7 rounded-3xl bg-white border border-slate-200 shadow-sm flex flex-col justify-between space-y-8">
+            <div className="space-y-4">
+              <div className="text-xs font-mono font-bold text-rose-600 uppercase">
+                Starter
+              </div>
+              <div className="text-3xl font-extrabold text-slate-900">
+                $49
+                <span className="text-xs font-normal text-slate-500">/mes</span>
+              </div>
+              <p className="text-xs text-slate-500">
+                Para MVP y pequeñas integraciones con Mercado Público B2G.
+              </p>
+              <ul className="text-xs text-slate-700 space-y-2.5 font-mono pt-2">
+                <li className="flex items-center gap-2">
+                  <Check className="w-3.5 h-3.5 text-emerald-600" /> 5,000 créditos/mes
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="w-3.5 h-3.5 text-emerald-600" /> Ráfaga: 60 req/min
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="w-3.5 h-3.5 text-emerald-600" /> Exportación CSV/JSON
+                </li>
+              </ul>
+            </div>
+            <button
+              onClick={() => navigate('/login')}
+              className="w-full py-3 rounded-xl font-bold text-xs bg-slate-900 hover:bg-slate-800 text-white transition-all shadow-sm"
+            >
+              Seleccionar Starter
+            </button>
+          </div>
+
+          {/* Pro */}
+          <div className="p-7 rounded-3xl bg-gradient-to-b from-rose-50/80 via-white to-white border-2 border-rose-500 flex flex-col justify-between space-y-8 relative shadow-xl shadow-rose-600/10">
+            <div className="absolute -top-3 right-6 px-2.5 py-0.5 rounded-full bg-rose-600 text-[10px] font-bold text-white uppercase tracking-wider">
+              Recomendado
+            </div>
+            <div className="space-y-4">
+              <div className="text-xs font-mono font-bold text-rose-700 uppercase">
+                Pro
+              </div>
+              <div className="text-3xl font-extrabold text-slate-900">
+                $199
+                <span className="text-xs font-normal text-slate-500">/mes</span>
+              </div>
+              <p className="text-xs text-slate-600">
+                Para SaaS en producción, GraphRAG MoE y webhooks en vivo.
+              </p>
+              <ul className="text-xs text-slate-700 space-y-2.5 font-mono pt-2">
+                <li className="flex items-center gap-2">
+                  <Check className="w-3.5 h-3.5 text-emerald-600" /> 25,000 créditos/mes
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="w-3.5 h-3.5 text-emerald-600" /> Ráfaga: 120 req/min
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="w-3.5 h-3.5 text-emerald-600" /> MoE 5 Expertos + Webhooks
+                </li>
+              </ul>
+            </div>
+            <button
+              onClick={() => navigate('/login')}
+              className="w-full py-3 rounded-xl font-bold text-xs bg-rose-600 hover:bg-rose-500 text-white transition-all shadow-md shadow-rose-600/20"
+            >
+              Seleccionar Pro
+            </button>
+          </div>
+
+          {/* Enterprise */}
+          <div className="p-7 rounded-3xl bg-white border border-slate-200 shadow-sm flex flex-col justify-between space-y-8">
+            <div className="space-y-4">
+              <div className="text-xs font-mono font-bold text-slate-600 uppercase">
+                Enterprise
+              </div>
+              <div className="text-3xl font-extrabold text-slate-900">Custom</div>
+              <p className="text-xs text-slate-500">
+                Para agencias, corporaciones e institutions del Estado.
+              </p>
+              <ul className="text-xs text-slate-700 space-y-2.5 font-mono pt-2">
+                <li className="flex items-center gap-2">
+                  <Check className="w-3.5 h-3.5 text-emerald-600" /> Créditos ilimitados
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="w-3.5 h-3.5 text-emerald-600" /> Ráfaga: 600+ req/min
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="w-3.5 h-3.5 text-emerald-600" /> Vaults dedicados & SLA
+                </li>
+              </ul>
+            </div>
+            <button
+              onClick={() => navigate('/login')}
+              className="w-full py-3 rounded-xl font-bold text-xs bg-slate-900 hover:bg-slate-800 text-white transition-all shadow-sm"
+            >
+              Contactar Ventas
             </button>
           </div>
         </div>
       </section>
 
-      {/* ── Footer ──────────────────────────────────────────────────────── */}
-      <footer className="bg-slate-900 text-slate-400 py-12 px-6 border-t border-slate-800 mt-20">
-        <div className="max-w-4xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-rose-600/10 border border-rose-500/30">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                <circle cx="12" cy="12" r="3" fill="#F43F5E"/>
-                <circle cx="4" cy="6" r="2" fill="rgba(244,63,94,0.7)"/>
-                <circle cx="20" cy="6" r="2" fill="rgba(244,63,94,0.7)"/>
-                <circle cx="4" cy="18" r="2" fill="rgba(244,63,94,0.7)"/>
-                <circle cx="20" cy="18" r="2" fill="rgba(244,63,94,0.7)"/>
-                <line x1="6" y1="7" x2="10" y2="11" stroke="rgba(244,63,94,0.4)" strokeWidth="1.5"/>
-                <line x1="18" y1="7" x2="14" y2="11" stroke="rgba(244,63,94,0.4)" strokeWidth="1.5"/>
-                <line x1="6" y1="17" x2="10" y2="13" stroke="rgba(244,63,94,0.4)" strokeWidth="1.5"/>
-                <line x1="18" y1="17" x2="14" y2="13" stroke="rgba(244,63,94,0.4)" strokeWidth="1.5"/>
-              </svg>
+      {/* ── 8. Scouttech Ecosystem Hierarchy ──────────────────────────── */}
+      <section id="ecosistema" className="py-24 px-6 bg-slate-100/60 border-t border-slate-200">
+        <div className="max-w-4xl mx-auto text-center space-y-12">
+          <div className="space-y-4">
+            <span className="text-xs font-mono font-bold uppercase tracking-widest text-rose-600">
+              JERARQUÍA CORPORATIVA & ECOSISTEMA
+            </span>
+            <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900">
+              Diseñado con separación de responsabilidades
+            </h2>
+            <p className="text-sm text-slate-600 max-w-xl mx-auto">
+              Cada tecnología en nuestro ecosistema tiene un propósito único para no mezclar herramientas de desarrollador con productos de usuario final.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-left">
+            <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-2">
+              <div className="text-xs font-mono text-slate-500 font-bold">
+                HOLDING & MARCA
+              </div>
+              <h3 className="text-lg font-extrabold text-slate-900">Scouttech</h3>
+              <p className="text-xs text-slate-600">
+                Empresa matriz e infraestructura en la nube para el ecosistema chileno.
+              </p>
+            </div>
+
+            <div className="p-6 rounded-2xl bg-rose-50 border-2 border-rose-500 shadow-md space-y-2">
+              <div className="text-xs font-mono text-rose-700 font-bold">
+                API & INTELIGENCIA (TÚ ESTÁS AQUÍ)
+              </div>
+              <h3 className="text-lg font-extrabold text-slate-900">
+                Animus Engine v2.0
+              </h3>
+              <p className="text-xs text-slate-700">
+                La capa API y RaaS Developer-First potenciada por el motor normalizador Bralidus.
+              </p>
+            </div>
+
+            <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-2">
+              <div className="text-xs font-mono text-slate-500 font-bold">
+                PRODUCTOS VERTICALES
+              </div>
+              <h3 className="text-lg font-extrabold text-slate-900">
+                Validus & Denarius
+              </h3>
+              <p className="text-xs text-slate-600">
+                Aplicaciones SaaS para founders y analistas que validan emprendimientos.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── 9. FAQ ────────────────────────────────────────────────────── */}
+      <section className="py-24 px-6 max-w-3xl mx-auto space-y-12">
+        <h2 className="text-3xl font-extrabold text-slate-900 text-center">
+          Preguntas Frecuentes
+        </h2>
+
+        <div className="space-y-4">
+          {FAQ_ITEMS.map((item, index) => {
+            const isOpen = openFaq === index;
+            return (
+              <div
+                key={index}
+                className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden"
+              >
+                <button
+                  onClick={() => setOpenFaq(isOpen ? null : index)}
+                  className="w-full flex items-center justify-between p-6 text-left font-bold text-slate-900 hover:text-rose-600 transition-colors"
+                >
+                  <span className="text-sm sm:text-base">{item.q}</span>
+                  {isOpen ? (
+                    <ChevronUp className="w-5 h-5 text-slate-500 flex-shrink-0" />
+                  ) : (
+                    <ChevronDown className="w-5 h-5 text-slate-500 flex-shrink-0" />
+                  )}
+                </button>
+                {isOpen && (
+                  <div className="px-6 pb-6 text-xs sm:text-sm text-slate-600 leading-relaxed border-t border-slate-100 pt-4">
+                    {item.a}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* ── 10. Final CTA (Estilo Rose Animus original) ────────────────── */}
+      <section className="py-20 px-6">
+        <div className="max-w-4xl mx-auto">
+          <div className="rounded-3xl bg-gradient-to-br from-rose-50 via-white to-rose-50/50 border border-rose-200 p-10 sm:p-14 text-center space-y-8 relative overflow-hidden shadow-lg">
+            <h2 className="text-3xl sm:text-5xl font-extrabold text-slate-900 tracking-tight">
+              Construye software inteligente para Chile con una sola API.
+            </h2>
+            <p className="text-sm sm:text-base text-slate-600 max-w-xl mx-auto">
+              Obtén 500 créditos gratuitos, conéctate en menos de 5 minutos y comienza a integrar inteligencia verificable hoy.
+            </p>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+              <button
+                onClick={() => navigate('/login')}
+                className="w-full sm:w-auto px-8 py-4 rounded-xl font-bold text-sm text-white bg-rose-600 hover:bg-rose-500 shadow-lg shadow-rose-600/25 transition-all"
+              >
+                Obtener API Key Gratis
+              </button>
+              <button
+                onClick={() => navigate('/dashboard')}
+                className="w-full sm:w-auto px-7 py-4 rounded-xl font-bold text-sm text-slate-700 bg-white hover:bg-slate-100 border border-slate-300 transition-all shadow-sm"
+              >
+                Ver Documentación Técnica
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Footer ────────────────────────────────────────────────────── */}
+      <footer className="border-t border-slate-200 bg-white py-12 px-6 text-xs text-slate-500">
+        <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-6">
+          <div className="flex items-center gap-3">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-rose-600 shadow-sm shadow-rose-600/20">
+              <IconLogo />
             </div>
             <div>
-              <div className="font-heading font-extrabold text-sm text-slate-200">Animus</div>
-              <div className="text-[10px] text-slate-500">Powered by Validus · Scouttech</div>
+              <div className="font-bold text-slate-900 text-sm">
+                Animus Engine v2.0
+              </div>
+              <div>animus.scouttech.lat · Powered by Bralidus</div>
             </div>
           </div>
 
-          <div className="flex gap-6 text-slate-400">
-            <a href="https://validus.scouttech.lat" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">
+          <div className="flex items-center gap-6 text-slate-600">
+            <a href="#modulos" className="hover:text-rose-600 transition-colors">
+              Módulos
+            </a>
+            <a href="#consola" className="hover:text-rose-600 transition-colors">
+              Consola
+            </a>
+            <button
+              onClick={() => navigate('/dashboard')}
+              className="hover:text-rose-600 transition-colors"
+            >
+              Docs & Portal
+            </button>
+            <a
+              href="https://validus.scouttech.lat"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-rose-600 transition-colors"
+            >
               Validus
             </a>
-            <button onClick={() => navigate('/dashboard')} className="hover:text-white transition-colors bg-transparent border-none cursor-pointer">
-              Dashboard
-            </button>
           </div>
 
-          <p className="text-xs text-slate-500">
-            © 2026 Scouttech · Todos los derechos reservados
-          </p>
+          <div>© 2026 Scouttech · Todos los derechos reservados</div>
         </div>
       </footer>
     </div>
