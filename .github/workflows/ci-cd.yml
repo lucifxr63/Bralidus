@@ -122,7 +122,13 @@ jobs:
           TESTS: ${{ needs.validate-and-test.result }}
           FRONT: ${{ needs.deploy-frontend.result }}
         run: |
-          [ -z "${HOOK:-}" ] && { echo "Sin DISCORD_DEPLOYS_WEBHOOK — se omite el aviso"; exit 0; }
+          # `if` y no `[ -z ] && { ... }`: con HOOK seteado ese test devuelve 1,
+          # la linea entera devuelve 1 y bash -e (el shell por defecto de
+          # Actions) mata el paso justo cuando SI habia que avisar.
+          if [ -z "${HOOK:-}" ]; then
+            echo "Sin DISCORD_DEPLOYS_WEBHOOK — se omite el aviso"
+            exit 0
+          fi
 
           # Verde sólo si todo pasó. Un 'skipped' cuenta como no-verde: significa
           # que algo no corrió, y eso no es un despliegue exitoso.
