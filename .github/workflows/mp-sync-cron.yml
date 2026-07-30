@@ -34,6 +34,18 @@ on:
         description: 'JSON de opciones, ej. {"lookbackDays":7}'
         required: false
         default: '{}'
+        # OJO al disparar desde la CLI en Windows: PowerShell 5.1 se come las
+        # comillas dobles al pasar argumentos a un ejecutable nativo, así que
+        #     gh workflow run ... -f options='{"startDate":"2026-01-01"}'
+        # llega como {startDate:2026-01-01} — JSON inválido. El servicio lo
+        # atrapa en un try/catch que cae a `{}` y la corrida arranca con los
+        # defaults SIN avisar: un backfill pedido para enero corre el día de
+        # ayer. Pasó dos veces el 2026-07-29 antes de detectarse.
+        #
+        # Forma que sí funciona (redirección de cmd, evita el pipeline de PS):
+        #     cmd /c "gh workflow run mp-sync-cron.yml --ref master --json < payload.json"
+        # con payload.json = {"job":"sync-ordenes","options":"{\"startDate\":...}"}
+        # y SIN BOM — el pipe de PowerShell agrega uno y gh rechaza el JSON.
 
 concurrency:
   group: mp-sync-cron
@@ -52,11 +64,15 @@ jobs:
           SCHED: ${{ github.event.schedule }}
           EVENT: ${{ github.event_name }}
           DISPATCH: ${{ github.event.inputs.job }}
-          # Comillas simples OBLIGATORIAS: sin ellas YAML lee el JSON como flow
-          # mapping y lo re-serializa sin las comillas dobles
-          # ({"a":"b"} -> {a:b}). Eso llega al servicio como JSON invalido,
-          # `c.req.json()` lanza, y la corrida cae al default silenciosamente —
-          # las opciones de una corrida manual se perdían sin decir nada.
+          # Comillas simples defensivas para que el JSON llegue como escalar y
+          # no como flow mapping de YAML.
+          #
+          # CORRECCIÓN a lo que decía este comentario antes: YAML no era la
+          # causa de que las opciones llegaran sin comillas. Se verificó que con
+          # estas comillas puestas el problema persistía, y que desaparecía al
+          # cambiar CÓMO se dispara desde el cliente (ver nota en `options`
+          # arriba: PowerShell 5.1 mangea las comillas dobles hacia ejecutables
+          # nativos). Esto queda como endurecimiento, no como el arreglo.
           OPTIONS: '${{ github.event.inputs.options }}'
         run: |
           set -euo pipefail
