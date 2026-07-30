@@ -104,3 +104,60 @@ jobs:
           vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
           working-directory: validateai-developer-portal
           vercel-args: '--prod'
+
+  notificar:
+    name: 📣 Avisar a la sala de control
+    # Un job resumen en vez de notificar desde cada uno: interesa el resultado
+    # del pipeline completo, no tres avisos sueltos que hay que correlacionar.
+    needs: [validate-and-test, deploy-supabase-functions, deploy-frontend]
+    if: always() && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Publicar en Discord
+        env:
+          HOOK: ${{ secrets.DISCORD_DEPLOYS_WEBHOOK }}
+          TESTS: ${{ needs.validate-and-test.result }}
+          FUNCS: ${{ needs.deploy-supabase-functions.result }}
+          FRONT: ${{ needs.deploy-frontend.result }}
+        run: |
+          [ -z "${HOOK:-}" ] && { echo "Sin DISCORD_DEPLOYS_WEBHOOK — se omite el aviso"; exit 0; }
+
+          # Verde sólo si TODO pasó. Un 'skipped' cuenta como no-verde: significa
+          # que algo no corrió y eso no es un despliegue exitoso.
+          if [ "$TESTS" = "success" ] && [ "$FUNCS" = "success" ] && [ "$FRONT" = "success" ]; then
+            COLOR=5234826; EMOJI="🟢"; ESTADO="desplegado"
+          else
+            COLOR=14700383; EMOJI="🔴"; ESTADO="con problemas"
+          fi
+
+          icono() { case "$1" in success) echo "✅";; failure) echo "❌";; skipped) echo "⏭️";; *) echo "⚠️";; esac; }
+
+          # jq -Rs escapa el mensaje de commit: los titulos traen comillas,
+          # backticks y saltos de linea que romperian el JSON armado a mano.
+          MSG=$(git log -1 --pretty=%s | jq -Rs '.')
+          SHA=$(git rev-parse --short HEAD)
+
+          jq -n --argjson msg "$MSG" \
+                --arg emoji "$EMOJI" --arg estado "$ESTADO" --arg sha "$SHA" \
+                --arg actor "${{ github.actor }}" --argjson color "$COLOR" \
+                --arg tests "$(icono "$TESTS") $TESTS" \
+                --arg funcs "$(icono "$FUNCS") $FUNCS" \
+                --arg front "$(icono "$FRONT") $FRONT" \
+                '{embeds:[{
+                   title: ($emoji + "  Portal Bralidus " + $estado),
+                   description: $msg,
+                   color: $color,
+                   fields: [
+                     {name:"Tests & build", value:$tests, inline:true},
+                     {name:"Edge Functions", value:$funcs, inline:true},
+                     {name:"Frontend",       value:$front, inline:true},
+                     {name:"Commit",         value:$sha,   inline:true},
+                     {name:"Autor",          value:$actor, inline:true}
+                   ],
+                   footer:{text:"ci-cd · Deploys"}
+                 }]}' \
+            | curl -sS -X POST -H 'content-type: application/json' -d @- "$HOOK" >/dev/null
