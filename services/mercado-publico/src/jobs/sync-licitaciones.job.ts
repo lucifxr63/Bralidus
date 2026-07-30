@@ -734,6 +734,9 @@ export async function runSyncLicitacionesJob(options: SyncJobOptions = {}): Prom
   }
 
   aborted = aborted || syncProgress.isAbortRequested();
-  await syncProgress.finish(aborted ? 'Sincronización abortada' : 'Sincronización completada');
+  await syncProgress.finish(
+    aborted ? 'Sincronización abortada' : 'Sincronización completada',
+    plan.activeJobName,
+  );
   logger.info(`[${plan.activeJobName}] Run finished`);
 }

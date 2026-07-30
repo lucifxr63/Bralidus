@@ -91,7 +91,12 @@ async function logDateFailureStep(
 
 async function finishStep(activeJobName: string, aborted: boolean, dates: number): Promise<void> {
   'use step';
-  await syncProgress.finish(aborted ? 'Sincronización abortada' : 'Sincronización completada');
+  // activeJobName explícito: este step corre en otra invocación que el start(),
+  // así que el store no puede inferir de qué fila se trata.
+  await syncProgress.finish(
+    aborted ? 'Sincronización abortada' : 'Sincronización completada',
+    activeJobName,
+  );
   logger.info({ aborted, dates }, `[${activeJobName}] Workflow run finished`);
 }
 

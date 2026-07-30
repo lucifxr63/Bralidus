@@ -118,7 +118,8 @@ async function finishStep(
     : aborted
       ? 'Sincronización abortada'
       : 'Sincronización completada';
-  await syncProgress.finish(msg);
+  // activeJobName explícito: este step corre en otra invocación que el start().
+  await syncProgress.finish(msg, activeJobName);
   logger.info({ aborted, quotaExhausted, dates }, `[${activeJobName}] Workflow run finished`);
 }
 

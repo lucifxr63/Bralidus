@@ -21,8 +21,18 @@ const MAX_LOGS = 300;
  * compartían una única fila `job_key='sync'` — sus logs se pisaban entre sí
  * ("un job bajo el header de otro", CODE_REVIEW.md §3.3). Ahora cada uno
  * escribe a su propia fila, seteada por `start(jobKey)` para el resto de la
- * corrida (log/updateStats/finish no reciben jobKey — asumen una sola corrida
- * activa por isolate, igual trade-off que ya acepta el circuit breaker de MP).
+ * corrida.
+ *
+ * OJO — este default sólo aplica dentro de UNA invocación. Con workflows
+ * durables cada step corre en su propia invocación y el módulo arranca de cero,
+ * así que quien escriba desde un step distinto al del `start()` DEBE pasar el
+ * jobKey explícitamente. `finish(summary, jobKey)` lo acepta por eso.
+ *
+ * Sin ese jobKey pasaba lo siguiente (detectado el 2026-07-29): `finishStep` de
+ * sync-ordenes corría con currentJobKey en su valor por defecto, así que
+ * limpiaba la fila de 'sync-licitaciones' en vez de la propia. Resultado: la
+ * fila de sync-ordenes quedaba con is_running=true para siempre (latido rancio
+ * en la consola) y encima se pisaba el progreso de otro job.
  */
 let currentJobKey = 'sync-licitaciones';
 
@@ -145,8 +155,25 @@ export const syncProgress = {
     await enqueueFlush();
   },
 
-  /** Cierra la corrida. Await obligatorio: drena la cadena de escrituras. */
-  async finish(summary: string): Promise<void> {
+  /**
+   * Cierra la corrida. Await obligatorio: drena la cadena de escrituras.
+   *
+   * `jobKey` es OBLIGATORIO en la práctica cuando se llama desde un step
+   * distinto al que hizo `start()` — es decir, siempre en workflows durables.
+   * Omitirlo cierra la fila de `currentJobKey`, que en una invocación fresca es
+   * el default del módulo y casi nunca es la fila correcta (ver nota arriba).
+   *
+   * Si el jobKey no coincide con lo que este isolate tiene en memoria, se
+   * arranca de un estado limpio: los logs de la corrida ya están persistidos
+   * por los steps anteriores y `flush` sólo debe apagar la bandera sin
+   * sobreescribirlos con un array vacío.
+   */
+  async finish(summary: string, jobKey?: string): Promise<void> {
+    if (jobKey && jobKey !== currentJobKey) {
+      currentJobKey = jobKey;
+      const persistido = await syncProgress.getState(jobKey);
+      mem = { ...persistido, isRunning: false, abortRequested: false };
+    }
     mem.isRunning = false;
     mem.abortRequested = false;
     mem.finishedAt = new Date().toISOString();

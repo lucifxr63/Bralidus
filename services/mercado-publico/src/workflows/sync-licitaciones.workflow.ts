@@ -127,7 +127,11 @@ async function finishStep(
   if (maxItems && totalIngested >= maxItems) {
     syncProgress.log(`⚙ Límite de ${maxItems} licitaciones alcanzado — deteniendo`);
   }
-  await syncProgress.finish(aborted ? 'Sincronización abortada' : 'Sincronización completada');
+  // activeJobName explícito: este step corre en otra invocación que el start().
+  await syncProgress.finish(
+    aborted ? 'Sincronización abortada' : 'Sincronización completada',
+    activeJobName,
+  );
   logger.info({ totalIngested, aborted, dates }, `[${activeJobName}] Workflow run finished`);
 }
 

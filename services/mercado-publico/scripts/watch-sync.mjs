@@ -160,6 +160,14 @@ async function readDbs() {
 
 const SEPARADOR = '─'.repeat(78);
 
+/**
+ * Días sin correr a partir de los cuales un job se considera inactivo y no
+ * "fallando". Los `sync-historical-*` son campañas de backfill puntuales que
+ * quedaron con su última corrida en 'failed'; mostrarlas en rojo indefinidamente
+ * junto a los jobs que sí operan a diario vuelve el rojo inútil.
+ */
+const DIAS_INACTIVO = 7;
+
 function eslabon(nombre, p, detalle = '') {
   if (!p) return `  ${dot(C.gray)} ${nombre.padEnd(30)} ${C.gray}omitido${C.reset}`;
   const col = p.ok ? C.green : C.red;
@@ -184,7 +192,15 @@ function render({ jobs, active, vol, canon }, chain) {
 
   o.push('');
   o.push(`${C.bold}JOBS${C.reset}`);
+  const activos = [];
+  const inactivos = [];
   for (const j of jobs.sort((a, b) => a.job_name.localeCompare(b.job_name))) {
+    const ref = j.finished_at ?? j.started_at;
+    const dias = ref ? (Date.now() - new Date(ref).getTime()) / 86400_000 : Infinity;
+    (dias > DIAS_INACTIVO && j.status !== 'running' ? inactivos : activos).push({ ...j, dias });
+  }
+
+  for (const j of activos) {
     const col = STATUS_COLOR[j.status] ?? C.gray;
     const when = j.status === 'running' ? ago(j.started_at) : ago(j.finished_at ?? j.started_at);
     const res = j.status === 'running'
@@ -192,6 +208,17 @@ function render({ jobs, active, vol, canon }, chain) {
       : `ok=${num(j.total_succeeded)} fail=${num(j.total_failed)} ${C.gray}${dur(j.started_at, j.finished_at)}${C.reset}`;
     o.push(`  ${dot(col)} ${j.job_name.padEnd(28)} ${String(j.status).padEnd(9)} ${res}  ${C.gray}${when}${C.reset}`);
     if (j.error_codes?.length) o.push(`      ${C.red}${j.error_codes.join(', ')}${C.reset}`);
+  }
+
+  // Un job que no corre desde hace semanas NO está fallando: está inactivo.
+  // Pintarlo en rojo junto a los que sí operan hace que el rojo deje de
+  // significar algo — mismo criterio que la regla de estado por tasa de fallo.
+  // Se listan aparte, en gris, con su último resultado para no esconderlos.
+  if (inactivos.length) {
+    o.push(`  ${C.gray}inactivos (sin correr hace más de ${DIAS_INACTIVO} días):${C.reset}`);
+    for (const j of inactivos) {
+      o.push(`    ${dot(C.gray)} ${C.gray}${j.job_name.padEnd(26)} último: ${String(j.status).padEnd(8)} ${ago(j.finished_at ?? j.started_at)}${C.reset}`);
+    }
   }
 
   if (active) {
