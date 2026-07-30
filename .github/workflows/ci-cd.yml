@@ -49,7 +49,11 @@ jobs:
           # BralidusPY se migró de Railway a Vercel. El host de Railway devuelve
           # 404, así que estos E2E habrían fallado igual con la key puesta.
           VITE_BRALIDUS_API_URL: https://api.animus.scouttech.lat
-          VITE_TEST_BRALIDUS_KEY: ${{ secrets.BRALIDUS_TEST_API_KEY }}
+          # El secret se llama CI_SMOKE (asi quedo creado). Se acepta tambien
+          # BRALIDUS_TEST_API_KEY por si algun dia se renombra a algo que diga
+          # QUE es y no solo para que se usa — el fallback evita que el rename
+          # rompa el pipeline en silencio.
+          VITE_TEST_BRALIDUS_KEY: ${{ secrets.CI_SMOKE || secrets.BRALIDUS_TEST_API_KEY }}
         run: |
           if [ -z "${VITE_TEST_BRALIDUS_KEY:-}" ]; then
             echo "::warning::Sin BRALIDUS_TEST_API_KEY — se omiten los E2E contra la API real"
@@ -91,20 +95,28 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Download Build Artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: dist-portal
-          path: dist/
-
-      - name: Deploy to Vercel Action
-        uses: amondnet/vercel-action@v25
+      # Se usa el CLI oficial y no `amondnet/vercel-action@v25`: esa action
+      # pinnea Vercel CLI 25.1.0 (de 2022) y fallaba con
+      #   "Could not retrieve Project Settings"
+      # contra un proyecto de team, porque no entiende el formato actual de
+      # prj_/team_. El CLI al dia lo resuelve solo con `vercel pull`.
+      - name: Deploy a Vercel
         if: env.VERCEL_TOKEN != ''
-        with:
-          vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-          vercel-args: '--prod'
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          set -euo pipefail
+          npm i -g vercel@latest
+          # `pull` baja la config del proyecto y lo linkea usando los IDs de
+          # arriba — reemplaza al `.vercel/` que no existe en el runner.
+          vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
+          vercel build --prod --token="$VERCEL_TOKEN"
+          vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN"
+
+      - name: Aviso si falta el token
+        if: env.VERCEL_TOKEN == ''
+        run: echo "::warning::Sin VERCEL_TOKEN — se omite el deploy"
 
   notificar:
     name: 📣 Avisar a la sala de control
