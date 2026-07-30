@@ -51,7 +51,15 @@ export type OpsAlertLevel = 'info' | 'warn' | 'error';
  * se llevara sus propios errores, no quedaría un solo lugar donde mirar cuando
  * algo se rompe, que es justamente lo que hace útil a ese canal.
  */
-export type OpsChannel = 'incidentes' | 'latido' | 'frescura' | 'degradacion' | 'pjud';
+export type OpsChannel =
+  | 'incidentes'
+  | 'latido'
+  | 'frescura'
+  | 'degradacion'
+  | 'deploys'
+  | 'negocio'
+  | 'pjud'
+  | 'bcn';
 
 /** Campo del embed. `inline` los acomoda en columnas (Discord pone hasta 3). */
 export interface OpsField {
@@ -109,9 +117,10 @@ function urlDeCanal(channel: OpsChannel): string | undefined {
     latido: env.OPS_WEBHOOK_LATIDO,
     frescura: env.OPS_WEBHOOK_FRESCURA,
     degradacion: env.OPS_WEBHOOK_DEGRADACION,
-    // Sin canal propio, la ingesta de PJUD cae al latido general en vez de
-    // perderse: sigue siendo un latido, sólo que sin sala dedicada.
+    deploys: env.OPS_WEBHOOK_DEPLOYS ?? env.OPS_WEBHOOK_LATIDO,
+    negocio: env.OPS_WEBHOOK_NEGOCIO ?? env.OPS_WEBHOOK_FRESCURA,
     pjud: env.OPS_WEBHOOK_PJUD ?? env.OPS_WEBHOOK_LATIDO,
+    bcn: env.OPS_WEBHOOK_BCN ?? env.OPS_WEBHOOK_FRESCURA,
   };
   return porCanal[channel] ?? env.OPS_WEBHOOK_URL;
 }
@@ -131,7 +140,10 @@ const NOMBRE_CANAL: Record<OpsChannel, string> = {
   latido: 'Latido',
   frescura: 'Frescura de datos',
   degradacion: 'Degradación',
-  pjud: 'Poder Judicial',
+  deploys: 'Deploys & Releases',
+  negocio: 'Impacto Negocio & KPIs',
+  pjud: 'Poder Judicial (PJUD)',
+  bcn: 'Biblioteca del Congreso Nacional (BCN / Ley Chile)',
 };
 
 /**

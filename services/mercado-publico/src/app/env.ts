@@ -150,10 +150,11 @@ const envSchema = z.object({
   OPS_WEBHOOK_LATIDO: z.string().url().optional(), // toda corrida programada
   OPS_WEBHOOK_FRESCURA: z.string().url().optional(), // digest de antigüedad del dato
   OPS_WEBHOOK_DEGRADACION: z.string().url().optional(), // lo que "funciona" mintiendo
-  // Canal POR FUENTE, no por tipo de acción: sigue la ingesta del Poder Judicial
-  // por separado. Los fallos reales igual van a incidentes, para que ese siga
-  // siendo el único lugar donde mirar cuando algo se rompe.
-  OPS_WEBHOOK_PJUD: z.string().url().optional(),
+  OPS_WEBHOOK_DEPLOYS: z.string().url().optional(), // deploys, versiones y runtime
+  OPS_WEBHOOK_NEGOCIO: z.string().url().optional(), // KPIs comerciales y operativos
+  // Canales POR FUENTE:
+  OPS_WEBHOOK_PJUD: z.string().url().optional(), // Poder Judicial (PJUD)
+  OPS_WEBHOOK_BCN: z.string().url().optional(), // Biblioteca del Congreso Nacional (BCN / Ley Chile)
 });
 
 export type Env = z.infer<typeof envSchema>;
