@@ -39,6 +39,7 @@
 
 import { env } from '../../app/env.js';
 import { logger } from '../logging/logger.js';
+import { registrarEnvioWebhook } from './webhook-health.js';
 
 export type OpsAlertLevel = 'info' | 'warn' | 'error';
 
@@ -203,17 +204,35 @@ export async function sendOpsAlert(alert: OpsAlert): Promise<void> {
       // cubre los dos sin configuración por destino.
       body: JSON.stringify({ embeds: [embed], text: plano }),
     });
-    if (!res.ok) {
-      // Un embed mal formado da 400 y el aviso se perdería del todo. Se
-      // reintenta en texto plano: mejor feo que mudo.
-      logger.warn({ status: res.status, channel }, '[ops-alert] embed rechazado, reintentando en texto');
-      await fetch(url, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ content: plano, text: plano }),
-      }).catch(() => {});
+
+    if (res.ok) {
+      registrarEnvioWebhook(channel, true);
+      return;
+    }
+
+    // Un embed mal formado da 400 y el aviso se perdería del todo. Se
+    // reintenta en texto plano: mejor feo que mudo.
+    logger.warn({ status: res.status, channel }, '[ops-alert] embed rechazado, reintentando en texto');
+    const reintento = await fetch(url, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ content: plano, text: plano }),
+    }).catch(() => null);
+
+    // El resultado del reintento se MIRA. Antes se descartaba con
+    // `.catch(() => {})`, así que un webhook revocado (401/404) fallaba para
+    // siempre sin dejar más rastro que un warning en los logs de Vercel.
+    if (reintento?.ok) {
+      registrarEnvioWebhook(channel, true);
+    } else {
+      registrarEnvioWebhook(
+        channel,
+        false,
+        `HTTP ${res.status}${reintento ? ` (reintento HTTP ${reintento.status})` : ' (reintento sin respuesta)'}`,
+      );
     }
   } catch (err) {
     logger.warn({ err, channel }, '[ops-alert] fallo al enviar webhook');
+    registrarEnvioWebhook(channel, false, err instanceof Error ? err.message : String(err));
   }
 }

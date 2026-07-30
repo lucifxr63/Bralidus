@@ -22,7 +22,8 @@
 
 import { query, bralidusQuery } from '../infrastructure/database/client/pg-client.js';
 import { logger } from '../infrastructure/logging/logger.js';
-import { sendOpsAlert } from '../infrastructure/ops-alert/ops-alert.js';
+import { sendOpsAlert, type OpsChannel } from '../infrastructure/ops-alert/ops-alert.js';
+import { canalesCaidos, canalSanoPara } from '../infrastructure/ops-alert/webhook-health.js';
 
 const JOB_NAME = 'reporte-frescura';
 
@@ -400,6 +401,51 @@ export async function runReporteFrescuraJob(): Promise<void> {
         footer: `Incidentes en ${serviciosConIncidentes.length}/${filas.length} servicios · Animus Engine 360°`,
         dedupeKey: `incidentes-360:${new Date().toISOString().slice(0, 10)}`,
       });
+    }
+
+    // 3b. Canales de aviso que dejaron de funcionar.
+    //
+    // Va acá y no en un canal propio porque es meta-información: avisa que el
+    // sistema de avisos está roto. Se manda al primer canal que NO esté caído
+    // — mandarlo al canal muerto sería igual a no mandarlo.
+    //
+    // Si están todos caídos no se envía nada y el único registro queda en
+    // `ops_webhook_health`. No es una limitación: es la razón de que la tabla
+    // exista.
+    const caidos = await canalesCaidos();
+    if (caidos.length > 0) {
+      const destino = canalSanoPara(caidos.map((c) => c.canal));
+      if (destino) {
+        const nuncaFuncionaron = caidos.filter((c) => c.nunca_funciono);
+        await sendOpsAlert({
+          level: 'error',
+          channel: destino as OpsChannel,
+          title: `El alerting está roto · ${caidos.length} canal(es) sin entregar`,
+          detail:
+            `**No confíes en el silencio de estos canales.**\n` +
+            (nuncaFuncionaron.length > 0
+              ? `${nuncaFuncionaron.length} nunca entregó un mensaje: la URL está mal puesta, no revocada.\n`
+              : '') +
+            'Un 401/404 de Discord significa webhook revocado o reescrito: hay que regenerarlo y actualizar la variable en el panel del servicio.',
+          fields: caidos.slice(0, 25).map((c) => ({
+            name: `${c.nunca_funciono ? '⛔' : '🔴'} ${c.canal} · ${c.servicio}`,
+            value:
+              `**${c.fallos_consecutivos} fallo(s) seguidos**\n` +
+              `${c.ultimo_error ?? 'sin detalle'}\n` +
+              (c.ultimo_exito
+                ? `último ok: ${new Date(c.ultimo_exito).toISOString().slice(0, 16).replace('T', ' ')}`
+                : 'nunca funcionó'),
+            inline: true,
+          })),
+          footer: `reportado vía #${destino} porque los caídos no pueden reportarse solos`,
+          dedupeKey: `webhooks-caidos:${new Date().toISOString().slice(0, 10)}`,
+        });
+      } else {
+        logger.error(
+          { caidos: caidos.map((c) => `${c.servicio}/${c.canal}`) },
+          '[frescura] TODOS los canales de aviso están caídos — sólo queda el registro en ops_webhook_health',
+        );
+      }
     }
 
     // 4. Canal #ops-degradacion (Tolerancia a fallos y caché degradada)
