@@ -85,6 +85,19 @@ jobs:
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
 
+    # El secret se expone como env del job para poder condicionar el step con
+    # `env.VERCEL_TOKEN`. El contexto `secrets` NO está disponible en un `if` de
+    # step: usarlo ahí invalida el workflow ENTERO y GitHub lo rechaza al
+    # parsearlo, sin ejecutar un solo job.
+    #
+    # Eso es exactamente lo que venía pasando: 10 corridas consecutivas
+    # fallando en 0 s (nunca corrió el typecheck, ni los tests, ni el build) y
+    # nadie lo notó, porque un fallo instantáneo se parece a "no había nada que
+    # hacer". Los despliegues se venían haciendo a mano sin que el pipeline
+    # existiera de verdad.
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -97,7 +110,7 @@ jobs:
 
       - name: Deploy to Vercel Action
         uses: amondnet/vercel-action@v25
-        if: ${{ secrets.VERCEL_TOKEN != '' }}
+        if: env.VERCEL_TOKEN != ''
         with:
           vercel-token: ${{ secrets.VERCEL_TOKEN }}
           vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
