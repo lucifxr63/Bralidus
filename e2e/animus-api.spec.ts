@@ -1,82 +1,148 @@
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect } from 'vitest';
 
 /**
- * Bralidus API & MoE Engine — Automated Integration E2E Test Suite
- * Validates endpoint availability, SLA response latencies, authentication enforcement,
- * and MoE (Mixture of Experts) error handling.
+ * E2E contra la API de BralidusPY (api.animus.scouttech.lat).
+ *
+ * POR QUÉ SE REESCRIBIÓ ENTERO
+ * ----------------------------
+ * La versión anterior no podía fallar. Cada assertion aceptaba rangos enormes
+ * —`expect([200, 401, 404]).toContain(res.status)`— y todo estaba envuelto en
+ * try/catch terminando en `expect(e).toBeDefined()`. Con la API entera caída
+ * pasaba igual, porque "no responde" también satisfacía la condición.
+ *
+ * El costo real: apuntaba a `/api/v1/data/economic`, `/api/v1/rag/query` y
+ * `/api/v1/query/moe`, que en esta API devuelven 404 — son rutas del gateway
+ * `api-v1` de Supabase, otro servicio. O sea que testeaba la API equivocada, y
+ * el 404 estaba en la lista de aceptados. Además apuntaba a un host de Railway
+ * dado de baja hace meses y nadie se enteró.
+ *
+ * REGLAS DE ESTE ARCHIVO
+ * ----------------------
+ * 1. Sin try/catch alrededor de los fetch. Si la red falla, el test falla —
+ *    que es exactamente la señal que se quiere.
+ * 2. Status exactos, no rangos. Un rango es una forma de no decidir qué se
+ *    espera, y lo que no se decide no se verifica.
+ * 3. Todo lo de acá corre SIN credenciales. La auth de BralidusPY es un único
+ *    secreto compartido (BRALIDUS_API_KEY, comparado por igualdad exacta), no
+ *    keys por usuario del portal: una key del portal da 403, no 200. Que el
+ *    test no dependa de un secreto es una ventaja, no una limitación — el gate
+ *    deja de ser opcional.
  */
 
-const BASE_URL = process.env.VITE_BRALIDUS_API_URL || 'https://api.animus.scouttech.lat';
-const TEST_API_KEY = process.env.VITE_TEST_BRALIDUS_KEY || 'sk_test_demo123456789';
+const BASE_URL = process.env.VITE_BRALIDUS_API_URL ?? 'https://api.animus.scouttech.lat';
 
-describe('Bralidus API Suite — Health & Availability', () => {
-  it('GET /health should return 200 with OK status and scheduler job metrics', async () => {
-    try {
-      const res = await fetch(`${BASE_URL}/health`);
-      // Endpoint may be public or auth-protected depending on environment
-      expect([200, 401, 404]).toContain(res.status);
-      if (res.status === 200) {
-        const body = await res.json();
-        expect(body).toBeDefined();
+/** Serverless con arranque en frío: generoso, pero acotado. */
+const TIMEOUT_MS = 30_000;
+
+/** Servicios que, si están caídos, significan que la API no sirve para nada. */
+const SERVICIOS_CRITICOS = ['supabase', 'openai'];
+
+async function get(path: string, init?: RequestInit): Promise<Response> {
+  return fetch(`${BASE_URL}${path}`, {
+    ...init,
+    signal: AbortSignal.timeout(TIMEOUT_MS),
+  });
+}
+
+describe('BralidusPY — disponibilidad', () => {
+  it(
+    'GET /ping responde 200 y se declara ok',
+    async () => {
+      const res = await get('/ping');
+      expect(res.status).toBe(200);
+
+      const body = await res.json();
+      expect(body.status).toBe('ok');
+    },
+    TIMEOUT_MS + 5_000,
+  );
+
+  it(
+    'GET /health reporta los servicios críticos sanos',
+    async () => {
+      const res = await get('/health');
+      expect(res.status).toBe(200);
+
+      const body = await res.json();
+      expect(Array.isArray(body.services)).toBe(true);
+      expect(body.services.length).toBeGreaterThan(0);
+
+      // Se afirma sobre los críticos y no sobre `status`: el agregado los trata
+      // como núcleo y devuelve "ok" aunque una integración opcional esté caída.
+      // Acá interesa el detalle, no el resumen.
+      for (const nombre of SERVICIOS_CRITICOS) {
+        const svc = body.services.find((s: { name: string }) => s.name === nombre);
+        expect(svc, `el /health no reporta el servicio "${nombre}"`).toBeDefined();
+        expect(svc.ok, `"${nombre}" está caído: ${svc?.detail}`).toBe(true);
       }
-    } catch (e) {
-      // Graceful offline fallback test assertion
-      expect(e).toBeDefined();
-    }
-  });
+    },
+    TIMEOUT_MS + 5_000,
+  );
+});
 
-  it('GET /data/economic should return 401 when request lacks authorization header', async () => {
-    try {
-      const res = await fetch(`${BASE_URL}/api/v1/data/economic`);
-      expect([401, 403, 404, 200]).toContain(res.status);
-    } catch (e) {
-      expect(e).toBeDefined();
-    }
-  });
+describe('BralidusPY — la auth se aplica de verdad', () => {
+  it(
+    'POST /query sin Authorization devuelve 401',
+    async () => {
+      const res = await get('/query', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({}),
+      });
 
-  it('POST /rag/query should reject empty body with 400 Bad Request', async () => {
-    try {
-      const res = await fetch(`${BASE_URL}/api/v1/rag/query`, {
+      // Exactamente 401. Si esto pasara a 200, la API quedó abierta.
+      expect(res.status).toBe(401);
+    },
+    TIMEOUT_MS + 5_000,
+  );
+
+  it(
+    'POST /query con una key inválida devuelve 403, no 200',
+    async () => {
+      const res = await get('/query', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${TEST_API_KEY}`,
+          'content-type': 'application/json',
+          authorization: 'Bearer key-deliberadamente-invalida-para-el-test',
         },
         body: JSON.stringify({}),
       });
-      expect([400, 401, 422, 404]).toContain(res.status);
-    } catch (e) {
-      expect(e).toBeDefined();
-    }
-  });
+
+      // La diferencia entre 401 y 403 es la que importa: 401 dice "falta la
+      // credencial", 403 dice "la credencial se comparó y no sirve". Si esto
+      // devolviera 401 estaríamos comprobando presencia y no validez; si
+      // devolviera 200, la key no se estaría mirando.
+      expect(res.status).toBe(403);
+    },
+    TIMEOUT_MS + 5_000,
+  );
+
+  it(
+    'GET /jobs/list está protegido',
+    async () => {
+      const res = await get('/jobs/list');
+      expect(res.status).toBe(401);
+    },
+    TIMEOUT_MS + 5_000,
+  );
 });
 
-describe('Bralidus MoE (Mixture of Experts) Engine', () => {
-  it('GatingNetwork cosine routing should fallback gracefully under high traffic', async () => {
-    const mockQuery = {
-      query: '¿Cuál es el impacto de la TPM en el costo de capital para startups en Chile?',
-      industry: 'fintech',
-      domain: 'macroeconomic',
-    };
+describe('BralidusPY — el contrato sigue siendo el que el portal documenta', () => {
+  it(
+    'el OpenAPI expone las rutas que el portal promete',
+    async () => {
+      const res = await get('/openapi.json');
+      expect(res.status).toBe(200);
 
-    const startTime = Date.now();
-    try {
-      const res = await fetch(`${BASE_URL}/api/v1/query/moe`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${TEST_API_KEY}`,
-        },
-        body: JSON.stringify(mockQuery),
-      });
+      const spec = await res.json();
+      const rutas = Object.keys(spec.paths ?? {});
 
-      const latencyMs = Date.now() - startTime;
-
-      // Ensure API responds within reasonable latency SLA (< 3000ms for MoE)
-      expect(latencyMs).toBeLessThan(5000);
-      expect([200, 401, 404, 429]).toContain(res.status);
-    } catch (e) {
-      expect(e).toBeDefined();
-    }
-  });
+      // Si alguna desaparece, el portal queda documentando algo inexistente —
+      // que es como llegamos a tener endpoints publicados devolviendo 503.
+      for (const esperada of ['/health', '/query', '/query/moe', '/licitus/mercado/activas']) {
+        expect(rutas, `desapareció la ruta ${esperada}`).toContain(esperada);
+      }
+    },
+    TIMEOUT_MS + 5_000,
+  );
 });

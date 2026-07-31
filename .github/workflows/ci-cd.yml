@@ -40,30 +40,20 @@ jobs:
       - name: 🔍 TypeScript Strict Typecheck
         run: npx tsc --noEmit
 
-      # Los E2E pegan contra la API real de Bralidus. Sin la key son ruido rojo
-      # que no dice nada del commit, así que se saltean explícitamente en vez de
-      # fallar: el pipeline debe romperse por el código, no por configuración
-      # ausente.
+      # Los E2E pegan contra la API real de Bralidus y YA NO SE SALTEAN.
+      #
+      # Antes el paso se omitía si faltaba la API key. Ese escape resultó ser el
+      # problema, no la solución: tapó durante meses que el test apuntaba a un
+      # host de Railway dado de baja y que invocaba un archivo .spec inexistente.
+      # Un gate que se puede saltear solo, no es un gate.
+      #
+      # Ya no hace falta credencial: las aserciones son sobre endpoints públicos
+      # (/ping, /health, /openapi.json) y sobre que la auth RECHACE como debe
+      # (401 sin header, 403 con key inválida). Ver el encabezado del .spec.
       - name: 🧪 Run E2E Integration Tests
         env:
-          # BralidusPY se migró de Railway a Vercel. El host de Railway devuelve
-          # 404, así que estos E2E habrían fallado igual con la key puesta.
           VITE_BRALIDUS_API_URL: https://api.animus.scouttech.lat
-          # El secret se llama CI_SMOKE (asi quedo creado). Se acepta tambien
-          # BRALIDUS_TEST_API_KEY por si algun dia se renombra a algo que diga
-          # QUE es y no solo para que se usa — el fallback evita que el rename
-          # rompa el pipeline en silencio.
-          VITE_TEST_BRALIDUS_KEY: ${{ secrets.CI_SMOKE || secrets.BRALIDUS_TEST_API_KEY }}
-        run: |
-          if [ -z "${VITE_TEST_BRALIDUS_KEY:-}" ]; then
-            echo "::warning::Sin CI_SMOKE — se omiten los E2E contra la API real"
-            exit 0
-          fi
-          # El archivo es animus-api.spec.ts. Antes decia bralidus-api.spec.ts,
-          # que no existe: vitest salia con "No test files found" y codigo 1.
-          # Nunca se habia notado porque sin la API key este paso se salteaba
-          # antes de llegar a ejecutarlo.
-          npx vitest run e2e/animus-api.spec.ts
+        run: npx vitest run e2e/animus-api.spec.ts
 
       - name: 🏗️ Production Vite Build
         env:
