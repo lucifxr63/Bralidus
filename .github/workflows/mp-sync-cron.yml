@@ -31,6 +31,16 @@ on:
                              # porque la fuente publica series ANUALES: correrlo
                              # a diario serian 11 requests para reescribir lo
                              # mismo. Ver docs/PJUD_API_HALLAZGOS.md.
+    - cron: '0 8 1 * *'      # sync-pjud-suprema (día 1 de cada mes, 04:00 Chile).
+                             #
+                             # Mensual y no diario: la fuente publica por año
+                             # cerrado, asi que correrlo seguido serian ~96 MB
+                             # de descarga para reescribir exactamente las
+                             # mismas 124.245 filas. Mensual alcanza para tomar
+                             # correcciones tardias del ano anterior.
+                             #
+                             # El upsert es idempotente, asi que reingerir no
+                             # duplica. Ver docs/PJUD_API_HALLAZGOS.md.
     - cron: '45 */2 * * *'   # enrich-ordenes (cada 2 h a los :45).
                              #
                              # NO ESTABA AGENDADO: solo corria encadenado al
@@ -118,6 +128,7 @@ jobs:
               '30 12 * * *')   JOB=reporte-frescura ;;
               '0 5 * * 1')     JOB=sync-pjud ;;
               '45 */2 * * *')  JOB=enrich-ordenes ;;
+              '0 8 1 * *')     JOB=sync-pjud-suprema ;;
               *) echo "::error::schedule no mapeado: $SCHED"; exit 1 ;;
             esac
             BODY='{}'

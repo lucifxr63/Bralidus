@@ -78,6 +78,37 @@ export function seriesAIngerir(anio: number): SeriePjud[] {
   ];
 }
 
+/**
+ * Series `_detalle` de la Corte Suprema: causa por causa, no agregados.
+ *
+ * Van aparte de `seriesAIngerir` porque su destino es otra tabla
+ * (`pjud_suprema_detalle`) y su volumen es de otro orden. Medido el 2026-07-31
+ * para el año 2024:
+ *
+ *   inventario_suprema_detalle         7.469 filas ·  2,2 MB · 0,4 s
+ *   ingresos_recursos_suprema_detalle 62.009 filas · 21,1 MB · 3,0 s
+ *   terminos_suprema_detalle          95.075 filas · 36,5 MB · 5,3 s
+ *
+ * `terminos_sala_suprema_detalle` NO está en la lista a propósito: devuelve un
+ * payload IDÉNTICO byte a byte al de `terminos_suprema_detalle` (mismo SHA256).
+ * No es el mismo dato desglosado por sala como sugiere la documentación de la
+ * fuente: es el mismo endpoint con otro nombre. Incluirla serían 95.075 filas
+ * duplicadas por año.
+ */
+export function seriesSupremaDetalle(anio: number): SeriePjud[] {
+  const det = (nombre: string): SeriePjud => ({
+    serie: nombre,
+    path: `/pjen/${nombre}/1/${anio}`,
+    porAnio: true,
+  });
+
+  return [
+    det('inventario_suprema_detalle'),
+    det('ingresos_recursos_suprema_detalle'),
+    det('terminos_suprema_detalle'),
+  ];
+}
+
 /** Devuelve las filas de una serie, o null si la fuente falló. */
 export async function fetchSerie(path: string): Promise<FilaPjud[] | null> {
   try {
