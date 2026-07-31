@@ -45,9 +45,11 @@ export type EstadoEndpoint =
   | 'inestable';
 
 const PROXIMAMENTE: ReadonlySet<string> = new Set([
+  'GET /api/v1/data/analytics/correlations',
   'GET /api/v1/data/commodities',
   'GET /api/v1/data/commodities/copper',
   'GET /api/v1/data/commodities/snapshot',
+  'GET /api/v1/data/companies/:rut/economic-profile',
   'GET /api/v1/data/companies/:rut/insolvency-status',
   'GET /api/v1/data/companies/:rut/public-procurement/metrics',
   'GET /api/v1/data/companies/insolvencies',
@@ -63,6 +65,7 @@ const PROXIMAMENTE: ReadonlySet<string> = new Set([
   'GET /api/v1/data/economy/chile/trade-balance',
   'GET /api/v1/data/economy/chile/uf',
   'GET /api/v1/data/economy/global/snapshot',
+  'GET /api/v1/data/economy/indicators',
   'GET /api/v1/data/economy/releases',
   'GET /api/v1/data/economy/series/:series_id',
   'GET /api/v1/data/financial-system/entities',
@@ -87,11 +90,14 @@ const PROXIMAMENTE: ReadonlySet<string> = new Set([
   'GET /api/v1/mercado-publico/metricas/:rut',
   'GET /api/v1/mercado-publico/ordenes-compra',
   'GET /api/v1/mercado-publico/ordenes-compra/:codigo_oc',
+  'GET /api/v1/mercado-publico/proveedores/:rut/perfil-competitivo',
   'GET /api/v1/mercado-publico/tratos-directos',
   'GET /api/v1/rag/documents',
+  'GET /api/v1/rag/documents/:document_id/chunks',
   'GET /api/v1/rag/embedding-profiles',
   'GET /api/v1/rag/vaults',
   'GET /api/v1/rag/vaults/:vault_id/stats',
+  'POST /api/v1/data/insights/macro-brief',
   'POST /api/v1/data/insights/scenario-analysis',
   'POST /api/v1/intel/assessments/buyer-profile',
   'POST /api/v1/intel/assessments/company-risk',
@@ -120,24 +126,20 @@ const PROXIMAMENTE: ReadonlySet<string> = new Set([
   'POST /api/v1/rag/estimate',
   'POST /api/v1/rag/uploads',
   'POST /api/v1/rag/vaults',
-]);
-
-const INESTABLE: ReadonlySet<string> = new Set([
-  'GET /api/v1/data/analytics/correlations',
-  'GET /api/v1/data/companies/:rut/economic-profile',
-  'GET /api/v1/data/economy/indicators',
-  'GET /api/v1/mercado-publico/licitaciones/:codigo_externo',
-  'GET /api/v1/mercado-publico/organismos',
-  'GET /api/v1/mercado-publico/organismos/:id',
-  'GET /api/v1/mercado-publico/proveedores/:rut',
-  'GET /api/v1/mercado-publico/proveedores/:rut/oportunidades',
-  'GET /api/v1/mercado-publico/proveedores/:rut/perfil-competitivo',
-  'GET /api/v1/mercado-publico/proveedores/:rut/vs-mercado',
-  'GET /api/v1/rag/documents/:document_id/chunks',
-  'POST /api/v1/data/insights/macro-brief',
-  'POST /api/v1/intel/query',
   'POST /api/v1/rag/vaults/:vault_id/collections',
   'POST /mcp/v1/tools/call',
+]);
+
+// Los tres devuelven 503 con el detalle "Licitus no disponible o sin datos para
+// este recurso". Ese mensaje mezcla dos causas MUY distintas —la dependencia
+// caída y el RUT sin actividad— y por eso no se puede clasificar mejor desde
+// afuera. Se comprobó que el gateway SÍ alcanza a Licitus
+// (/data/licitus/mercado/activas devuelve datos), así que lo más probable es lo
+// segundo. Separar ese mensaje en dos es el arreglo real y queda pendiente.
+const INESTABLE: ReadonlySet<string> = new Set([
+  'GET /api/v1/mercado-publico/proveedores/:rut',
+  'GET /api/v1/mercado-publico/proveedores/:rut/oportunidades',
+  'GET /api/v1/mercado-publico/proveedores/:rut/vs-mercado',
 ]);
 
 /** Estado del endpoint. `vivo` si no fue marcado en ninguna lista. */
@@ -1170,7 +1172,7 @@ export const ENDPOINTS: readonly PlaygroundEndpoint[] = [
     label: 'Mercado Público — Oportunidades Compra Ágil',
     color: '#F59E0B',
     defaultBody: '',
-  },
+  },
   {
     method: 'GET',
     path: '/api/v1/mercado-publico/organismos?nombre=MINEDUC',
@@ -1184,7 +1186,7 @@ export const ENDPOINTS: readonly PlaygroundEndpoint[] = [
     label: 'Mercado Público — Benchmarks Sectoriales B2G',
     color: '#F59E0B',
     defaultBody: '',
-  },
+  },
   {
     method: 'GET',
     path: '/api/v1/data/economy',
@@ -1198,17 +1200,17 @@ export const ENDPOINTS: readonly PlaygroundEndpoint[] = [
     label: 'Macro — Indicadores Globales FRED',
     color: '#2DD4BF',
     defaultBody: '',
-  },
+  },
   {
     method: 'POST',
     path: '/api/v1/rag/query',
     label: 'RAG — Búsqueda Semántica Vectorial pgvector',
     color: '#0EB5C6',
     defaultBody: JSON.stringify({ query: '¿Qué exige la Ley 21.719 de datos personales en Chile?' }, null, 2),
-  },
+  },
   // Se quitaron dos presets de S-Pulse: eran los únicos del playground que
   // devolvían 503 al apretar "Enviar", justo en la pantalla que existe para
-  // que el desarrollador compruebe que la API responde.
+  // que el desarrollador compruebe que la API responde.
 ] as const;
 
 export const METHOD_COLORS: Record<string, string> = {
