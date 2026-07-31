@@ -6,6 +6,8 @@ import { toast } from 'sonner';
 
 export function Login() {
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isSignUp, setIsSignUp] = useState(false);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [sent, setSent] = useState(false);
@@ -29,20 +31,49 @@ export function Login() {
     }
   };
 
-  // ── Magic Link (OTP) ─────────────────────────────────────────────────────
+  // ── Email + Password (Mismo método que Validus MVP) ──────────────────────
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email.trim()) return;
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      toast.error('Ingresa un email válido (ej: nombre@dominio.com).');
+      return;
+    }
+    if (password.length < 6) {
+      toast.error('La contraseña debe tener al menos 6 caracteres.');
+      return;
+    }
     setLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithOtp({
-        email: email.trim(),
-        options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
-      });
-      if (error) throw error;
-      setSent(true);
+      if (isSignUp) {
+        const { error } = await supabase.auth.signUp({
+          email: email.trim(),
+          password,
+        });
+        if (error) throw error;
+        toast.success('Revisa tu email para confirmar tu cuenta.');
+        setSent(true);
+      } else {
+        const { error } = await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password,
+        });
+        if (error) throw error;
+        navigate('/dashboard');
+      }
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'Error al enviar el magic link');
+      const msg = err instanceof Error ? err.message : '';
+      if (msg.includes('429') || msg.toLowerCase().includes('rate limit'))
+        toast.error('Demasiados intentos. Espera unos minutos e intenta de nuevo.');
+      else if (msg.toLowerCase().includes('invalid login') || msg.toLowerCase().includes('invalid credentials') || msg.includes('400'))
+        toast.error('Email o contraseña incorrectos.');
+      else if (msg.toLowerCase().includes('email not confirmed'))
+        toast.error('Confirma tu email antes de ingresar. Revisa tu bandeja.');
+      else if (msg.toLowerCase().includes('user already registered')) {
+        toast.error('Ya existe una cuenta con ese email. Inicia sesión.');
+        setIsSignUp(false);
+      } else {
+        toast.error(msg || 'Error de autenticación. Intenta de nuevo.');
+      }
     } finally {
       setLoading(false);
     }
@@ -227,11 +258,13 @@ export function Login() {
               {/* Divider */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
                 <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.07)' }} />
-                <span style={{ fontSize: 12, color: '#4A4A6A', whiteSpace: 'nowrap' }}>o continúa con email</span>
+                <span style={{ fontSize: 12, color: '#4A4A6A', whiteSpace: 'nowrap' }}>
+                  {isSignUp ? 'o regístrate con email' : 'o inicia sesión con email'}
+                </span>
                 <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.07)' }} />
               </div>
 
-              {/* ── Magic Link form ─────────────────────────────────────── */}
+              {/* ── Email + Password form ──────────────────────────────── */}
               <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                 <div>
                   <label style={{ fontSize: 12, fontWeight: 700, color: '#7674A0', display: 'block', marginBottom: 8, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
@@ -257,39 +290,83 @@ export function Login() {
                   />
                 </div>
 
+                <div>
+                  <label style={{ fontSize: 12, fontWeight: 700, color: '#7674A0', display: 'block', marginBottom: 8, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                    Contraseña
+                  </label>
+                  <input
+                    id="input-password-login"
+                    type="password"
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    required
+                    minLength={6}
+                    style={{
+                      width: '100%', boxSizing: 'border-box',
+                      background: 'rgba(5,5,13,0.8)', border: '1px solid rgba(108,60,225,0.20)',
+                      borderRadius: 12, padding: '12px 16px',
+                      fontSize: 15, color: '#E8E7F5',
+                      outline: 'none', fontFamily: "'DM Sans', system-ui, sans-serif",
+                      transition: 'border-color 0.2s, box-shadow 0.2s',
+                    }}
+                    onFocus={e => { e.currentTarget.style.borderColor = 'rgba(108,60,225,0.55)'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(108,60,225,0.12)'; }}
+                    onBlur={e => { e.currentTarget.style.borderColor = 'rgba(108,60,225,0.20)'; e.currentTarget.style.boxShadow = 'none'; }}
+                  />
+                </div>
+
                 <button
-                  id="btn-magic-link"
+                  id="btn-login-submit"
                   type="submit"
-                  disabled={loading || !email.trim()}
+                  disabled={loading || !email.trim() || password.length < 6}
                   style={{
                     width: '100%', padding: '12px',
-                    background: loading || !email.trim()
+                    background: loading || !email.trim() || password.length < 6
                       ? 'rgba(108,60,225,0.15)'
                       : 'linear-gradient(135deg, #6C3CE1, #5B30C4)',
-                    color: loading || !email.trim() ? '#7674A0' : '#fff',
+                    color: loading || !email.trim() || password.length < 6 ? '#7674A0' : '#fff',
                     fontWeight: 700, fontSize: 14,
                     border: '1px solid rgba(139,92,246,0.25)',
-                    borderRadius: 12, cursor: loading || !email.trim() ? 'not-allowed' : 'pointer',
+                    borderRadius: 12, cursor: loading || !email.trim() || password.length < 6 ? 'not-allowed' : 'pointer',
                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
                     fontFamily: "'DM Sans', system-ui, sans-serif",
-                    boxShadow: loading || !email.trim() ? 'none' : '0 4px 16px rgba(108,60,225,0.28)',
+                    boxShadow: loading || !email.trim() || password.length < 6 ? 'none' : '0 4px 16px rgba(108,60,225,0.28)',
                     transition: 'all 0.2s',
+                    marginTop: 4,
                   }}
                 >
                   {loading ? (
                     <>
                       <Loader2 size={15} style={{ animation: 'spin 0.8s linear infinite' }} />
-                      Enviando magic link...
+                      {isSignUp ? 'Creando cuenta...' : 'Iniciando sesión...'}
                     </>
                   ) : (
-                    'Enviar magic link'
+                    isSignUp ? 'Crear Cuenta' : 'Iniciar Sesión'
                   )}
                 </button>
               </form>
 
+              {/* Toggle Login <-> SignUp */}
+              <div style={{ textAlign: 'center', marginTop: 18 }}>
+                <button
+                  type="button"
+                  onClick={() => { setIsSignUp(!isSignUp); setSent(false); }}
+                  style={{
+                    background: 'none', border: 'none',
+                    color: '#A78BFA', fontSize: 13, fontWeight: 600,
+                    cursor: 'pointer', fontFamily: "'DM Sans', system-ui, sans-serif",
+                    textDecoration: 'underline',
+                  }}
+                >
+                  {isSignUp
+                    ? '¿Ya tienes una cuenta? Inicia sesión'
+                    : '¿No tienes cuenta? Regístrate'}
+                </button>
+              </div>
+
               {/* Info */}
-              <p style={{ fontSize: 12, color: '#4A4A6A', textAlign: 'center', marginTop: 20, marginBottom: 0, lineHeight: 1.6 }}>
-                Usa la <strong style={{ color: '#6C6C8A' }}>misma cuenta de Validus</strong>.
+              <p style={{ fontSize: 12, color: '#4A4A6A', textAlign: 'center', marginTop: 16, marginBottom: 0, lineHeight: 1.6 }}>
+                Usa la <strong style={{ color: '#6C6C8A' }}>misma cuenta y contraseña de Validus</strong>.
                 <br />Google OAuth es la forma más rápida.
               </p>
             </div>
