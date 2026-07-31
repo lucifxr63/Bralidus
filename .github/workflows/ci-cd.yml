@@ -112,11 +112,19 @@ jobs:
         run: |
           set -euo pipefail
           npm i -g vercel@latest
+          # `--scope` explicito: el proyecto vive bajo el team
+          # "lucifxr63's projects", no bajo la cuenta personal. Si el token no
+          # tiene alcance sobre ese team, `pull` falla con
+          #   "Could not retrieve Project Settings"
+          # aunque VERCEL_ORG_ID y VERCEL_PROJECT_ID sean correctos — el mensaje
+          # sugiere borrar .vercel/, que en el runner ni siquiera existe, y
+          # manda a buscar el problema al lugar equivocado.
+          SCOPE=lucifxr63s-projects
           # `pull` baja la config del proyecto y lo linkea usando los IDs de
           # arriba — reemplaza al `.vercel/` que no existe en el runner.
-          vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
+          vercel pull --yes --environment=production --scope="$SCOPE" --token="$VERCEL_TOKEN"
           vercel build --prod --token="$VERCEL_TOKEN"
-          vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN"
+          vercel deploy --prebuilt --prod --scope="$SCOPE" --token="$VERCEL_TOKEN"
 
       - name: Aviso si falta el token
         if: env.VERCEL_TOKEN == ''
