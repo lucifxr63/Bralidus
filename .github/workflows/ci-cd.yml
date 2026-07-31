@@ -56,10 +56,14 @@ jobs:
           VITE_TEST_BRALIDUS_KEY: ${{ secrets.CI_SMOKE || secrets.BRALIDUS_TEST_API_KEY }}
         run: |
           if [ -z "${VITE_TEST_BRALIDUS_KEY:-}" ]; then
-            echo "::warning::Sin BRALIDUS_TEST_API_KEY — se omiten los E2E contra la API real"
+            echo "::warning::Sin CI_SMOKE — se omiten los E2E contra la API real"
             exit 0
           fi
-          npx vitest run e2e/bralidus-api.spec.ts
+          # El archivo es animus-api.spec.ts. Antes decia bralidus-api.spec.ts,
+          # que no existe: vitest salia con "No test files found" y codigo 1.
+          # Nunca se habia notado porque sin la API key este paso se salteaba
+          # antes de llegar a ejecutarlo.
+          npx vitest run e2e/animus-api.spec.ts
 
       - name: 🏗️ Production Vite Build
         env:
