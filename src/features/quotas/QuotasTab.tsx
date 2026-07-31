@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { ShieldCheck, Zap, ArrowUpRight, Check, ChevronDown, ChevronRight, Search, Layers } from 'lucide-react';
 import { DevCreditPricingCalculator } from './DevCreditPricingCalculator';
+import { estadoDe, type EstadoEndpoint } from '@/data/api-docs';
 
 export interface QuotasTabProps {
   usageCount?: number;
@@ -129,6 +130,20 @@ const ALL_ENDPOINT_COSTS: EndpointCostItem[] = [
   { endpoint: 'MCP Tool: animus_predict_win_probability', category: 'Animus MCP Server (Model Context Protocol)', cost: 40, type: 'MCP Agéntico Win Probability %' },
   { endpoint: 'POST /mcp/v1/tools/call', category: 'Animus MCP Server (Model Context Protocol)', cost: 1, type: 'Invocación remota de herramienta MCP' },
 ];
+
+/**
+ * Estado de una fila de la tabla de tarifas.
+ *
+ * Las filas guardan el endpoint como un string `"GET /api/v1/..."`, que es
+ * exactamente la clave que usa `estadoDe`. Las entradas de MCP no son endpoints
+ * HTTP y no se evalúan.
+ */
+const estadoDeFila = (endpoint: string): EstadoEndpoint => {
+  if (endpoint.startsWith('MCP')) return 'vivo';
+  const i = endpoint.indexOf(' ');
+  if (i < 0) return 'vivo';
+  return estadoDe({ method: endpoint.slice(0, i), path: endpoint.slice(i + 1) });
+};
 
 export function QuotasTab({ usageCount }: QuotasTabProps) {
   const [currentTier] = useState<'basic' | 'pro' | 'premium' | 'admin'>('pro');
@@ -312,8 +327,17 @@ export function QuotasTab({ usageCount }: QuotasTabProps) {
                       <tbody>
                         {list.map((item, idx) => (
                           <tr key={idx} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)', background: idx % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.01)' }}>
-                            <td style={{ padding: '10px 18px', fontFamily: 'monospace', fontSize: 12, color: item.endpoint.startsWith('MCP') ? '#C084FC' : item.endpoint.startsWith('POST') ? '#0EB5C6' : '#2DD4BF' }}>
+                            <td style={{ padding: '10px 18px', fontFamily: 'monospace', fontSize: 12, color: estadoDeFila(item.endpoint) !== 'vivo' ? '#6A6888' : item.endpoint.startsWith('MCP') ? '#C084FC' : item.endpoint.startsWith('POST') ? '#0EB5C6' : '#2DD4BF' }}>
                               {item.endpoint}
+                              {/* Cobrar créditos por un endpoint que responde 501
+                                  es cotizar algo que no se entrega. Se marca en
+                                  vez de ocultarlo: la tarifa sigue siendo válida
+                                  para cuando exista. */}
+                              {estadoDeFila(item.endpoint) !== 'vivo' && (
+                                <span style={{ marginLeft: 8, fontSize: 9, fontWeight: 800, padding: '1px 6px', borderRadius: 100, textTransform: 'uppercase', letterSpacing: '0.4px', background: 'rgba(139,146,176,0.14)', color: '#8A88A8' }}>
+                                  {estadoDeFila(item.endpoint) === 'proximamente' ? 'Próximamente' : 'Inestable'}
+                                </span>
+                              )}
                             </td>
                             <td style={{ padding: '10px 18px', color: '#9896B8' }}>{item.type}</td>
                             <td style={{ padding: '10px 18px', textAlign: 'right', fontWeight: 800, color: item.cost >= 35 ? '#F59E0B' : '#E8E7F5', fontFamily: 'monospace' }}>

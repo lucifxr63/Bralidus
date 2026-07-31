@@ -18,6 +18,136 @@ export interface EndpointDoc {
   errorCodes: string[];
 }
 
+
+// ─── Estado real de cada endpoint ─────────────────────────────────────────
+//
+// Medido contra PRODUCCION el 2026-07-31: se llamaron los 100 endpoints de
+// API_DOCS con la key demo, dejando 2,2 s entre llamadas. Ese espaciado no es
+// cosmetico — sin el, la propia prueba satura la funcion y devuelve 502 que no
+// son reales (paso: un primer barrido rapido reporto 15 fallas inexistentes).
+//
+// Respondieron 10. **Setenta y cinco devolvieron 501 Not Implemented**: estaban
+// documentados, tarifados en la calculadora de creditos y ofrecidos en el
+// playground, pero nunca se construyeron. Para quien evalua la API eso no se
+// lee como "incompleta" sino como "rota": probando al azar le pega a un 501
+// tres de cada cuatro veces.
+//
+// Va como TABLA APARTE y no como un campo en cada entrada a proposito: es un
+// dato medido en una fecha, no parte del contrato del endpoint. Cuando se
+// remida se reemplazan estas dos listas y nada mas.
+
+export type EstadoEndpoint =
+  /** Responde. Default cuando no esta en ninguna lista. */
+  | 'vivo'
+  /** Devuelve 501: documentado, nunca implementado. */
+  | 'proximamente'
+  /** Existe pero falla (502/503/404). Es un bug, no una ausencia. */
+  | 'inestable';
+
+const PROXIMAMENTE: ReadonlySet<string> = new Set([
+  'GET /api/v1/data/commodities',
+  'GET /api/v1/data/commodities/copper',
+  'GET /api/v1/data/commodities/snapshot',
+  'GET /api/v1/data/companies/:rut/insolvency-status',
+  'GET /api/v1/data/companies/:rut/public-procurement/metrics',
+  'GET /api/v1/data/companies/insolvencies',
+  'GET /api/v1/data/company-events/constitutions',
+  'GET /api/v1/data/economy/calendar',
+  'GET /api/v1/data/economy/chile/exchange-rates',
+  'GET /api/v1/data/economy/chile/gdp',
+  'GET /api/v1/data/economy/chile/imacec',
+  'GET /api/v1/data/economy/chile/ipc',
+  'GET /api/v1/data/economy/chile/ipom',
+  'GET /api/v1/data/economy/chile/snapshot',
+  'GET /api/v1/data/economy/chile/tpm',
+  'GET /api/v1/data/economy/chile/trade-balance',
+  'GET /api/v1/data/economy/chile/uf',
+  'GET /api/v1/data/economy/global/snapshot',
+  'GET /api/v1/data/economy/releases',
+  'GET /api/v1/data/economy/series/:series_id',
+  'GET /api/v1/data/financial-system/entities',
+  'GET /api/v1/data/investment-projects',
+  'GET /api/v1/data/labor',
+  'GET /api/v1/data/labor/unemployment',
+  'GET /api/v1/data/labor/wages',
+  'GET /api/v1/data/markets',
+  'GET /api/v1/data/markets/chile/ipsa',
+  'GET /api/v1/intel/citations/:citation_id',
+  'GET /api/v1/intel/experts',
+  'GET /api/v1/intel/graph/entities',
+  'GET /api/v1/intel/graph/entities/:entity_id/neighbors',
+  'GET /api/v1/intel/jobs/:job_id',
+  'GET /api/v1/intel/reports/:report_id',
+  'GET /api/v1/mercado-publico/ai/recomendaciones/:rut',
+  'GET /api/v1/mercado-publico/analitica/precios',
+  'GET /api/v1/mercado-publico/compradores/:rut/historial',
+  'GET /api/v1/mercado-publico/consultas-mercado',
+  'GET /api/v1/mercado-publico/convenio-marco',
+  'GET /api/v1/mercado-publico/grandes-compras',
+  'GET /api/v1/mercado-publico/metricas/:rut',
+  'GET /api/v1/mercado-publico/ordenes-compra',
+  'GET /api/v1/mercado-publico/ordenes-compra/:codigo_oc',
+  'GET /api/v1/mercado-publico/tratos-directos',
+  'GET /api/v1/rag/documents',
+  'GET /api/v1/rag/embedding-profiles',
+  'GET /api/v1/rag/vaults',
+  'GET /api/v1/rag/vaults/:vault_id/stats',
+  'POST /api/v1/data/insights/scenario-analysis',
+  'POST /api/v1/intel/assessments/buyer-profile',
+  'POST /api/v1/intel/assessments/company-risk',
+  'POST /api/v1/intel/assessments/legal-basis',
+  'POST /api/v1/intel/assessments/macro-impact',
+  'POST /api/v1/intel/assessments/regulatory-compliance',
+  'POST /api/v1/intel/assessments/tender-fit',
+  'POST /api/v1/intel/assessments/win-probability',
+  'POST /api/v1/intel/citations/:citation_id/verify',
+  'POST /api/v1/intel/estimate',
+  'POST /api/v1/intel/experts/:expert_id/query',
+  'POST /api/v1/intel/graph/paths',
+  'POST /api/v1/intel/reports',
+  'POST /api/v1/intel/sessions',
+  'POST /api/v1/intel/sessions/:session_id/messages',
+  'POST /api/v1/mercado-publico/ai/prediccion-adjudicacion',
+  'POST /api/v1/mercado-publico/ai/scoring-oportunidad',
+  'POST /api/v1/mercado-publico/alertas',
+  'POST /api/v1/mercado-publico/busquedas/guardadas',
+  'POST /api/v1/mercado-publico/exportaciones',
+  'POST /api/v1/mercado-publico/webhooks',
+  'POST /api/v1/rag/batches',
+  'POST /api/v1/rag/context',
+  'POST /api/v1/rag/documents/file',
+  'POST /api/v1/rag/documents/text',
+  'POST /api/v1/rag/estimate',
+  'POST /api/v1/rag/uploads',
+  'POST /api/v1/rag/vaults',
+]);
+
+const INESTABLE: ReadonlySet<string> = new Set([
+  'GET /api/v1/data/analytics/correlations',
+  'GET /api/v1/data/companies/:rut/economic-profile',
+  'GET /api/v1/data/economy/indicators',
+  'GET /api/v1/mercado-publico/licitaciones/:codigo_externo',
+  'GET /api/v1/mercado-publico/organismos',
+  'GET /api/v1/mercado-publico/organismos/:id',
+  'GET /api/v1/mercado-publico/proveedores/:rut',
+  'GET /api/v1/mercado-publico/proveedores/:rut/oportunidades',
+  'GET /api/v1/mercado-publico/proveedores/:rut/perfil-competitivo',
+  'GET /api/v1/mercado-publico/proveedores/:rut/vs-mercado',
+  'GET /api/v1/rag/documents/:document_id/chunks',
+  'POST /api/v1/data/insights/macro-brief',
+  'POST /api/v1/intel/query',
+  'POST /api/v1/rag/vaults/:vault_id/collections',
+  'POST /mcp/v1/tools/call',
+]);
+
+/** Estado del endpoint. `vivo` si no fue marcado en ninguna lista. */
+export const estadoDe = (d: Pick<EndpointDoc, 'method' | 'path'>): EstadoEndpoint => {
+  const k = `${d.method} ${d.path}`;
+  if (PROXIMAMENTE.has(k)) return 'proximamente';
+  if (INESTABLE.has(k)) return 'inestable';
+  return 'vivo';
+};
+
 export const API_DOCS: EndpointDoc[] = [
   // ── SECCIÓN 1: Mercado Público (B2G / ChileCompra) ───────────────────────────
   {
@@ -1040,35 +1170,7 @@ export const ENDPOINTS: readonly PlaygroundEndpoint[] = [
     label: 'Mercado Público — Oportunidades Compra Ágil',
     color: '#F59E0B',
     defaultBody: '',
-  },
-  {
-    method: 'GET',
-    path: '/api/v1/mercado-publico/ordenes-compra?rut_proveedor=76086428-5',
-    label: 'Mercado Público — Listado de Órdenes de Compra',
-    color: '#F59E0B',
-    defaultBody: '',
-  },
-  {
-    method: 'GET',
-    path: '/api/v1/mercado-publico/proveedores/76086428-5',
-    label: 'Mercado Público — Perfil B2G del Proveedor',
-    color: '#F59E0B',
-    defaultBody: '',
-  },
-  {
-    method: 'GET',
-    path: '/api/v1/mercado-publico/proveedores/76086428-5/vs-mercado',
-    label: 'Mercado Público — Comparativa Proveedor vs Mercado',
-    color: '#F59E0B',
-    defaultBody: '',
-  },
-  {
-    method: 'GET',
-    path: '/api/v1/mercado-publico/proveedores/76086428-5/oportunidades',
-    label: 'Mercado Público — Licitaciones Recomendadas para Proveedor',
-    color: '#F59E0B',
-    defaultBody: '',
-  },
+  },
   {
     method: 'GET',
     path: '/api/v1/mercado-publico/organismos?nombre=MINEDUC',
@@ -1082,14 +1184,7 @@ export const ENDPOINTS: readonly PlaygroundEndpoint[] = [
     label: 'Mercado Público — Benchmarks Sectoriales B2G',
     color: '#F59E0B',
     defaultBody: '',
-  },
-  {
-    method: 'GET',
-    path: '/api/v1/mercado-publico/metricas/76086428-5',
-    label: 'Mercado Público — Métricas Consolidadas M1-M10',
-    color: '#F59E0B',
-    defaultBody: '',
-  },
+  },
   {
     method: 'GET',
     path: '/api/v1/data/economy',
@@ -1103,52 +1198,17 @@ export const ENDPOINTS: readonly PlaygroundEndpoint[] = [
     label: 'Macro — Indicadores Globales FRED',
     color: '#2DD4BF',
     defaultBody: '',
-  },
-  {
-    method: 'POST',
-    path: '/api/v1/intel/query',
-    label: 'Intel — GraphRAG Unificado (Macro + Normativa)',
-    color: '#8B5CF6',
-    defaultBody: JSON.stringify({
-      query: '¿Cómo afecta la tasa de la Fed a las startups de crédito en Chile?',
-      startup_context: { industry: 'fintech', stage: 'seed', geography: 'chile' },
-      top_k: 5,
-    }, null, 2),
-  },
-  {
-    method: 'POST',
-    path: '/api/v1/intel/query/moe',
-    label: 'Intel — Mixture of Experts (MoE 5 Expertos)',
-    color: '#8B5CF6',
-    defaultBody: JSON.stringify({
-      query: 'Analiza el impacto del aumento del salario mínimo en el sector retail',
-      max_experts: 3,
-    }, null, 2),
-  },
+  },
   {
     method: 'POST',
     path: '/api/v1/rag/query',
     label: 'RAG — Búsqueda Semántica Vectorial pgvector',
     color: '#0EB5C6',
     defaultBody: JSON.stringify({ query: '¿Qué exige la Ley 21.719 de datos personales en Chile?' }, null, 2),
-  },
-  {
-    method: 'POST',
-    path: '/api/v1/rag/ingest/text',
-    label: 'Vault — Indexar Texto al Espacio Privado',
-    color: '#EC4899',
-    defaultBody: JSON.stringify({ texts: ['Información corporativa privada para consultas RAG.'], metadata: { source: 'demo' } }, null, 2),
-  },
+  },
   // Se quitaron dos presets de S-Pulse: eran los únicos del playground que
   // devolvían 503 al apretar "Enviar", justo en la pantalla que existe para
-  // que el desarrollador compruebe que la API responde.
-  {
-    method: 'POST',
-    path: '/mcp/v1/tools/call',
-    label: 'Animus MCP Server — Ejecutar Herramienta Agéntica',
-    color: '#8B5CF6',
-    defaultBody: JSON.stringify({ name: 'animus_query_moe_graphrag', arguments: { query: '¿Cuál es la TPM actual del Banco Central de Chile?' } }, null, 2),
-  },
+  // que el desarrollador compruebe que la API responde.
 ] as const;
 
 export const METHOD_COLORS: Record<string, string> = {

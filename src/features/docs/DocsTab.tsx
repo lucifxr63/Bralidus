@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { BookOpen, ChevronRight, Play, Key, ShieldCheck, Activity, Search, Layers, Sparkles } from 'lucide-react';
-import { API_DOCS, METHOD_COLORS, EndpointDoc } from '@/data/api-docs';
+import { API_DOCS, METHOD_COLORS, EndpointDoc, estadoDe } from '@/data/api-docs';
 import { MercadoPublicoLiveTable } from '@/components/MercadoPublicoLiveTable';
 import { EconomyLiveExplorer } from '@/components/explorers/EconomyLiveExplorer';
 import { IntelligenceLiveExplorer } from '@/components/explorers/IntelligenceLiveExplorer';
@@ -85,6 +85,18 @@ export function DocsTab({ onPlayground }: DocsTabProps) {
               </div>
               <p style={{ fontSize: 13.5, color: '#9896B8', maxWidth: 680, margin: 0, lineHeight: 1.6 }}>
                 Explora interactivamente Mercado Público (B2G), Indicadores Macroeconómicos (BCCh, FRED), Animus MoE GraphRAG, RAG Vectorial pgvector y Webhooks.
+              </p>
+              {/* Se dice de entrada cuántos responden hoy. Antes el portal
+                  listaba 100 endpoints sin distinguir, y quien probaba al azar
+                  le pegaba a un 501 tres de cada cuatro veces: eso se lee como
+                  API rota, no como API en construcción. */}
+              <p style={{ fontSize: 12.5, color: '#7674A0', margin: '10px 0 0', lineHeight: 1.6 }}>
+                <strong style={{ color: '#4FE08A' }}>{API_DOCS.filter((d) => estadoDe(d) === 'vivo').length} operativos</strong>
+                {' · '}
+                <span style={{ color: '#9A98B8' }}>{API_DOCS.filter((d) => estadoDe(d) === 'proximamente').length} próximamente</span>
+                {' · '}
+                <span style={{ color: '#E0A44F' }}>{API_DOCS.filter((d) => estadoDe(d) === 'inestable').length} inestables</span>
+                {' — medido contra producción, no declarado.'}
               </p>
             </div>
 
@@ -244,7 +256,17 @@ export function DocsTab({ onPlayground }: DocsTabProps) {
                         <span style={{ fontSize: 10.5, fontWeight: 800, padding: '3px 9px', borderRadius: 6, background: `${METHOD_COLORS[doc.method] ?? '#888'}22`, color: METHOD_COLORS[doc.method] ?? '#888', flexShrink: 0, fontFamily: 'monospace' }}>
                           {doc.method}
                         </span>
-                        <code style={{ fontSize: 13, color: '#E8E7F5', fontFamily: 'monospace', fontWeight: 700 }}>{doc.path}</code>
+                        <code style={{ fontSize: 13, color: estadoDe(doc) === 'vivo' ? '#E8E7F5' : '#8A88A8', fontFamily: 'monospace', fontWeight: 700 }}>{doc.path}</code>
+                        {/* El estado se dice ACÁ, en la fila, no dentro del detalle:
+                            el punto es que no haya que abrir un endpoint para
+                            enterarse de que todavía no responde. */}
+                        {estadoDe(doc) !== 'vivo' && (
+                          <span style={{ fontSize: 9.5, fontWeight: 800, padding: '2px 7px', borderRadius: 100, flexShrink: 0, textTransform: 'uppercase', letterSpacing: '0.5px',
+                            background: estadoDe(doc) === 'proximamente' ? 'rgba(139,146,176,0.14)' : 'rgba(224,164,79,0.14)',
+                            color: estadoDe(doc) === 'proximamente' ? '#9A98B8' : '#E0A44F' }}>
+                            {estadoDe(doc) === 'proximamente' ? 'Próximamente' : 'Inestable'}
+                          </span>
+                        )}
                         <span style={{ fontSize: 12.5, color: '#7674A0', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {doc.description}
                         </span>
@@ -253,6 +275,16 @@ export function DocsTab({ onPlayground }: DocsTabProps) {
 
                       {isExpanded && (
                         <div style={{ padding: '4px 24px 24px', background: 'rgba(108,60,225,0.03)', borderTop: '1px solid rgba(108,60,225,0.06)', display: 'flex', flexDirection: 'column', gap: 16 }}>
+                          {estadoDe(doc) !== 'vivo' && (
+                            <div style={{ marginTop: 14, padding: '10px 14px', borderRadius: 10, fontSize: 12.5, lineHeight: 1.6,
+                              background: estadoDe(doc) === 'proximamente' ? 'rgba(139,146,176,0.08)' : 'rgba(224,164,79,0.08)',
+                              border: `1px solid ${estadoDe(doc) === 'proximamente' ? 'rgba(139,146,176,0.2)' : 'rgba(224,164,79,0.25)'}`,
+                              color: estadoDe(doc) === 'proximamente' ? '#9A98B8' : '#E0A44F' }}>
+                              {estadoDe(doc) === 'proximamente'
+                                ? 'Este endpoint está documentado pero todavía no implementado: responde 501. Se deja publicado para que el contrato sea estable cuando exista, no para llamarlo hoy.'
+                                : 'Este endpoint existe pero está fallando (502/503). Es un problema conocido, no una funcionalidad ausente.'}
+                            </div>
+                          )}
                           <p style={{ fontSize: 13, color: '#A78BFA', lineHeight: 1.65, margin: '14px 0 0', fontWeight: 500 }}>{doc.description}</p>
 
                           <div>
