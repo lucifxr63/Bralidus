@@ -268,6 +268,57 @@ class SyncLogRepository {
   /**
    * Retorna true si ya existe un sync exitoso (success o partial) para esa fecha.
    */
+  /**
+   * Últimas corridas de un job, con lo necesario para juzgar si avanza.
+   *
+   * `total_succeeded` y `total_failed` juntos son el punto: el enrich llegó a
+   * cerrar en `success` con 149 de 150 ítems fallando por 429. Mirar sólo el
+   * status daba verde sobre un job que no avanzaba, así que acá el status va
+   * siempre acompañado del desglose que lo desmiente.
+   */
+  async getRecentRuns(
+    jobName: string,
+    limit = 5,
+  ): Promise<
+    Array<{
+      status: SyncStatus;
+      startedAt: Date;
+      finishedAt: Date | null;
+      durationSeconds: number | null;
+      succeeded: number;
+      failed: number;
+      errorCodes: string[];
+    }>
+  > {
+    const rows = await query<{
+      status: SyncStatus;
+      started_at: Date;
+      finished_at: Date | null;
+      duration_seconds: string | null;
+      total_succeeded: number | null;
+      total_failed: number | null;
+      error_codes: string[] | null;
+    }>(
+      `SELECT status, started_at, finished_at,
+              EXTRACT(EPOCH FROM (finished_at - started_at)) AS duration_seconds,
+              total_succeeded, total_failed, error_codes
+         FROM sync_logs
+        WHERE job_name = $1
+        ORDER BY started_at DESC
+        LIMIT $2`,
+      [jobName, limit],
+    );
+    return rows.map((r) => ({
+      status: r.status,
+      startedAt: r.started_at,
+      finishedAt: r.finished_at,
+      durationSeconds: r.duration_seconds == null ? null : Math.round(Number(r.duration_seconds)),
+      succeeded: r.total_succeeded ?? 0,
+      failed: r.total_failed ?? 0,
+      errorCodes: r.error_codes ?? [],
+    }));
+  }
+
   async hasSuccessForDate(jobName: string, isoDate: string): Promise<boolean> {
     const row = await queryOne<{ count: string }>(
       `SELECT COUNT(*) AS count FROM sync_logs

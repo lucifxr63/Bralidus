@@ -12,6 +12,7 @@ import { reporteFrescuraWorkflow } from '../workflows/reporte-frescura.workflow.
 import { syncPjudWorkflow } from '../workflows/sync-pjud.workflow.js';
 import { syncProgress } from '../jobs/sync-progress.store.js';
 import { syncLogRepository } from '../modules/sync/infrastructure/sync-log.repository.js';
+import { purchaseOrderRepository } from '../modules/purchase-orders/infrastructure/purchase-order.repository.js';
 import { deriveJobHealth, overallHealth, JOB_EXPECTED_INTERVAL_HOURS } from '../modules/sync/domain/job-health.js';
 
 /**
@@ -122,6 +123,56 @@ jobsRoutes.get('/progress', async (c) => {
 jobsRoutes.post('/abort', async (c) => {
   await syncProgress.requestAbort();
   return c.json({ ok: true, aborted: true });
+});
+
+/**
+ * Estado del enriquecimiento de órdenes de compra.
+ *
+ * POR QUÉ: el avance del enrich sólo se podía ver entrando a la base, y eso
+ * dejó pasar semanas de un job que cerraba en `success` mientras avanzaba ~30
+ * OCs por día contra un backlog de decenas de miles: casi todos los ítems
+ * fallaban por 429 y el status no lo mostraba.
+ *
+ * Devuelve el backlog, las últimas corridas CON su desglose de éxito/fallo, y
+ * una estimación de cuánto falta al ritmo observado — no al ritmo teórico.
+ *
+ * Queda detrás del CRON_SECRET como el resto de `/jobs/*`. Para que el dato se
+ * vea sin tener el secreto, el reporte diario de frescura publica el mismo
+ * backlog en la sala de control: el endpoint es para consultar a demanda, el
+ * reporte es para enterarse sin preguntar.
+ */
+jobsRoutes.get('/enrichment', async (c) => {
+  const [backlog, corridas] = await Promise.all([
+    purchaseOrderRepository.getEnrichmentBacklog(),
+    syncLogRepository.getRecentRuns('enrich-ordenes', 5),
+  ]);
+
+  // Ritmo medido sobre corridas terminadas, no sobre la configuración: lo que
+  // importa es cuántas OCs se completan de verdad, no cuántas se intentan.
+  const terminadas = corridas.filter((r) => r.finishedAt !== null);
+  const exitosasPorCorrida =
+    terminadas.length > 0
+      ? terminadas.reduce((acc, r) => acc + r.succeeded, 0) / terminadas.length
+      : 0;
+
+  const corridasParaVaciar =
+    exitosasPorCorrida > 0 ? Math.ceil(backlog.pendientes / exitosasPorCorrida) : null;
+
+  return c.json({
+    backlog,
+    ritmo: {
+      exitosasPorCorrida: Math.round(exitosasPorCorrida * 10) / 10,
+      corridasMedidas: terminadas.length,
+      corridasParaVaciar,
+      // Sin ritmo no se inventa una fecha: `null` dice "no se puede estimar",
+      // que es información. Un número inventado no lo sería.
+      nota:
+        corridasParaVaciar === null
+          ? 'sin corridas terminadas con éxitos: no hay ritmo que medir'
+          : `al ritmo actual faltan ~${corridasParaVaciar} corridas`,
+    },
+    ultimasCorridas: corridas,
+  });
 });
 
 /** Semáforo de salud por job — misma derivación que usaba el panel de Licitus. */

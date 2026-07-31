@@ -188,6 +188,54 @@ export class PurchaseOrderRepository {
     return rows.map((r) => ({ externalCode: r.external_code, buyerOrgCode: r.buyer_org_code }));
   }
 
+  /**
+   * Foto del backlog de enriquecimiento.
+   *
+   * POR QUÉ EXISTE: hasta ahora el avance del enrich sólo se podía ver entrando
+   * a la base. Eso hizo que pasara desapercibido durante semanas que el job
+   * avanzaba ~30 OCs por día contra un backlog de decenas de miles — cerraba en
+   * `success` con casi todos los ítems fallando por 429, así que desde afuera
+   * parecía sano.
+   *
+   * `sin_fecha_emision` está acá a propósito: `issued_at` lo completa el
+   * enriquecimiento, así que el "hueco" que aparece al contar OCs por mes NO es
+   * de órdenes faltantes, es de órdenes sin enriquecer. Verlos juntos evita
+   * repetir el diagnóstico equivocado de salir a re-descargar meses enteros.
+   */
+  async getEnrichmentBacklog(): Promise<{
+    total: number;
+    completas: number;
+    pendientes: number;
+    agotadas: number;
+    sinFechaEmision: number;
+  }> {
+    const [row] = await query<{
+      total: string;
+      completas: string;
+      pendientes: string;
+      agotadas: string;
+      sin_fecha_emision: string;
+    }>(
+      `SELECT count(*)                                                   AS total,
+              count(*) FILTER (WHERE supplier_code IS NOT NULL)          AS completas,
+              -- mismo criterio que findPendingEnrichment: lo que el job aún toma
+              count(*) FILTER (WHERE supplier_code IS NULL
+                                 AND enrichment_attempts < 5)            AS pendientes,
+              -- se les agotaron los reintentos: el job ya no las va a mirar
+              count(*) FILTER (WHERE supplier_code IS NULL
+                                 AND enrichment_attempts >= 5)           AS agotadas,
+              count(*) FILTER (WHERE issued_at IS NULL)                  AS sin_fecha_emision
+         FROM purchase_orders`,
+    );
+    return {
+      total: Number(row?.total ?? 0),
+      completas: Number(row?.completas ?? 0),
+      pendientes: Number(row?.pendientes ?? 0),
+      agotadas: Number(row?.agotadas ?? 0),
+      sinFechaEmision: Number(row?.sin_fecha_emision ?? 0),
+    };
+  }
+
   /** Suma un intento de enriquecimiento (para no reintentar indefinidamente). */
   async incrementEnrichmentAttempts(externalCode: string): Promise<void> {
     await query(

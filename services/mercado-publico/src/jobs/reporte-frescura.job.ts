@@ -24,6 +24,8 @@ import { query, bralidusQuery } from '../infrastructure/database/client/pg-clien
 import { logger } from '../infrastructure/logging/logger.js';
 import { sendOpsAlert, type OpsChannel } from '../infrastructure/ops-alert/ops-alert.js';
 import { canalesCaidos, canalSanoPara } from '../infrastructure/ops-alert/webhook-health.js';
+import { purchaseOrderRepository } from '../modules/purchase-orders/infrastructure/purchase-order.repository.js';
+import { syncLogRepository } from '../modules/sync/infrastructure/sync-log.repository.js';
 
 const JOB_NAME = 'reporte-frescura';
 
@@ -446,6 +448,93 @@ export async function runReporteFrescuraJob(): Promise<void> {
           '[frescura] TODOS los canales de aviso están caídos — sólo queda el registro en ops_webhook_health',
         );
       }
+    }
+
+    // 3c. Avance del enriquecimiento de órdenes de compra.
+    //
+    // Va al canal de degradación y no al de latido a propósito: el enrich es el
+    // caso de manual de "funciona mientras miente". Llegó a cerrar en `success`
+    // con 149 de 150 ítems fallando por 429, avanzando ~30 OCs por día contra
+    // decenas de miles. Nadie lo vio porque el único lugar donde se notaba era
+    // la base.
+    //
+    // Publicarlo a diario convierte ese dato en algo que llega solo. El nivel
+    // sube a `warn` cuando el ritmo no alcanza para vaciar el backlog en un
+    // plazo razonable — que es la pregunta real, no cuántas quedan.
+    try {
+      const [backlog, corridas] = await Promise.all([
+        purchaseOrderRepository.getEnrichmentBacklog(),
+        syncLogRepository.getRecentRuns('enrich-ordenes', 5),
+      ]);
+
+      const terminadas = corridas.filter((r) => r.finishedAt !== null);
+      const exitosasPorCorrida =
+        terminadas.length > 0
+          ? terminadas.reduce((acc, r) => acc + r.succeeded, 0) / terminadas.length
+          : 0;
+      const corridasParaVaciar =
+        exitosasPorCorrida > 0 ? Math.ceil(backlog.pendientes / exitosasPorCorrida) : null;
+
+      const pctCompleto =
+        backlog.total > 0 ? Math.round((backlog.completas / backlog.total) * 1000) / 10 : 0;
+
+      // Más de 60 corridas (≈ 2 meses a una por día) o directamente sin ritmo
+      // medible: no está drenando.
+      const estancado = corridasParaVaciar === null || corridasParaVaciar > 60;
+
+      await sendOpsAlert({
+        level: backlog.pendientes === 0 ? 'info' : estancado ? 'warn' : 'info',
+        channel: 'degradacion',
+        title: `Enriquecimiento de OCs · ${pctCompleto}% completo · ${new Date().toISOString().slice(0, 10)}`,
+        detail:
+          backlog.pendientes === 0
+            ? '**Backlog vacío.** Todas las órdenes alcanzables están enriquecidas.'
+            : estancado
+              ? `**No está drenando.** ${corridasParaVaciar === null ? 'Ninguna corrida reciente completó órdenes' : `harían falta ~${corridasParaVaciar} corridas`}. Revisar el ritmo (ENRICH_DELAY_MS) y los 429.`
+              : `Drenando: ~${corridasParaVaciar} corridas para vaciar el backlog.`,
+        fields: [
+          { name: 'Pendientes', value: backlog.pendientes.toLocaleString('es-CL'), inline: true },
+          { name: 'Completas', value: backlog.completas.toLocaleString('es-CL'), inline: true },
+          {
+            name: 'Sin reintentos',
+            value: `${backlog.agotadas.toLocaleString('es-CL')}\nya no se reintentan`,
+            inline: true,
+          },
+          {
+            name: 'Por corrida',
+            value:
+              terminadas.length > 0
+                ? `${Math.round(exitosasPorCorrida)} OCs\n(medido en ${terminadas.length})`
+                : 'sin medir',
+            inline: true,
+          },
+          {
+            // Se muestra junto al backlog porque son lo mismo: `issued_at` lo
+            // completa el enriquecimiento. Contar OCs por mes con este campo da
+            // un "hueco" que NO es de órdenes faltantes — ya nos mandó una vez
+            // a querer re-descargar meses enteros que ya estaban en la base.
+            name: 'Sin fecha de emisión',
+            value: `${backlog.sinFechaEmision.toLocaleString('es-CL')}\nlo llena el enrich, no un backfill`,
+            inline: true,
+          },
+          {
+            name: 'Últimas corridas',
+            value:
+              corridas.length > 0
+                ? corridas
+                    .slice(0, 3)
+                    .map((r) => `${r.status} · ${r.succeeded}✓ ${r.failed}✗`)
+                    .join('\n')
+                : 'sin corridas registradas',
+            inline: true,
+          },
+        ],
+        footer: 'enrich-ordenes · avance del backlog',
+        dedupeKey: `enrich-backlog:${new Date().toISOString().slice(0, 10)}`,
+      });
+    } catch (err) {
+      // El resto del reporte no debe caerse porque esta sección falle.
+      logger.warn({ err }, '[frescura] no se pudo calcular el avance del enriquecimiento');
     }
 
     // 4. Canal #ops-degradacion (Tolerancia a fallos y caché degradada)
