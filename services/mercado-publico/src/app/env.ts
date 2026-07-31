@@ -123,14 +123,24 @@ const envSchema = z.object({
     .string()
     .transform((v) => v === 'true')
     .default('true'),
-  // Tope por corrida del enriquecimiento. Debe entrar en el techo de 300 s de
+  // Tope por pasada del enriquecimiento. Debe entrar en el techo de 300 s de
   // una función Vercel al ritmo que tolera el endpoint de detalle de MP
-  // (2,5 s por consulta — ver ENRICH_DELAY_MS en enrich-ordenes.job.ts):
-  // 100 x 2,5 s = 250 s, con margen.
+  // (2,5 s por consulta — ver ENRICH_DELAY_MS en enrich-ordenes.job.ts).
   //
-  // El default anterior (150) daba 375 s y no cabía; la corrida se cortaba a
-  // mitad de lote. Subir esto exige subir el techo de la función primero.
-  ENRICH_OC_MAX_ITEMS: z.coerce.number().int().min(1).max(1000).default(100),
+  // El default original (150) daba 375 s y no cabía: la corrida se cortaba a
+  // mitad de lote.
+  //
+  // Medido en prod el 2026-07-31 con 100: la pasada cerró en **281 s**, o sea
+  // 19 s de margen sobre el techo (6 %). Entra, pero cualquier lentitud de MP
+  // la pasa de largo — y una pasada que revienta corta la cadena entera del
+  // workflow, no sólo su propio lote. Se baja a 90 (225 s de espera + ~27 s de
+  // requests ≈ 252 s, ~16 % de margen).
+  //
+  // Cuesta 10 % de caudal por disparo, irrelevante al lado de encadenar 10
+  // pasadas. Para volver a 100 o más hay que subir `maxDuration` en vercel.json
+  // primero (Fluid admite más de 300 s según el plan), no bajar el ritmo: los
+  // 2,5 s son lo que da 100 % de acierto.
+  ENRICH_OC_MAX_ITEMS: z.coerce.number().int().min(1).max(1000).default(90),
   // Las pasadas encadenadas por disparo NO son configurables por entorno: viven
   // como constante en enrich-ordenes.workflow.ts (MAX_PASADAS). El cuerpo de un
   // `'use workflow'` tiene que ser determinista, y leer env ahí adentro hace

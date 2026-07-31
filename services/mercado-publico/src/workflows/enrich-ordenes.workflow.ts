@@ -8,7 +8,8 @@ import { runEnrichOrdenesJob } from '../jobs/enrich-ordenes.job.js';
  * adentro significa que un cambio de variable entre reintentos cambiaría la
  * cantidad de iteraciones de una corrida ya empezada.
  *
- * 10 x ENRICH_OC_MAX_ITEMS (100) = 1.000 OCs por disparo.
+ * 10 x ENRICH_OC_MAX_ITEMS (90) = 900 OCs por disparo. Con el cron cada 2 h son
+ * ~10.800 por día: la cola de 78.556 se vacía en alrededor de una semana.
  */
 const MAX_PASADAS = 10;
 
