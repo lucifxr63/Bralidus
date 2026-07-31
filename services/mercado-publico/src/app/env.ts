@@ -131,6 +131,10 @@ const envSchema = z.object({
   // El default anterior (150) daba 375 s y no cabía; la corrida se cortaba a
   // mitad de lote. Subir esto exige subir el techo de la función primero.
   ENRICH_OC_MAX_ITEMS: z.coerce.number().int().min(1).max(1000).default(100),
+  // Las pasadas encadenadas por disparo NO son configurables por entorno: viven
+  // como constante en enrich-ordenes.workflow.ts (MAX_PASADAS). El cuerpo de un
+  // `'use workflow'` tiene que ser determinista, y leer env ahí adentro hace
+  // fallar el build del workflow — probado el 2026-07-31.
 
   // ── Callback a Licitus (post-proceso de producto) ────────────
   // La ingesta NO corre análisis LLM, matching ni notificaciones: eso vive en

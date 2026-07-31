@@ -12,6 +12,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@opentelemetry/api": "^1.9.1",
     "@supabase/supabase-js": "^2.56.0",
     "@workflow/core": "^4.6.0",
     "dotenv": "^17.4.2",

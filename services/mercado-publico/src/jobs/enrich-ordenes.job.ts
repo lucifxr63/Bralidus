@@ -88,10 +88,28 @@ interface EnrichStats {
   throttled: number;
 }
 
-export async function runEnrichOrdenesJob(): Promise<void> {
+/**
+ * Devuelve las stats de la pasada para que el workflow decida si seguir.
+ *
+ * Antes devolvía `void`, así que quien lo llamaba no podía distinguir "la cola
+ * se vació" de "MP nos frenó" de "hice 100 y quedan miles". Con el workflow de
+ * un solo step daba igual; encadenando slices es la diferencia entre drenar la
+ * cola y martillar una API que ya dijo que no.
+ */
+export async function runEnrichOrdenesJob(): Promise<EnrichStats & { skipped: boolean }> {
+  const vacio: EnrichStats & { skipped: boolean } = {
+    candidates: 0,
+    enriched: 0,
+    stillIncomplete: 0,
+    notFound: 0,
+    failed: 0,
+    throttled: 0,
+    skipped: true,
+  };
+
   if (!env.ENRICH_OC_ENABLED) {
     logger.info(`[${JOB_NAME}] ENRICH_OC_ENABLED=false — skipping`);
-    return;
+    return vacio;
   }
 
   const cleared = await syncLogRepository.clearStaleRunning(JOB_NAME, 120);
@@ -99,7 +117,7 @@ export async function runEnrichOrdenesJob(): Promise<void> {
   const isRunning = await syncLogRepository.hasRunningJob(JOB_NAME);
   if (isRunning) {
     logger.warn(`[${JOB_NAME}] Job already running — skipping tick`);
-    return;
+    return vacio;
   }
 
   const today = new Date().toISOString().slice(0, 10);
@@ -225,6 +243,7 @@ export async function runEnrichOrdenesJob(): Promise<void> {
     });
 
     logger.info({ ...stats }, `[${JOB_NAME}] Enrichment pass complete`);
+    return { ...stats, skipped: false };
   } catch (err) {
     const error = err instanceof Error ? err.message : String(err);
     logger.error({ error }, `[${JOB_NAME}] Fatal error`);
@@ -236,5 +255,8 @@ export async function runEnrichOrdenesJob(): Promise<void> {
       totalFailed: stats.failed,
       errorDetails: [{ fatal: error }],
     });
+    // `skipped: true` para que el workflow corte la cadena: si esta pasada
+    // reventó, encadenar más slices sólo repite el fallo.
+    return { ...stats, skipped: true };
   }
 }

@@ -31,6 +31,21 @@ on:
                              # porque la fuente publica series ANUALES: correrlo
                              # a diario serian 11 requests para reescribir lo
                              # mismo. Ver docs/PJUD_API_HALLAZGOS.md.
+    - cron: '45 */2 * * *'   # enrich-ordenes (cada 2 h a los :45).
+                             #
+                             # NO ESTABA AGENDADO: solo corria encadenado al
+                             # final de sync-ordenes, una vez al dia. Medido el
+                             # 2026-07-31 quedaban 78.731 OCs pendientes a 100
+                             # por pasada — mas de dos años a ese ritmo.
+                             #
+                             # Con ENRICH_OC_MAX_SLICES=10 cada disparo drena
+                             # hasta 1.000, y 12 disparos diarios dan ~12.000:
+                             # la cola se vacia en alrededor de una semana.
+                             #
+                             # A los :45 para no encimarse con los syncs (:00 y
+                             # :30) ni con refresh-opportunities (:15). La
+                             # cadena corta sola si MP responde 429, asi que
+                             # sobrepasarse se autolimita en vez de romperse.
   workflow_dispatch:
     inputs:
       job:
@@ -102,6 +117,7 @@ jobs:
               '0 3 * * 0')     JOB=build-buyer-profiles ;;
               '30 12 * * *')   JOB=reporte-frescura ;;
               '0 5 * * 1')     JOB=sync-pjud ;;
+              '45 */2 * * *')  JOB=enrich-ordenes ;;
               *) echo "::error::schedule no mapeado: $SCHED"; exit 1 ;;
             esac
             BODY='{}'
