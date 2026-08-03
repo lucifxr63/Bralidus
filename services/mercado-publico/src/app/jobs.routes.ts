@@ -12,6 +12,7 @@ import { reporteFrescuraWorkflow } from '../workflows/reporte-frescura.workflow.
 import { syncPjudWorkflow } from '../workflows/sync-pjud.workflow.js';
 import { syncPjudSupremaWorkflow } from '../workflows/sync-pjud-suprema.workflow.js';
 import { reportePjudWorkflow } from '../workflows/reporte-pjud.workflow.js';
+import { syncJurisprudenciaGrafoWorkflow } from '../workflows/sync-jurisprudencia-grafo.workflow.js';
 import { syncProgress } from '../jobs/sync-progress.store.js';
 import { syncLogRepository } from '../modules/sync/infrastructure/sync-log.repository.js';
 import { purchaseOrderRepository } from '../modules/purchase-orders/infrastructure/purchase-order.repository.js';
@@ -68,6 +69,9 @@ const JOBS: Record<string, JobStarter> = {
     start(syncPjudSupremaWorkflow, [{ anio: (o as { anio?: number }).anio }]),
   // Sólo lee y publica el tablero de la Suprema. No ingesta.
   'reporte-pjud': () => start(reportePjudWorkflow, []),
+  // Sintetiza 1,7 M de causas en ~20 nodos del grafo. Los deja SIN embedding:
+  // los vectoriza BralidusPY, que ya tiene la clave de OpenAI.
+  'sync-jurisprudencia-grafo': () => start(syncJurisprudenciaGrafoWorkflow, []),
 };
 
 export const jobsRoutes = new Hono();
