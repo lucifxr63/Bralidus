@@ -1107,6 +1107,65 @@ export const API_DOCS: EndpointDoc[] = [
   // stand-by sin API y todos respondían 503 — la sección entera generaba una
   // pestaña de explorador que fallaba a la vista. Se retira completa.
 
+  // ── SECCIÓN 5b: Poder Judicial — Corte Suprema ───────────────────────────
+  // 124.245 causas con grano individual. La fuente las publica como un JSON de
+  // 36 MB por año, sin paginar; acá quedan consultables con filtros.
+  {
+    section: 'Poder Judicial (Corte Suprema)',
+    method: 'GET', path: '/api/v1/data/pjud/suprema/causas', color: '#F472B6',
+    description: 'Causas de la Corte Suprema, una por fila. Filtros por año, libro, tipo de recurso, sala, grupo de término y rango de fecha de ingreso.',
+    params: [
+      { name: 'serie', type: 'string', required: false, description: 'terminos_suprema_detalle | ingresos_recursos_suprema_detalle | inventario_suprema_detalle. Sin esto se mezclan causas terminadas, ingresadas y en inventario.' },
+      { name: 'anio', type: 'number', required: false, description: 'Año de la consulta (ej: 2025)' },
+      { name: 'libro', type: 'string', required: false, description: 'Civil, Criminal, Familia, Reforma Laboral, …' },
+      { name: 'tipo_recurso', type: 'string', required: false, description: 'Coincidencia parcial, ej: "Amparo" o "Casación"' },
+      { name: 'grupo_termino', type: 'string', required: false, description: 'Confirmados, Revocados, Rechazados, Inadmisibles, Acogidos…' },
+      { name: 'sala', type: 'string', required: false, description: 'Coincidencia parcial, ej: "CONSTITUCIONAL"' },
+      { name: 'desde', type: 'string', required: false, description: 'Fecha de ingreso mínima (YYYY-MM-DD)' },
+      { name: 'hasta', type: 'string', required: false, description: 'Fecha de ingreso máxima (YYYY-MM-DD)' },
+      { name: 'page', type: 'number', required: false, description: 'Página (default 1)' },
+      { name: 'page_size', type: 'number', required: false, description: 'Tamaño de página (default 20, máx 200)' },
+    ],
+    responseExample: '{\n  "data": [\n    { "libro": "Civil", "rol": 251723, "ano_rol": 2023, "tipo_recurso": "(Civil) Apelación Protección",\n      "fecha_ingreso": "2023-12-20", "fecha_fallo": "2024-01-02", "grupo_termino": "Confirmados",\n      "descripcion_sala": "Tercera, CONSTITUCIONAL" }\n  ],\n  "meta": { "total": 52049, "page": 1, "pageSize": 20 }\n}',
+    errorCodes: ['400 serie inválida', '401 Unauthorized'],
+  },
+  {
+    section: 'Poder Judicial (Corte Suprema)',
+    method: 'GET', path: '/api/v1/data/pjud/suprema/causas/:libro/:rol/:ano_rol', color: '#F472B6',
+    description: 'Historia completa de una causa. Devuelve un ARREGLO: la misma causa puede aparecer en inventario, en ingresos y con más de un término (una causa puede terminarse dos veces).',
+    params: [
+      { name: 'libro', type: 'string', required: true, description: 'Libro de la causa (ej: Reforma)' },
+      { name: 'rol', type: 'number', required: true, description: 'Rol (ej: 11425)' },
+      { name: 'ano_rol', type: 'number', required: true, description: 'Año del rol (ej: 2025)' },
+    ],
+    responseExample: '{\n  "data": [\n    { "serie": "inventario_suprema_detalle", "fecha_ingreso": "2025-04-07" },\n    { "serie": "terminos_suprema_detalle", "fecha_fallo": "2025-04-21", "grupo_termino": "Rechazados" },\n    { "serie": "terminos_suprema_detalle", "fecha_fallo": "2025-05-08", "grupo_termino": "Otros Motivos" }\n  ],\n  "meta": { "nota": "Una causa puede registrar más de un término; cada fila es un evento distinto." }\n}',
+    errorCodes: ['400 parámetros inválidos', '404 Sin registros para esa causa'],
+  },
+  {
+    section: 'Poder Judicial (Corte Suprema)',
+    method: 'GET', path: '/api/v1/data/pjud/suprema/resumen', color: '#F472B6',
+    description: 'Conteos por año, serie, libro, tipo de recurso, sala y grupo de término. Se agrega en la base: no hay que bajar las 124.245 filas para contar.',
+    params: [
+      { name: 'anio', type: 'number', required: false, description: 'Acota a un año' },
+      { name: 'serie', type: 'string', required: false, description: 'Acota a una serie' },
+    ],
+    responseExample: '{\n  "data": {\n    "total": 52049,\n    "por_sala": [ { "sala": "Tercera, CONSTITUCIONAL", "total": 30552 } ],\n    "por_grupo_termino": [ { "grupo_termino": "Confirmados", "total": 30787 } ]\n  }\n}',
+    errorCodes: ['400 serie inválida', '401 Unauthorized'],
+  },
+  {
+    section: 'Poder Judicial (Corte Suprema)',
+    method: 'GET', path: '/api/v1/data/pjud/estadisticas', color: '#F472B6',
+    description: 'Series agregadas del Poder Judicial (presupuesto, dotación, adquisiciones, cuenta pública). Distintas del grano por causa.',
+    params: [
+      { name: 'serie', type: 'string', required: false, description: 'Coincidencia parcial, ej: "cuenta-publica"' },
+      { name: 'anio', type: 'number', required: false, description: 'Año' },
+      { name: 'page', type: 'number', required: false, description: 'Página' },
+      { name: 'page_size', type: 'number', required: false, description: 'Tamaño de página' },
+    ],
+    responseExample: '{\n  "data": [ { "serie": "cuenta-publica/ingresos-causas", "categoria": "Civil", "valor": 1229890 } ],\n  "meta": { "total": 266 }\n}',
+    errorCodes: ['401 Unauthorized'],
+  },
+
   // ── SECCIÓN 6: Webhooks & Validación ─────────────────────────────────────
   {
     section: 'Webhooks & Servicios',
@@ -1172,7 +1231,7 @@ export const ENDPOINTS: readonly PlaygroundEndpoint[] = [
     label: 'Mercado Público — Oportunidades Compra Ágil',
     color: '#F59E0B',
     defaultBody: '',
-  },
+  },
   {
     method: 'GET',
     path: '/api/v1/mercado-publico/organismos?nombre=MINEDUC',
@@ -1200,7 +1259,7 @@ export const ENDPOINTS: readonly PlaygroundEndpoint[] = [
     label: 'Macro — Indicadores Globales FRED',
     color: '#2DD4BF',
     defaultBody: '',
-  },
+  },
   {
     method: 'POST',
     path: '/api/v1/rag/query',
