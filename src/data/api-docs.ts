@@ -1230,6 +1230,46 @@ export interface PlaygroundEndpoint {
 }
 
 export const ENDPOINTS: readonly PlaygroundEndpoint[] = [
+  // ── Corte Suprema ─────────────────────────────────────────────────────────
+  // Van primeros a propósito: son los que se le piden probar a quien valida el
+  // dato judicial, y tiene que poder hacerlo con un clic y no armando un curl.
+  {
+    method: 'GET',
+    path: '/api/v1/data/pjud/suprema/tendencias',
+    label: 'Corte Suprema — Confirmación y duración por año',
+    color: '#F472B6',
+    defaultBody: '',
+  },
+  {
+    method: 'GET',
+    path: '/api/v1/data/pjud/suprema/tendencias?tipo_recurso=Protecci%C3%B3n',
+    label: 'Corte Suprema — Sólo apelaciones de protección',
+    color: '#F472B6',
+    defaultBody: '',
+  },
+  {
+    method: 'GET',
+    path: '/api/v1/data/pjud/suprema/resumen',
+    label: 'Corte Suprema — Totales por año, sala, libro y tipo',
+    color: '#F472B6',
+    defaultBody: '',
+  },
+  {
+    method: 'GET',
+    path: '/api/v1/data/pjud/suprema/causas?anio=2023&grupo_termino=Revocados',
+    label: 'Corte Suprema — Causas revocadas en 2023',
+    color: '#F472B6',
+    defaultBody: '',
+  },
+  {
+    // Devuelve 4 filas para la MISMA causa: ingresó, estuvo en inventario y se
+    // falló dos veces con distinto resultado. Es el mejor ejemplo del grano.
+    method: 'GET',
+    path: '/api/v1/data/pjud/suprema/causas/Reforma/11425/2025',
+    label: 'Corte Suprema — Una causa y toda su historia',
+    color: '#F472B6',
+    defaultBody: '',
+  },
   {
     method: 'GET',
     path: '/api/v1/mercado-publico/licitaciones?estado=publicada',
@@ -1243,7 +1283,7 @@ export const ENDPOINTS: readonly PlaygroundEndpoint[] = [
     label: 'Mercado Público — Oportunidades Compra Ágil',
     color: '#F59E0B',
     defaultBody: '',
-  },
+  },
   {
     method: 'GET',
     path: '/api/v1/mercado-publico/organismos?nombre=MINEDUC',
