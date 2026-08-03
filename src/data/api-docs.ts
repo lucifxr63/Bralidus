@@ -1154,6 +1154,18 @@ export const API_DOCS: EndpointDoc[] = [
   },
   {
     section: 'Poder Judicial (Corte Suprema)',
+    method: 'GET', path: '/api/v1/data/pjud/suprema/tendencias', color: '#F472B6',
+    description: 'Series por año: volumen, composición del fallo (confirmados/revocados/inadmisibles) y duración media de ingreso a fallo. Con filtros, para responder "cómo evolucionó tal recurso en tal sala".',
+    params: [
+      { name: 'libro', type: 'string', required: false, description: 'Civil, Criminal, Familia, Reforma Laboral, …' },
+      { name: 'tipo_recurso', type: 'string', required: false, description: 'Coincidencia parcial, ej: "Protección" o "Casación"' },
+      { name: 'sala', type: 'string', required: false, description: 'Coincidencia parcial, ej: "CONSTITUCIONAL"' },
+    ],
+    responseExample: '{\n  "data": {\n    "filtros": { "tipo_recurso": "Protección" },\n    "total": 694025,\n    "series": [\n      { "anio": 2020, "terminos": 139332, "pct_confirmados": 74.4, "pct_revocados": 16.4, "dias_promedio": 78, "con_ambas_fechas": 139332 },\n      { "anio": 2025, "terminos": 28414, "pct_confirmados": 78.3, "dias_promedio": 65 }\n    ]\n  }\n}',
+    errorCodes: ['401 Unauthorized'],
+  },
+  {
+    section: 'Poder Judicial (Corte Suprema)',
     method: 'GET', path: '/api/v1/data/pjud/estadisticas', color: '#F472B6',
     description: 'Series agregadas del Poder Judicial (presupuesto, dotación, adquisiciones, cuenta pública). Distintas del grano por causa.',
     params: [
@@ -1231,7 +1243,7 @@ export const ENDPOINTS: readonly PlaygroundEndpoint[] = [
     label: 'Mercado Público — Oportunidades Compra Ágil',
     color: '#F59E0B',
     defaultBody: '',
-  },
+  },
   {
     method: 'GET',
     path: '/api/v1/mercado-publico/organismos?nombre=MINEDUC',
