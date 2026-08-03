@@ -110,11 +110,58 @@ jobs:
           # sugiere borrar .vercel/, que en el runner ni siquiera existe, y
           # manda a buscar el problema al lugar equivocado.
           SCOPE=lucifxr63s-projects
-          # `pull` baja la config del proyecto y lo linkea usando los IDs de
-          # arriba — reemplaza al `.vercel/` que no existe en el runner.
-          vercel pull --yes --environment=production --scope="$SCOPE" --token="$VERCEL_TOKEN"
-          vercel build --prod --token="$VERCEL_TOKEN"
-          vercel deploy --prebuilt --prod --scope="$SCOPE" --token="$VERCEL_TOKEN"
+
+          # ⚠️ NO usar `vercel pull` + `vercel build` + `deploy --prebuilt` acá.
+          #
+          # Eso ROMPIO PRODUCCION el 2026-07-31: VITE_SUPABASE_URL y
+          # VITE_SUPABASE_ANON_KEY estan marcadas *Sensitive* en Vercel, y a las
+          # sensitive `vercel pull` NO las baja — devuelve el literal
+          # "[SENSITIVE]". Como Vite inlinea las VITE_* en tiempo de build, el
+          # bundle quedo con:
+          #
+          #     VITE_SUPABASE_URL:`[SENSITIVE]`
+          #
+          # y la app murio al arrancar con "Invalid supabaseUrl: Must be a valid
+          # HTTP or HTTPS URL". El pipeline dio verde: compilo, testeo y
+          # desplego un artefacto roto sin una sola señal.
+          #
+          # Construyendo del lado de Vercel las sensitive SI estan disponibles,
+          # que es como venia funcionando antes por integracion con git.
+          vercel deploy --prod --scope="$SCOPE" --token="$VERCEL_TOKEN"
+
+      # El deploy que rompio produccion paso por typecheck, tests y build sin una
+      # sola señal: el artefacto era invalido, no el codigo. Un pipeline que
+      # despliega y no mira lo que quedo servido no es un gate, es un `scp`.
+      #
+      # Se verifica lo minimo que hace que la app arranque, contra el sitio EN
+      # VIVO y no contra el build local:
+      #   - que no haya quedado ningun placeholder "[SENSITIVE]" horneado
+      #   - que la URL de Supabase sea una URL de verdad
+      - name: Verificar lo que quedo servido
+        if: env.VERCEL_TOKEN != ''
+        run: |
+          set -euo pipefail
+          SITIO=https://bralidus.vercel.app
+
+          # Cache-buster: sin esto se puede validar el bundle anterior y dar un
+          # verde que no corresponde al deploy recien hecho.
+          HTML=$(curl -fsS "$SITIO/?ci=$GITHUB_RUN_ID")
+          BUNDLE=$(printf '%s' "$HTML" | grep -oE '/assets/index-[A-Za-z0-9_-]+\.js' | head -1)
+          if [ -z "$BUNDLE" ]; then
+            echo "::error::No se encontro el bundle en el HTML servido"; exit 1
+          fi
+          echo "Bundle servido: $BUNDLE"
+          JS=$(curl -fsS "$SITIO$BUNDLE")
+
+          if printf '%s' "$JS" | grep -q '\[SENSITIVE\]'; then
+            echo "::error::El bundle tiene el placeholder [SENSITIVE] horneado — las env vars sensibles no llegaron al build"
+            exit 1
+          fi
+          if ! printf '%s' "$JS" | grep -qE 'https://[a-z0-9]+\.supabase\.co'; then
+            echo "::error::El bundle no contiene una URL valida de Supabase"
+            exit 1
+          fi
+          echo "OK: sin placeholders y con URL de Supabase valida"
 
       - name: Aviso si falta el token
         if: env.VERCEL_TOKEN == ''
