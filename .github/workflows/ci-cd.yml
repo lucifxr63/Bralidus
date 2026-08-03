@@ -145,19 +145,24 @@ jobs:
 
           # Cache-buster: sin esto se puede validar el bundle anterior y dar un
           # verde que no corresponde al deploy recien hecho.
-          HTML=$(curl -fsS "$SITIO/?ci=$GITHUB_RUN_ID")
-          BUNDLE=$(printf '%s' "$HTML" | grep -oE '/assets/index-[A-Za-z0-9_-]+\.js' | head -1)
+          # Se baja a archivo y se grepea el ARCHIVO, sin pipes.
+          # `printf ... | grep -q` parece equivalente y no lo es: grep -q corta
+          # apenas encuentra el match, printf recibe SIGPIPE y con `pipefail`
+          # eso cuenta como fallo. La primera version de este guard dio
+          # exactamente ese falso positivo sobre un bundle sano.
+          curl -fsS "$SITIO/?ci=$GITHUB_RUN_ID" -o pagina.html
+          BUNDLE=$(grep -oE '/assets/index-[A-Za-z0-9_-]+\.js' pagina.html | head -1 || true)
           if [ -z "$BUNDLE" ]; then
             echo "::error::No se encontro el bundle en el HTML servido"; exit 1
           fi
           echo "Bundle servido: $BUNDLE"
-          JS=$(curl -fsS "$SITIO$BUNDLE")
+          curl -fsS "$SITIO$BUNDLE" -o bundle.js
 
-          if printf '%s' "$JS" | grep -q '\[SENSITIVE\]'; then
+          if grep -q '\[SENSITIVE\]' bundle.js; then
             echo "::error::El bundle tiene el placeholder [SENSITIVE] horneado — las env vars sensibles no llegaron al build"
             exit 1
           fi
-          if ! printf '%s' "$JS" | grep -qE 'https://[a-z0-9]+\.supabase\.co'; then
+          if ! grep -qE 'https://[a-z0-9]+\.supabase\.co' bundle.js; then
             echo "::error::El bundle no contiene una URL valida de Supabase"
             exit 1
           fi
