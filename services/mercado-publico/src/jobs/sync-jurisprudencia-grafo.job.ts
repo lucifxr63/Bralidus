@@ -45,6 +45,7 @@ const CATEGORIA = 'Jurisprudencia';
 /** Cuántos tipos de recurso y salas se sintetizan. La cola larga no aporta. */
 const TOP_TIPOS = 12;
 const TOP_SALAS = 7;
+const TOP_MATERIAS = 12;
 
 const miles = (n: number): string => Number(n).toLocaleString('es-CL');
 const num = (v: unknown): number => Number(v ?? 0);
@@ -129,6 +130,50 @@ async function serie(dimension: 'tipo_recurso' | 'descripcion_sala', top: number
   return porClave;
 }
 
+/**
+ * Serie anual de INGRESOS por materia.
+ *
+ * Aparte de `serie()` porque el universo es otro: la materia sólo existe en
+ * `ingresos_recursos_suprema_detalle`, que no trae `grupo_termino` ni
+ * `fecha_fallo`. Reusar la otra función devolvería porcentajes de confirmación
+ * en cero y parecerían un resultado en vez de un campo ausente.
+ *
+ * Se filtran los valores "-" y "--": 103.279 filas con un guion por materia.
+ * Son nulos disfrazados y, sumados, formarían la segunda materia más grande.
+ */
+async function serieMateria(top: number): Promise<Map<string, FilaSerie[]>> {
+  const filas = await bralidusQuery<Record<string, unknown>>(
+    `WITH limpio AS (
+       SELECT anio, materia
+         FROM pjud_suprema_detalle
+        WHERE serie='ingresos_recursos_suprema_detalle'
+          AND materia IS NOT NULL
+          AND btrim(materia, '- ') <> ''
+     ), top AS (
+       SELECT materia, count(*) AS n FROM limpio GROUP BY 1 ORDER BY 2 DESC LIMIT $1
+     )
+     SELECT l.materia AS clave, l.anio, count(*) AS terminos
+       FROM limpio l JOIN top ON top.materia = l.materia
+      GROUP BY 1,2 ORDER BY 1,2`,
+    [top],
+  );
+
+  const porClave = new Map<string, FilaSerie[]>();
+  for (const r of filas) {
+    const clave = String(r.clave);
+    if (!porClave.has(clave)) porClave.set(clave, []);
+    porClave.get(clave)!.push({
+      clave,
+      anio: num(r.anio),
+      terminos: num(r.terminos),
+      pct_confirmados: null,
+      pct_revocados: null,
+      dias_promedio: null,
+    });
+  }
+  return porClave;
+}
+
 interface NodoNuevo {
   document_title: string;
   header_path: string;
@@ -199,6 +244,30 @@ async function generarAristas(): Promise<number> {
     filas.push([tipo, sala, 'SE_VE_EN']);
   }
 
+  // Materia ↔ tipo de recurso: por qué vía se litiga cada materia. También
+  // medido, no supuesto — las Isapres llegan por apelación de protección.
+  const materiaTipo = await bralidusQuery<Record<string, unknown>>(
+    `WITH limpio AS (
+       SELECT materia, tipo_recurso
+         FROM pjud_suprema_detalle
+        WHERE serie='ingresos_recursos_suprema_detalle'
+          AND materia IS NOT NULL AND btrim(materia,'- ') <> ''
+          AND tipo_recurso IS NOT NULL
+     ), pares AS (
+       SELECT materia, tipo_recurso, count(*) AS n FROM limpio GROUP BY 1,2
+     ), tot AS (SELECT materia, sum(n) AS total FROM pares GROUP BY 1)
+     SELECT p.materia, p.tipo_recurso
+       FROM pares p JOIN tot t USING (materia)
+      WHERE p.n > 500 AND 100.0*p.n/t.total > 20`,
+  );
+
+  for (const p of materiaTipo) {
+    const materia = `Corte Suprema — Materia: ${String(p.materia)}`;
+    const tipo = `Corte Suprema — ${String(p.tipo_recurso)}`;
+    filas.push([materia, tipo, 'SE_LITIGA_VIA']);
+    filas.push([tipo, materia, 'RESUELVE_MATERIA']);
+  }
+
   // El panorama agrega a todos los demás nodos de jurisprudencia.
   const nodos = await bralidusQuery<{ document_title: string }>(
     `SELECT document_title FROM knowledge_nodes
@@ -214,7 +283,7 @@ async function generarAristas(): Promise<number> {
   // contradiciendo al dato.
   await bralidusQuery(
     `DELETE FROM knowledge_edges
-      WHERE relation_type IN ('RESUELVE','SE_VE_EN','AGREGA')
+      WHERE relation_type IN ('RESUELVE','SE_VE_EN','AGREGA','SE_LITIGA_VIA','RESUELVE_MATERIA')
         AND (source_title LIKE 'Corte Suprema%' OR target_title LIKE 'Corte Suprema%')`,
   );
 
@@ -262,7 +331,46 @@ export async function runSyncJurisprudenciaGrafoJob(): Promise<void> {
       });
     }
 
-    // 3. Panorama general, que es el nodo que ancla las preguntas amplias.
+    // 3. Un nodo por MATERIA.
+    //
+    // La materia vive en la serie de INGRESOS (797.187 filas, 100 % con dato),
+    // no en la de términos. Eso obliga a hablar de VOLUMEN DE INGRESO y no de
+    // resultados: esa serie no trae `grupo_termino` ni `fecha_fallo`, así que
+    // decir "X% confirmados por materia" sería mezclar universos.
+    //
+    // Se excluyen "-" y "--": son 103.279 filas con un guion como valor, o sea
+    // nulos disfrazados. Tratarlos como una materia real crearía el nodo más
+    // grande del grafo sobre nada.
+    for (const [materia, filas] of await serieMateria(TOP_MATERIAS)) {
+      const total = filas.reduce((a, f) => a + f.terminos, 0);
+      const primero = filas[0];
+      const ultimo = filas[filas.length - 1];
+      const detalle = filas.map((f) => `${f.anio}: ${miles(f.terminos)}`).join(', ');
+
+      let variacion = '';
+      if (primero && ultimo && primero.terminos > 0) {
+        const cambio = Math.round(((ultimo.terminos - primero.terminos) / primero.terminos) * 100);
+        variacion =
+          ` Entre ${primero.anio} y ${ultimo.anio} el ingreso anual por esta materia ` +
+          `${cambio >= 0 ? 'subió' : 'cayó'} ${Math.abs(cambio)}%.`;
+      }
+
+      nodos.push({
+        document_title: `Corte Suprema — Materia: ${materia}`,
+        header_path: 'Jurisprudencia Corte Suprema / Por materia',
+        content:
+          `Recursos ingresados a la Corte Suprema de Chile con materia "${materia}". ` +
+          `Total ${primero?.anio ?? '—'}–${ultimo?.anio ?? '—'}: ${miles(total)} recursos. ` +
+          `Ingresos por año: ${detalle}.` +
+          variacion +
+          ' Estas cifras son de INGRESO de recursos, no de resultados: la serie de ingresos ' +
+          'no registra cómo se falló cada causa. ' +
+          'Fuente: estadísticas oficiales del Poder Judicial de Chile.',
+        tags: ['pjud', 'corte-suprema', 'jurisprudencia', 'materia'],
+      });
+    }
+
+    // 4. Panorama general, que es el nodo que ancla las preguntas amplias.
     const [g] = await bralidusQuery<Record<string, unknown>>(
       `SELECT count(*) FILTER (WHERE serie='terminos_suprema_detalle')          AS terminos,
               count(*) FILTER (WHERE serie='ingresos_recursos_suprema_detalle') AS ingresos,
