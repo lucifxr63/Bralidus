@@ -28,7 +28,12 @@ import { logger } from '../infrastructure/logging/logger.js';
 import { sendOpsAlert } from '../infrastructure/ops-alert/ops-alert.js';
 import { syncLogRepository } from '../modules/sync/infrastructure/sync-log.repository.js';
 import { deriveRunStatus } from '../modules/sync/domain/run-status.js';
-import { fetchSerie, seriesSupremaDetalle, type FilaPjud } from '../infrastructure/pjud/pjud.client.js';
+import {
+  fetchSerie,
+  seriesSupremaDetalle,
+  PJUD_DETALLE_TIMEOUT_MS,
+  type FilaPjud,
+} from '../infrastructure/pjud/pjud.client.js';
 
 const JOB_NAME = 'sync-pjud-suprema';
 
@@ -101,22 +106,33 @@ function claveConflicto(f: FilaPjud): string {
 }
 
 /**
- * Quita repetidas dentro del lote, conservando la última.
+ * Índices de las filas que hay que ESCRIBIR, sin repetidas.
  *
- * NO es defensa teórica: la fuente publica filas duplicadas de verdad. En 2025,
- * `terminos_suprema_detalle` trae dos veces la causa Criminal|59045|2024 fallada
- * el 2025-12-15 — idénticas en los 14 campos, no dos términos distintos. Las dos
- * caían en el mismo lote de 500 y Postgres rechazaba el INSERT completo, así que
- * UNA fila repetida por la fuente costaba 500 filas perdidas.
+ * POR QUÉ ES DEDUPLICACIÓN Y NO UN LUJO: la fuente publica filas duplicadas de
+ * verdad. En 2025, `terminos_suprema_detalle` trae dos veces la causa
+ * Criminal|59045|2024 fallada el 2025-12-15 — idénticas en los 14 campos, no dos
+ * términos distintos. Las dos caían en el mismo lote de 500 y Postgres rechaza
+ * el INSERT COMPLETO ante una clave repetida ("ON CONFLICT DO UPDATE command
+ * cannot affect row a second time"), así que UNA fila repetida por la fuente
+ * costaba 500 filas perdidas.
  *
- * Se detectó comparando lo escrito contra lo que devuelve la fuente: 51.550 vs
- * 52.050. El job no había fallado — cada lote roto se anota y se sigue, que es
- * lo correcto, pero sin esa comparación la pérdida pasaba inadvertida.
+ * Se detectó comparando lo escrito contra la fuente: 51.550 vs 52.050. El job no
+ * había fallado — cada lote roto se anota y se sigue, que es lo correcto, pero
+ * sin esa comparación la pérdida pasaba inadvertida.
+ *
+ * POR QUÉ DEVUELVE ÍNDICES Y NO FILAS: la versión anterior construía un
+ * `Map<clave, fila>` y devolvía `[...map.values()]`, o sea una segunda copia
+ * completa del arreglo. Con los 52.049 de 2025 daba igual; con los 243.775 de
+ * 2023 (~90 MB de JSON) duplicar el arreglo en memoria es justo lo que hace
+ * reventar una función serverless. Un Set de claves y un arreglo de índices
+ * pesan una fracción.
  */
-function deduplicar(filas: FilaPjud[]): FilaPjud[] {
-  const porClave = new Map<string, FilaPjud>();
-  for (const f of filas) porClave.set(claveConflicto(f), f);
-  return [...porClave.values()];
+function indicesUnicos(filas: FilaPjud[]): number[] {
+  const vistas = new Map<string, number>();
+  for (let i = 0; i < filas.length; i++) vistas.set(claveConflicto(filas[i]!), i);
+  // Ordenados para conservar el orden original de la fuente, que hace los logs
+  // legibles cuando hay que ubicar un lote que fallo.
+  return [...vistas.values()].sort((a, b) => a - b);
 }
 
 function aParametros(serie: string, anio: number, f: FilaPjud): unknown[] {
@@ -213,7 +229,9 @@ export async function ingerirSerieSuprema(
   const def = seriesSupremaDetalle(anio).find((s) => s.serie === serie);
   if (!def) return { ...base, error: `serie desconocida: ${serie}` };
 
-  const filas = await fetchSerie(def.path);
+  // Techo propio: estas series pesan hasta 36 MB y el default de 30 s no
+  // alcanza para bajarlas y parsearlas desde la función.
+  const filas = await fetchSerie(def.path, PJUD_DETALLE_TIMEOUT_MS);
   if (filas == null) return { ...base, error: 'la fuente no respondió' };
 
   base.filasFuente = filas.length;
@@ -229,8 +247,8 @@ export async function ingerirSerieSuprema(
   // Se deduplica sobre la serie ENTERA, no lote por lote: dos filas con la
   // misma clave podrían caer en lotes distintos y ahí el problema no es el
   // error de Postgres sino escribir dos veces lo mismo.
-  const unicas = deduplicar(filas);
-  const repetidasEnFuente = filas.length - unicas.length;
+  const indices = indicesUnicos(filas);
+  const repetidasEnFuente = filas.length - indices.length;
   if (repetidasEnFuente > 0) {
     logger.info(
       { serie, repetidasEnFuente },
@@ -238,8 +256,10 @@ export async function ingerirSerieSuprema(
     );
   }
 
-  for (let i = 0; i < unicas.length; i += LOTE_FILAS) {
-    const lote = unicas.slice(i, i + LOTE_FILAS).map((f) => aParametros(serie, anio, f));
+  for (let i = 0; i < indices.length; i += LOTE_FILAS) {
+    const lote = indices
+      .slice(i, i + LOTE_FILAS)
+      .map((idx) => aParametros(serie, anio, filas[idx]!));
     try {
       escritas += await escribirLote(lote);
     } catch (err) {
@@ -257,19 +277,25 @@ export async function ingerirSerieSuprema(
 }
 
 /**
- * Corrida completa: registra el log, ingiere las tres series y avisa.
+ * Abre la corrida: resuelve el año, toma el lock y crea el log.
  *
- * `anio` por defecto es el año pasado: la fuente publica el año en curso
- * incompleto o vacío (mismo criterio que sync-pjud).
+ * Va aparte del resto porque el workflow necesita una serie por step (cada uno
+ * con su propio techo de 300 s) y el cuerpo de un `'use workflow'` tiene que ser
+ * determinista: `new Date()` no puede vivir ahí.
+ *
+ * Devuelve `logId: null` si hay que saltarse la corrida.
  */
-export async function runSyncPjudSupremaJob(anio?: number): Promise<void> {
+export async function abrirCorridaSuprema(
+  anio?: number,
+): Promise<{ anio: number; logId: string | null; series: string[] }> {
   const anioObjetivo = anio ?? new Date().getFullYear() - 1;
+  const series = seriesSupremaDetalle(anioObjetivo).map((s) => s.serie);
 
   const cleared = await syncLogRepository.clearStaleRunning(JOB_NAME, 120);
   if (cleared > 0) logger.warn({ cleared }, `[${JOB_NAME}] limpiados logs colgados`);
   if (await syncLogRepository.hasRunningJob(JOB_NAME)) {
     logger.warn(`[${JOB_NAME}] ya hay una corrida en curso — se salta`);
-    return;
+    return { anio: anioObjetivo, logId: null, series: [] };
   }
 
   const logId = await syncLogRepository.create({
@@ -278,11 +304,15 @@ export async function runSyncPjudSupremaJob(anio?: number): Promise<void> {
     metadata: { anio: anioObjetivo },
   });
 
-  const resultados: ResultadoSerieSuprema[] = [];
-  for (const s of seriesSupremaDetalle(anioObjetivo)) {
-    resultados.push(await ingerirSerieSuprema(s.serie, anioObjetivo));
-  }
+  return { anio: anioObjetivo, logId, series };
+}
 
+/** Cierra la corrida: completa el log y publica el aviso con la cuadratura. */
+export async function cerrarCorridaSuprema(
+  logId: string,
+  anioObjetivo: number,
+  resultados: ResultadoSerieSuprema[],
+): Promise<void> {
   const escritas = resultados.reduce((a, r) => a + r.escritas, 0);
   const fallidas = resultados.reduce((a, r) => a + r.fallidas, 0);
   const conError = resultados.filter((r) => r.error !== null);

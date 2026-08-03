@@ -61,7 +61,10 @@ const JOBS: Record<string, JobStarter> = {
   // Causas de la Corte Suprema, grano individual (~164.500 filas/año) a
   // pjud_suprema_detalle. Aparte de sync-pjud porque es otra tabla y otro orden
   // de volumen: 36 MB en una sola respuesta contra decenas de filas.
-  'sync-pjud-suprema': () => start(syncPjudSupremaWorkflow, []),
+  // Acepta {"anio": 2023} para reingerir el historico: la fuente publica desde
+  // 2020 y sin el parametro sólo trae el año pasado.
+  'sync-pjud-suprema': (o) =>
+    start(syncPjudSupremaWorkflow, [{ anio: (o as { anio?: number }).anio }]),
 };
 
 export const jobsRoutes = new Hono();

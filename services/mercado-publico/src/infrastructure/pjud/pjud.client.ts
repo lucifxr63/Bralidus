@@ -31,6 +31,19 @@ const TIMEOUT_MS = 30_000;
  */
 export const PJUD_DELAY_MS = 400;
 
+/**
+ * Techo para las series `_detalle`, que son de otro orden que el resto.
+ *
+ * Medido: `terminos_suprema_detalle/1/2024` son 36,5 MB. Desde una conexión
+ * doméstica baja en 5 s, pero desde la función serverless bajarlo Y parsearlo
+ * no entraba en los 30 s de `TIMEOUT_MS`: la lectura se abortaba a mitad y
+ * `res.json()` fallaba. 2025 sí había entrado porque su serie de términos es
+ * casi la mitad — el corte estaba justo entre un año y el otro.
+ *
+ * 120 s deja margen para 2023, que es la más grande (243.775 filas).
+ */
+export const PJUD_DETALLE_TIMEOUT_MS = 120_000;
+
 /** Fila cruda: la API no normaliza sus formas, así que se acepta cualquiera. */
 export type FilaPjud = Record<string, unknown>;
 
@@ -109,25 +122,57 @@ export function seriesSupremaDetalle(anio: number): SeriePjud[] {
   ];
 }
 
-/** Devuelve las filas de una serie, o null si la fuente falló. */
-export async function fetchSerie(path: string): Promise<FilaPjud[] | null> {
+/**
+ * Devuelve las filas de una serie, o null si la fuente falló.
+ *
+ * @param timeoutMs techo propio. Las series `_detalle` pesan hasta 36 MB y
+ *        `TIMEOUT_MS` (30 s) no alcanza para bajarlas Y parsearlas desde una
+ *        función serverless — ver el porqué abajo.
+ */
+export async function fetchSerie(
+  path: string,
+  timeoutMs: number = TIMEOUT_MS,
+): Promise<FilaPjud[] | null> {
   try {
     const res = await fetch(`${BASE}${path}`, {
       headers: { Accept: 'application/json' },
-      signal: AbortSignal.timeout(TIMEOUT_MS),
+      signal: AbortSignal.timeout(timeoutMs),
     });
     if (!res.ok) {
       logger.warn({ path, status: res.status }, '[pjud] respuesta no-OK');
       return null;
     }
-    const data = await res.json().catch(() => null);
+
+    // El parseo va con su propio catch para poder DISTINGUIR "no se pudo leer
+    // el JSON" de "vino algo que no es un arreglo".
+    //
+    // La version anterior hacia `.catch(() => null)` y despues logueaba
+    // `typeof data`. Como `typeof null === 'object'`, un parseo fallido se
+    // reportaba como "payload no es un arreglo" con tipo "object" — mandó a
+    // buscar el problema en la forma del dato cuando en realidad la respuesta
+    // nunca terminó de leerse. Costó una hora de diagnóstico equivocado sobre
+    // terminos_suprema_detalle/2024.
+    let data: unknown;
+    try {
+      data = await res.json();
+    } catch (err) {
+      logger.warn(
+        { path, err, timeoutMs },
+        '[pjud] no se pudo leer el JSON (respuesta cortada o timeout durante la descarga)',
+      );
+      return null;
+    }
+
     if (!Array.isArray(data)) {
-      logger.warn({ path, tipo: typeof data }, '[pjud] payload no es un arreglo');
+      logger.warn(
+        { path, tipo: typeof data, claves: data && typeof data === 'object' ? Object.keys(data).slice(0, 5) : null },
+        '[pjud] la fuente devolvió algo que no es un arreglo',
+      );
       return null;
     }
     return data as FilaPjud[];
   } catch (err) {
-    logger.warn({ path, err }, '[pjud] fallo de red');
+    logger.warn({ path, err, timeoutMs }, '[pjud] fallo de red');
     return null;
   }
 }
