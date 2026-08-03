@@ -18,6 +18,19 @@ on:
     branches: [ main, master ]
   workflow_dispatch:
 
+# Una sola corrida por rama a la vez.
+#
+# El 2026-08-03 un push y un workflow_dispatch del MISMO commit corrieron a la
+# par: los E2E de las dos pegaron simultaneamente a la API real, una paso y la
+# otra timeouteo. La sala de control recibio un "desplegado" verde y un "con
+# problemas" rojo del mismo commit, con minutos de diferencia.
+#
+# `cancel-in-progress: false` a proposito: la que va primero termina. Cancelar
+# a mitad de un deploy es peor que esperar.
+concurrency:
+  group: ci-cd-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   validate-and-test:
     name: 🧪 Typecheck, Test & Build

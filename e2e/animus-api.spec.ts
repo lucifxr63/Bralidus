@@ -37,11 +37,55 @@ const TIMEOUT_MS = 30_000;
 /** Servicios que, si están caídos, significan que la API no sirve para nada. */
 const SERVICIOS_CRITICOS = ['supabase', 'openai'];
 
+/** Intentos ante fallo de CONEXIÓN. No aplica a respuestas: un 500 falla y ya. */
+const REINTENTOS = 3;
+
+/**
+ * Techo por test. Tiene que cubrir el peor caso CON reintentos
+ * (3 × 30 s + 2 s + 4 s de espera), o el test muere antes de agotarlos y los
+ * reintentos no sirven de nada.
+ */
+const TIMEOUT_POR_TEST = REINTENTOS * TIMEOUT_MS + 10_000;
+
+/**
+ * GET/POST con reintento SÓLO ante error de red.
+ *
+ * POR QUÉ: el 2026-08-03 estos 6 tests fallaron en CI con
+ * `ConnectTimeoutError ... timeout: 10000ms` contra api.animus.scouttech.lat,
+ * mientras el servicio estaba perfectamente sano. Dos causas sumadas:
+ *
+ *   1. `AbortSignal.timeout` acota la RESPUESTA, pero undici (el fetch de Node)
+ *      tiene su propio timeout de CONEXIÓN de 10 s que ese signal no toca.
+ *   2. El servicio es serverless: medido, el primer request tras un rato de
+ *      inactividad tarda ~3,5 s y los siguientes 0,2 s. Con el runner de
+ *      GitHub de por medio, un arranque en frío puede rozar ese techo.
+ *
+ * Reintentar sólo los errores de conexión conserva el valor del test: si el
+ * servicio está caído de verdad, los 3 intentos fallan y el test falla. Lo que
+ * se deja de reportar es un hipo de red como si fuera una API rota — que fue
+ * exactamente lo que mando un aviso rojo a la sala de control por un sistema
+ * que estaba bien.
+ */
 async function get(path: string, init?: RequestInit): Promise<Response> {
-  return fetch(`${BASE_URL}${path}`, {
-    ...init,
-    signal: AbortSignal.timeout(TIMEOUT_MS),
-  });
+  let ultimo: unknown;
+  for (let intento = 1; intento <= REINTENTOS; intento++) {
+    try {
+      return await fetch(`${BASE_URL}${path}`, {
+        ...init,
+        signal: AbortSignal.timeout(TIMEOUT_MS),
+      });
+    } catch (err) {
+      ultimo = err;
+      // Espera creciente: si es un arranque en frío, el segundo intento ya
+      // encuentra la función caliente.
+      if (intento < REINTENTOS) await new Promise((r) => setTimeout(r, intento * 2000));
+    }
+  }
+  throw new Error(
+    `${path}: sin respuesta tras ${REINTENTOS} intentos — ${
+      ultimo instanceof Error ? ultimo.message : String(ultimo)
+    }`,
+  );
 }
 
 describe('BralidusPY — disponibilidad', () => {
@@ -54,7 +98,7 @@ describe('BralidusPY — disponibilidad', () => {
       const body = await res.json();
       expect(body.status).toBe('ok');
     },
-    TIMEOUT_MS + 5_000,
+    TIMEOUT_POR_TEST,
   );
 
   it(
@@ -76,7 +120,7 @@ describe('BralidusPY — disponibilidad', () => {
         expect(svc.ok, `"${nombre}" está caído: ${svc?.detail}`).toBe(true);
       }
     },
-    TIMEOUT_MS + 5_000,
+    TIMEOUT_POR_TEST,
   );
 });
 
@@ -93,7 +137,7 @@ describe('BralidusPY — la auth se aplica de verdad', () => {
       // Exactamente 401. Si esto pasara a 200, la API quedó abierta.
       expect(res.status).toBe(401);
     },
-    TIMEOUT_MS + 5_000,
+    TIMEOUT_POR_TEST,
   );
 
   it(
@@ -114,7 +158,7 @@ describe('BralidusPY — la auth se aplica de verdad', () => {
       // devolviera 200, la key no se estaría mirando.
       expect(res.status).toBe(403);
     },
-    TIMEOUT_MS + 5_000,
+    TIMEOUT_POR_TEST,
   );
 
   it(
@@ -123,7 +167,7 @@ describe('BralidusPY — la auth se aplica de verdad', () => {
       const res = await get('/jobs/list');
       expect(res.status).toBe(401);
     },
-    TIMEOUT_MS + 5_000,
+    TIMEOUT_POR_TEST,
   );
 });
 
@@ -143,6 +187,6 @@ describe('BralidusPY — el contrato sigue siendo el que el portal documenta', (
         expect(rutas, `desapareció la ruta ${esperada}`).toContain(esperada);
       }
     },
-    TIMEOUT_MS + 5_000,
+    TIMEOUT_POR_TEST,
   );
 });
