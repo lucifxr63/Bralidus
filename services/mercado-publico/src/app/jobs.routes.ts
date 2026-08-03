@@ -11,6 +11,7 @@ import { enrichOrdenesWorkflow } from '../workflows/enrich-ordenes.workflow.js';
 import { reporteFrescuraWorkflow } from '../workflows/reporte-frescura.workflow.js';
 import { syncPjudWorkflow } from '../workflows/sync-pjud.workflow.js';
 import { syncPjudSupremaWorkflow } from '../workflows/sync-pjud-suprema.workflow.js';
+import { reportePjudWorkflow } from '../workflows/reporte-pjud.workflow.js';
 import { syncProgress } from '../jobs/sync-progress.store.js';
 import { syncLogRepository } from '../modules/sync/infrastructure/sync-log.repository.js';
 import { purchaseOrderRepository } from '../modules/purchase-orders/infrastructure/purchase-order.repository.js';
@@ -65,6 +66,8 @@ const JOBS: Record<string, JobStarter> = {
   // 2020 y sin el parametro sólo trae el año pasado.
   'sync-pjud-suprema': (o) =>
     start(syncPjudSupremaWorkflow, [{ anio: (o as { anio?: number }).anio }]),
+  // Sólo lee y publica el tablero de la Suprema. No ingesta.
+  'reporte-pjud': () => start(reportePjudWorkflow, []),
 };
 
 export const jobsRoutes = new Hono();

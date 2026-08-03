@@ -31,6 +31,13 @@ on:
                              # porque la fuente publica series ANUALES: correrlo
                              # a diario serian 11 requests para reescribir lo
                              # mismo. Ver docs/PJUD_API_HALLAZGOS.md.
+    - cron: '0 13 * * 1'     # reporte-pjud (lunes 09:00 Chile) — tablero de la
+                             # Corte Suprema en la sala de control.
+                             #
+                             # Semanal y no diario: la ingesta es mensual, asi
+                             # que publicarlo a diario serian seis avisos
+                             # identicos por semana. El lunes por la mañana es
+                             # cuando alguien lo va a mirar.
     - cron: '0 8 1 * *'      # sync-pjud-suprema (día 1 de cada mes, 04:00 Chile).
                              #
                              # Mensual y no diario: la fuente publica por año
@@ -129,6 +136,7 @@ jobs:
               '0 5 * * 1')     JOB=sync-pjud ;;
               '45 */2 * * *')  JOB=enrich-ordenes ;;
               '0 8 1 * *')     JOB=sync-pjud-suprema ;;
+              '0 13 * * 1')    JOB=reporte-pjud ;;
               *) echo "::error::schedule no mapeado: $SCHED"; exit 1 ;;
             esac
             BODY='{}'
