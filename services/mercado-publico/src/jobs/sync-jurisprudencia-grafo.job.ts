@@ -136,6 +136,104 @@ interface NodoNuevo {
   tags: string[];
 }
 
+const PANORAMA = 'Corte Suprema de Chile — Panorama estadístico';
+
+/**
+ * Aristas entre los nodos de jurisprudencia.
+ *
+ * QUÉ SE CONECTA Y POR QUÉ SE PUEDE
+ * ---------------------------------
+ * Sólo relaciones DERIVADAS DEL DATO, nunca interpretadas:
+ *
+ *   RESUELVE / SE_VE_EN   sala ↔ tipo de recurso. No es una suposición: en los
+ *                         datos la competencia es nítida — las apelaciones de
+ *                         protección van a la Tercera (Constitucional) en el
+ *                         100 % de los casos, los amparos a la Segunda (Penal)
+ *                         en el 100 %, la unificación laboral a la Cuarta
+ *                         (Mixta) en el 100 %. Se exige además volumen y
+ *                         concentración mínimos para no crear aristas por una
+ *                         causa suelta mal clasificada.
+ *
+ *   AGREGA                el panorama contiene a cada tipo y a cada sala. Es
+ *                         contención, no interpretación.
+ *
+ * QUÉ NO SE CONECTA, A PROPÓSITO
+ * ------------------------------
+ * NO se crean aristas entre jurisprudencia y normativa. Sería lo más vistoso
+ * —"Apelación Protección REQUIERE_CUMPLIR Ley 21.719"— y sería inventado: en
+ * `pjud_suprema_detalle` no hay ningún campo que vincule una causa con una ley.
+ * Afirmar esa relación en un grafo que después alimenta a un LLM es fabricar
+ * doctrina.
+ *
+ * Para hacerlo bien haría falta la materia de cada causa mapeada a normativa, o
+ * la revisión de alguien del área. Mientras tanto, el experto legal igual trae
+ * ambos mundos porque los dos grupos están en su lista de entidades.
+ *
+ * AMBAS DIRECCIONES
+ * -----------------
+ * `search_hybrid_graphrag` recorre `source_title → target_title`, así que una
+ * arista en un solo sentido sólo sirve si la consulta activa justo ese extremo.
+ */
+async function generarAristas(): Promise<number> {
+  // Umbrales: al menos 500 causas y 20 % del tipo. Por debajo de eso una
+  // coincidencia puede ser ruido de clasificación, no competencia real.
+  const pares = await bralidusQuery<Record<string, unknown>>(
+    `WITH pares AS (
+       SELECT descripcion_sala AS sala, tipo_recurso AS tipo, count(*) AS n
+         FROM pjud_suprema_detalle
+        WHERE serie='terminos_suprema_detalle'
+          AND descripcion_sala IS NOT NULL AND tipo_recurso IS NOT NULL
+        GROUP BY 1,2
+     ), tot AS (SELECT tipo, sum(n) AS total FROM pares GROUP BY 1)
+     SELECT p.sala, p.tipo
+       FROM pares p JOIN tot t USING (tipo)
+      WHERE p.n > 500 AND 100.0*p.n/t.total > 20`,
+  );
+
+  const filas: Array<[string, string, string]> = [];
+
+  for (const p of pares) {
+    const sala = `Corte Suprema — Sala ${String(p.sala)}`;
+    const tipo = `Corte Suprema — ${String(p.tipo)}`;
+    filas.push([sala, tipo, 'RESUELVE']);
+    filas.push([tipo, sala, 'SE_VE_EN']);
+  }
+
+  // El panorama agrega a todos los demás nodos de jurisprudencia.
+  const nodos = await bralidusQuery<{ document_title: string }>(
+    `SELECT document_title FROM knowledge_nodes
+      WHERE category=$1 AND document_title <> $2`,
+    [CATEGORIA, PANORAMA],
+  );
+  for (const n of nodos) {
+    filas.push([PANORAMA, n.document_title, 'AGREGA']);
+  }
+
+  // Se borran las anteriores de estos tipos antes de reinsertar: si una sala
+  // deja de ver un recurso, la arista vieja tiene que desaparecer, no quedar
+  // contradiciendo al dato.
+  await bralidusQuery(
+    `DELETE FROM knowledge_edges
+      WHERE relation_type IN ('RESUELVE','SE_VE_EN','AGREGA')
+        AND (source_title LIKE 'Corte Suprema%' OR target_title LIKE 'Corte Suprema%')`,
+  );
+
+  let escritas = 0;
+  for (const [src, tgt, rel] of filas) {
+    try {
+      await bralidusQuery(
+        `INSERT INTO knowledge_edges (source_title, target_title, relation_type)
+         VALUES ($1,$2,$3) ON CONFLICT DO NOTHING`,
+        [src, tgt, rel],
+      );
+      escritas++;
+    } catch (err) {
+      logger.warn({ src, tgt, rel, err }, `[${JOB_NAME}] arista rechazada`);
+    }
+  }
+  return escritas;
+}
+
 export async function runSyncJurisprudenciaGrafoJob(): Promise<void> {
   try {
     const nodos: NodoNuevo[] = [];
@@ -221,6 +319,8 @@ export async function runSyncJurisprudenciaGrafoJob(): Promise<void> {
       escritos++;
     }
 
+    const aristas = await generarAristas();
+
     const [pend] = await bralidusQuery<{ n: string }>(
       `SELECT count(*) AS n FROM knowledge_nodes WHERE category=$1 AND embedding IS NULL`,
       [CATEGORIA],
@@ -240,6 +340,11 @@ export async function runSyncJurisprudenciaGrafoJob(): Promise<void> {
         { name: 'Tipos de recurso', value: String(TOP_TIPOS), inline: true },
         { name: 'Salas', value: String(TOP_SALAS), inline: true },
         { name: 'Sin embedding', value: String(pendientes), inline: true },
+        {
+          name: 'Aristas',
+          value: `${aristas}\nsala↔recurso y panorama`,
+          inline: true,
+        },
       ],
       footer: `${JOB_NAME} · categoría ${CATEGORIA}`,
       dedupeKey: `jurisprudencia-grafo:${new Date().toISOString().slice(0, 10)}`,
