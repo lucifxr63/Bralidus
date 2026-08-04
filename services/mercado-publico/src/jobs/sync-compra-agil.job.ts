@@ -11,7 +11,13 @@ import { syncLogRepository } from '../modules/sync/infrastructure/sync-log.repos
 import { deriveRunStatus } from '../modules/sync/domain/run-status.js';
 import { syncProgress } from './sync-progress.store.js';
 import { notifyIngested } from '../infrastructure/licitus-callback/licitus-callback.js';
-import { query } from '../infrastructure/database/client/pg-client.js';
+// `bralidusQuery` y NO `query`: esta última apunta al pool de Licitus, y
+// `mp_ofertas` / `mp_extraer_ofertas()` viven en la base de Bralidus/Animus
+// (Supabase). Con el pool equivocado esto fallaría cada noche con "function
+// does not exist" — y como la llamada está en un try/catch para no tumbar el
+// sync, habría fallado EN SILENCIO y la tabla nunca se habría actualizado.
+import { bralidusQuery } from '../infrastructure/database/client/pg-client.js';
+import { sendOpsAlert } from '../infrastructure/ops-alert/ops-alert.js';
 
 /**
  * Sync de Compras Ágiles (procesos COT) desde la API v2 de Mercado Público.
@@ -552,7 +558,7 @@ export async function runSyncCompraAgilJob(options: CompraAgilJobOptions = {}): 
   // verdad. Si falla NO tumba el sync — los datos crudos ya quedaron guardados y
   // la extracción se repone sola en la corrida siguiente.
   try {
-    const [extraccion] = await query<{ ofertas_insertadas: string; items_insertados: string }>(
+    const [extraccion] = await bralidusQuery<{ ofertas_insertadas: string; items_insertados: string }>(
       'select * from public.mp_extraer_ofertas()',
     );
     logger.info(
@@ -566,6 +572,20 @@ export async function runSyncCompraAgilJob(options: CompraAgilJobOptions = {}): 
     const error = err instanceof Error ? err.message : String(err);
     logger.error({ error }, `[${plan.activeJobName}] Falló la extracción de ofertas — el sync sigue`);
     syncProgress.log(`✗ La extracción de ofertas falló (${error}). Los datos crudos quedaron guardados.`);
+    // El try/catch protege al sync, pero deja el fallo enterrado en los logs: la
+    // tabla se congelaría y nadie se enteraría hasta que alguien notara que las
+    // ofertas son viejas. Se avisa al canal de operaciones para que un fallo
+    // silencioso sea uno ruidoso.
+    void sendOpsAlert({
+      level: 'error',
+      channel: 'degradacion',
+      title: 'La extracción de ofertas de compra ágil falló',
+      detail:
+        `mp_extraer_ofertas() no corrió (${error}). Los datos crudos quedaron guardados en ` +
+        `raw_payload, pero mp_ofertas / mp_oferta_items se quedan con la foto anterior y ` +
+        `/mercado-publico/ofertas y /precios devuelven datos viejos hasta que se repare.`,
+      dedupeKey: 'mp-extraccion-ofertas',
+    });
   }
 
   const msg = quotaExhausted
