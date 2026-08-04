@@ -1,18 +1,51 @@
 # Animus Engine / Bralidus RaaS API — llms.txt
 
 > Documentación oficial orientada a LLMs y agentes IA (Cursor IDE, Windsurf, Claude Desktop, Perplexity, GPTBot).
-> El RaaS API Gateway v1 proporciona inteligencia macroeconómica chilena, licitaciones de Mercado Público B2G y Grafo de Conocimiento MoE (Mixture of Experts) en tiempo real (0 mocks).
+> El RaaS API Gateway v1 proporciona jurisprudencia de la Corte Suprema de Chile, inteligencia macroeconómica chilena, licitaciones de Mercado Público B2G y Grafo de Conocimiento MoE (Mixture of Experts) en tiempo real (0 mocks).
 
 ## Base URL
 https://fcdhcntyvsydnvjwopfe.supabase.co/functions/v1/api-v1
 
-## Autenticación
-Todas las peticiones a endpoints de datos requieren el encabezado HTTP:
-`Authorization: Bearer <TU_API_KEY>`
-(Opcionalmente se puede usar el parámetro de consulta `?apikey=<TU_API_KEY>`).
+## Autenticación — obligatoria desde el 2026-08-04
 
-Para pruebas en entornos de desarrollo o asistentes LLM, se puede utilizar la clave pública de demostración:
-`demo_public_key`
+Todas las peticiones a endpoints de datos requieren:
+
+`Authorization: Bearer <TU_API_KEY>`
+
+**No existe una clave pública de demostración.** Hasta el 2026-08-03 el gateway
+aceptaba peticiones sin credencial y también el literal `demo_public_key`; ambas
+puertas están cerradas y hoy responden `401 AUTH_REQUIRED`. Una clave compartida
+entre todos mezcla el consumo, deja que terceros gasten la cuota ajena y hace
+imposible saber quién hizo qué.
+
+La clave se obtiene registrándose en https://animus.scouttech.lat
+
+No la envíes en la query string (`?apikey=`). El gateway todavía la acepta por
+compatibilidad, pero las query strings quedan escritas en logs de servidor, de
+proxies intermedios y en historiales. Usa siempre el encabezado.
+
+Únicos endpoints sin autenticación, porque no exponen datos:
+- `GET /health/services` — estado de los servicios
+- `GET /` — identificación del gateway
+
+## Cuotas
+
+El consumo se mide en **créditos**, no en peticiones ni en tokens. Cada endpoint
+tiene un precio fijo que se anuncia en la respuesta:
+
+| Encabezado | Significado |
+|---|---|
+| `X-RateLimit-Limit-Credits` | tope mensual de tu plan |
+| `X-RateLimit-Remaining-Credits` | créditos que te quedan este mes |
+| `X-RateLimit-Request-Cost` | lo que costó esta petición |
+| `X-RateLimit-Tier` | tu plan |
+
+Topes mensuales por plan: free 500 · basic 1.000 · pro 15.000 · premium 100.000
+· enterprise 5.000.000. La cuota se reinicia por mes calendario.
+
+Límite de ráfaga: free 30 req/min · basic 60 · pro 180 · premium 300.
+
+Al agotarse devuelve `429` con código `RATE_LIMIT_MONTHLY` o `RATE_LIMIT_BURST`.
 
 ## Documentación Completa para LLMs
 - Especificación completa del API en Markdown: https://bralidus.vercel.app/api-reference.md
@@ -20,15 +53,44 @@ Para pruebas en entornos de desarrollo o asistentes LLM, se puede utilizar la cl
 - OpenAPI / Swagger Especificación: https://bralidus.vercel.app/swagger.yaml
 
 ## Endpoints Canónicos
-- `GET /data/macro`: Obtiene el snapshot en tiempo real de indicadores chilenos (UF oficial del día en CMF, UTM, TPM, USD/CLP).
-- `GET /data/economy`: Catálogo multi-proveedor completo de series económicas en base de datos (CMF, SII, BCCh, FRED).
-- `POST /intel/query`: Consulta al Grafo de Conocimiento MoE en lenguaje natural (body JSON: `{"query": "texto"}`).
-- `POST /rag/query`: Búsqueda vectorial semántica con citas normativas y legales como Ley Fintech 21.521 (body JSON: `{"query": "texto"}`).
-- `GET /mercado-publico/licitaciones`: Licitaciones públicas B2G abiertas y activas en Mercado Público (query param opcional: `?limit=10`).
-- `GET /mercado-publico/compra-agil`: Oportunidades en tiempo real de Compras Ágiles en Mercado Público (query param opcional: `?limit=10`).
-- `GET /health/services`: Estado en vivo del clúster de los 28 microservicios del sistema.
+
+### Corte Suprema de Chile (1.706.941 registros, 2020–2025)
+- `GET /data/pjud/suprema/tendencias`: serie por año — volumen, % confirmados y revocados, duración media.
+- `GET /data/pjud/suprema/resumen`: totales por año, serie, libro, tipo de recurso y sala.
+- `GET /data/pjud/suprema/causas`: causas individuales, filtrables por año, libro, tipo de recurso y sala.
+- `GET /data/pjud/suprema/causas/:libro/:rol/:ano_rol`: historia completa de UNA causa. Devuelve un ARREGLO, no un registro.
+- `GET /data/pjud/estadisticas`: series agregadas del Poder Judicial (presupuesto, dotación, cuenta pública).
+
+Advertencia de interpretación: los datos son tres series disjuntas —ingresos
+(797.187), inventario (114.819) y términos (794.935)—. Restar ingresos menos
+términos NO da causas pendientes: una causa ingresada un año puede fallarse en
+otro. El pendiente real es el inventario.
+
+### Economía e inteligencia
+- `GET /data/macro`: snapshot de indicadores chilenos (UF oficial del día en CMF, UTM, USD/CLP, cobre, WTI).
+- `GET /data/economy`: catálogo multi-proveedor de series económicas (CMF, SII, BCCh, FRED).
+- `POST /intel/query`: consulta al Grafo de Conocimiento MoE en lenguaje natural (body: `{"query": "texto"}`).
+- `POST /rag/query`: búsqueda vectorial semántica con citas normativas (body: `{"query": "texto"}`).
+
+### Mercado Público (B2G)
+- `GET /mercado-publico/opportunities`: buscador unificado de licitaciones y compras ágiles.
+- `GET /mercado-publico/licitaciones`: licitaciones públicas abiertas (`?limit=10`).
+- `GET /mercado-publico/compra-agil`: compras ágiles en tiempo real (`?limit=10`).
+- `GET /mercado-publico/organismos`: directorio de organismos compradores del Estado.
+
+### Estado
+- `GET /health/services`: estado en vivo de los microservicios. Sin autenticación.
 
 ## Servidor MCP Oficial (Animus Engine)
-Se puede integrar de forma nativa como servidor Model Context Protocol en Claude Desktop o Cursor IDE:
+
+Publicado en npm como `animus-engine-mcp`. Se integra de forma nativa como
+servidor Model Context Protocol en Claude Desktop, Cursor IDE o Windsurf:
+
 - Comando stdio: `npx -y animus-engine-mcp`
-- Variable de entorno requerida: `ANIMUS_API_KEY=tu_clave_o_demo_public_key`
+- Variable de entorno **obligatoria**: `ANIMUS_API_KEY=<tu_clave>`
+
+Sin esa variable el servidor arranca, avisa por stderr y cada herramienta
+devuelve un error explicando cómo configurarla. No hay valor por defecto.
+
+Expone 14 herramientas: 5 de Corte Suprema, 4 de Mercado Público, 2 de economía,
+2 de inteligencia (grafo MoE y RAG normativo) y 1 de documentación.

@@ -131,16 +131,34 @@ export function AdminPage() {
         keysByProfile.set(k.profile_id, list);
       }
 
-      // Consumo real: api_usage_logs se enlaza al usuario por api_key_id.
+      // Consumo real. Dos cambios respecto de la versión anterior:
+      //
+      //  - Se suma `credits_used`, no `tokens_used`. Son unidades distintas: la
+      //    cuota se cobra en créditos y `tokens_used` es telemetría del costo.
+      //    Sumar tokens y rotularlo "créditos usados" inflaba la cifra ~30x en
+      //    los endpoints de datos.
+      //
+      //  - Se agrupa por `profile_id` y no por `api_key_id`. Desde que el
+      //    gateway también mide el tráfico de sesión del portal, esas filas
+      //    llegan con `api_key_id NULL`: agrupar por la key las descartaba
+      //    todas, y el admin veía menos consumo del que realmente hubo.
       const { data: usageData } = await supabase
         .from('api_usage_logs')
-        .select('api_key_id, tokens_used, requests_count, endpoint, ip_address, created_at, id')
+        .select('api_key_id, profile_id, credits_used, tokens_used, requests_count, endpoint, ip_address, created_at, id')
         .order('created_at', { ascending: false })
         .limit(200);
 
-      const tokensByKey = new Map<string, number>();
+      const creditosPorPerfil = new Map<string, number>();
+      const perfilDeKey = new Map<string, string>();
+      for (const [perfil, ids] of keysByProfile) {
+        for (const id of ids) perfilDeKey.set(id, perfil);
+      }
       for (const u of usageData ?? []) {
-        tokensByKey.set(u.api_key_id, (tokensByKey.get(u.api_key_id) ?? 0) + (u.tokens_used ?? 0));
+        // Filas viejas (previas al 2026-08-04) traen api_key_id pero no
+        // profile_id; se resuelve el dueño por la key para no perder historial.
+        const perfil = u.profile_id ?? (u.api_key_id ? perfilDeKey.get(u.api_key_id) : undefined);
+        if (!perfil) continue; // tráfico anónimo: no es de nadie
+        creditosPorPerfil.set(perfil, (creditosPorPerfil.get(perfil) ?? 0) + (u.credits_used ?? 1));
       }
 
       if (profErr) {
@@ -160,7 +178,7 @@ export function AdminPage() {
               tier: (p.tier as UserRow['tier']) || 'free',
               created_at: p.created_at || '',
               api_keys_count: keyIds.length,
-              total_credits_used: keyIds.reduce((sum, id) => sum + (tokensByKey.get(id) ?? 0), 0),
+              total_credits_used: creditosPorPerfil.get(p.id) ?? 0,
             };
           }),
         );

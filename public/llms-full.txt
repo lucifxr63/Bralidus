@@ -6,13 +6,37 @@
 ---
 
 ## 1. Autenticación y Seguridad
+
 Todas las peticiones a endpoints de datos requieren el encabezado HTTP:
 ```http
 Authorization: Bearer <TU_API_KEY>
-X-Client: Animus-Engine/1.0.0
 ```
-- Para pruebas de desarrollo y evaluación de LLMs, se puede emplear la clave: `demo_public_key`.
-- Si se utiliza en clientes que no soportan encabezados personalizados, se puede enviar como parámetro de consulta: `?apikey=<TU_API_KEY>`.
+
+**La API key es obligatoria y no existe una clave pública de demostración.**
+Hasta el 2026-08-03 este documento ofrecía `demo_public_key` y el gateway
+aceptaba además peticiones sin credencial alguna. Ambas puertas están cerradas y
+hoy responden `401 AUTH_REQUIRED`. Una clave compartida entre todos los usuarios
+mezcla el consumo, permite que terceros agoten cuota ajena e impide atribuir el
+uso a nadie.
+
+Obtén la tuya en https://animus.scouttech.lat
+
+No envíes la clave como `?apikey=` en la URL: el gateway lo acepta por
+compatibilidad, pero las query strings quedan escritas en los logs del servidor,
+en los de proxies intermedios y en los historiales del cliente.
+
+Únicos endpoints abiertos, porque no exponen datos: `GET /health/services` y `GET /`.
+
+### 1.1 Cuotas
+
+El consumo se mide en **créditos**, no en peticiones ni en tokens. Cada
+respuesta informa `X-RateLimit-Limit-Credits`, `X-RateLimit-Remaining-Credits`,
+`X-RateLimit-Request-Cost` y `X-RateLimit-Tier`.
+
+Topes mensuales: free 500 · basic 1.000 · pro 15.000 · premium 100.000 ·
+enterprise 5.000.000. Ráfaga: free 30 req/min · basic 60 · pro 180 · premium 300.
+La cuota se reinicia por mes calendario y al agotarse devuelve `429` con código
+`RATE_LIMIT_MONTHLY` o `RATE_LIMIT_BURST`.
 
 ---
 
@@ -24,7 +48,7 @@ Retorna el snapshot oficial en tiempo real con las series económicas normalizad
 #### Ejemplo de Solicitud cURL
 ```bash
 curl -X GET "https://fcdhcntyvsydnvjwopfe.supabase.co/functions/v1/api-v1/data/macro" \
-  -H "Authorization: Bearer demo_public_key" \
+  -H "Authorization: Bearer $ANIMUS_API_KEY" \
   -H "Accept: application/json"
 ```
 
@@ -73,7 +97,7 @@ Consulta en lenguaje natural a la red de 696 nodos de conocimiento macroeconómi
 #### Ejemplo de Solicitud cURL
 ```bash
 curl -X POST "https://fcdhcntyvsydnvjwopfe.supabase.co/functions/v1/api-v1/intel/query" \
-  -H "Authorization: Bearer demo_public_key" \
+  -H "Authorization: Bearer $ANIMUS_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"query": "¿Cuál es la proyección de inflación y el impacto en la TPM de Chile?"}'
 ```
@@ -88,7 +112,7 @@ Realiza una búsqueda semántica sobre leyes chilenas (como la Ley Fintech 21.52
 #### Ejemplo de Solicitud cURL
 ```bash
 curl -X POST "https://fcdhcntyvsydnvjwopfe.supabase.co/functions/v1/api-v1/rag/query" \
-  -H "Authorization: Bearer demo_public_key" \
+  -H "Authorization: Bearer $ANIMUS_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"query": "¿Qué requisitos impone la Ley Fintech 21.521 a los proveedores de iniciación de pagos?"}'
 ```
@@ -103,7 +127,7 @@ Devuelve el listado de licitaciones públicas B2G que se encuentran abiertas en 
 #### Ejemplo de Solicitud cURL
 ```bash
 curl -X GET "https://fcdhcntyvsydnvjwopfe.supabase.co/functions/v1/api-v1/mercado-publico/licitaciones?limit=5" \
-  -H "Authorization: Bearer demo_public_key"
+  -H "Authorization: Bearer $ANIMUS_API_KEY"
 ```
 
 ### 5.2 GET `/mercado-publico/compra-agil`
@@ -112,7 +136,7 @@ Devuelve las oportunidades de Compra Ágil públicas activas en el portal de Mer
 #### Ejemplo de Solicitud cURL
 ```bash
 curl -X GET "https://fcdhcntyvsydnvjwopfe.supabase.co/functions/v1/api-v1/mercado-publico/compra-agil?limit=5" \
-  -H "Authorization: Bearer demo_public_key"
+  -H "Authorization: Bearer $ANIMUS_API_KEY"
 ```
 
 ---
@@ -125,5 +149,5 @@ Devuelve el estado de salud en tiempo real (`status: green | yellow | red`, late
 #### Ejemplo de Solicitud cURL
 ```bash
 curl -X GET "https://fcdhcntyvsydnvjwopfe.supabase.co/functions/v1/api-v1/health/services" \
-  -H "Authorization: Bearer demo_public_key"
+  -H "Authorization: Bearer $ANIMUS_API_KEY"
 ```

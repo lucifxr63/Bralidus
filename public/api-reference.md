@@ -6,13 +6,52 @@
 ---
 
 ## 1. Autenticación y Seguridad
+
 Todas las peticiones a endpoints de datos requieren el encabezado HTTP:
 ```http
 Authorization: Bearer <TU_API_KEY>
-X-Client: Animus-Engine/1.0.0
 ```
-- Para pruebas de desarrollo y evaluación de LLMs, se puede emplear la clave: `demo_public_key`.
-- Si se utiliza en clientes que no soportan encabezados personalizados, se puede enviar como parámetro de consulta: `?apikey=<TU_API_KEY>`.
+
+**La API key es obligatoria y no existe una clave pública de demostración.**
+Hasta el 2026-08-03 este documento ofrecía `demo_public_key` y el gateway
+también aceptaba peticiones sin credencial alguna. Ambas puertas están cerradas:
+hoy responden `401` con código `AUTH_REQUIRED`. Una clave compartida entre todos
+los usuarios mezcla el consumo, permite que terceros agoten cuota ajena y hace
+imposible atribuir el uso.
+
+Obtén la tuya registrándote en https://animus.scouttech.lat
+
+> **No uses `?apikey=` en la URL.** El gateway lo sigue aceptando por
+> compatibilidad, pero las query strings quedan escritas en los logs del
+> servidor, en los de cualquier proxy intermedio y en los historiales del
+> cliente. La clave va en el encabezado.
+
+Únicos endpoints abiertos, porque no exponen datos: `GET /health/services` y
+`GET /`.
+
+### 1.1 Cuotas y créditos
+
+El consumo se mide en **créditos**, no en peticiones ni en tokens. Cada endpoint
+tiene un precio fijo, y cada respuesta lo informa:
+
+| Encabezado | Significado |
+|---|---|
+| `X-RateLimit-Limit-Credits` | tope mensual del plan |
+| `X-RateLimit-Remaining-Credits` | créditos restantes del mes |
+| `X-RateLimit-Request-Cost` | costo de esta petición |
+| `X-RateLimit-Tier` | plan del solicitante |
+
+| Plan | Créditos/mes | Ráfaga |
+|---|---:|---:|
+| free | 500 | 30 req/min |
+| basic | 1.000 | 60 req/min |
+| pro | 15.000 | 180 req/min |
+| premium | 100.000 | 300 req/min |
+| enterprise | 5.000.000 | 1.200 req/min |
+
+La cuota se reinicia por mes calendario. Al agotarse, el gateway devuelve `429`
+con código `RATE_LIMIT_MONTHLY` (cuota del mes) o `RATE_LIMIT_BURST` (ráfaga por
+minuto, con `retry_after_seconds`).
 
 ---
 
@@ -24,7 +63,7 @@ Retorna el snapshot oficial en tiempo real con las series económicas normalizad
 #### Ejemplo de Solicitud cURL
 ```bash
 curl -X GET "https://fcdhcntyvsydnvjwopfe.supabase.co/functions/v1/api-v1/data/macro" \
-  -H "Authorization: Bearer demo_public_key" \
+  -H "Authorization: Bearer $ANIMUS_API_KEY" \
   -H "Accept: application/json"
 ```
 
@@ -73,7 +112,7 @@ Consulta en lenguaje natural a la red de 696 nodos de conocimiento macroeconómi
 #### Ejemplo de Solicitud cURL
 ```bash
 curl -X POST "https://fcdhcntyvsydnvjwopfe.supabase.co/functions/v1/api-v1/intel/query" \
-  -H "Authorization: Bearer demo_public_key" \
+  -H "Authorization: Bearer $ANIMUS_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"query": "¿Cuál es la proyección de inflación y el impacto en la TPM de Chile?"}'
 ```
@@ -88,7 +127,7 @@ Realiza una búsqueda semántica sobre leyes chilenas (como la Ley Fintech 21.52
 #### Ejemplo de Solicitud cURL
 ```bash
 curl -X POST "https://fcdhcntyvsydnvjwopfe.supabase.co/functions/v1/api-v1/rag/query" \
-  -H "Authorization: Bearer demo_public_key" \
+  -H "Authorization: Bearer $ANIMUS_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"query": "¿Qué requisitos impone la Ley Fintech 21.521 a los proveedores de iniciación de pagos?"}'
 ```
@@ -103,7 +142,7 @@ Devuelve el listado de licitaciones públicas B2G que se encuentran abiertas en 
 #### Ejemplo de Solicitud cURL
 ```bash
 curl -X GET "https://fcdhcntyvsydnvjwopfe.supabase.co/functions/v1/api-v1/mercado-publico/licitaciones?limit=5" \
-  -H "Authorization: Bearer demo_public_key"
+  -H "Authorization: Bearer $ANIMUS_API_KEY"
 ```
 
 ### 5.2 GET `/mercado-publico/compra-agil`
@@ -112,7 +151,7 @@ Devuelve las oportunidades de Compra Ágil públicas activas en el portal de Mer
 #### Ejemplo de Solicitud cURL
 ```bash
 curl -X GET "https://fcdhcntyvsydnvjwopfe.supabase.co/functions/v1/api-v1/mercado-publico/compra-agil?limit=5" \
-  -H "Authorization: Bearer demo_public_key"
+  -H "Authorization: Bearer $ANIMUS_API_KEY"
 ```
 
 ---
@@ -125,5 +164,5 @@ Devuelve el estado de salud en tiempo real (`status: green | yellow | red`, late
 #### Ejemplo de Solicitud cURL
 ```bash
 curl -X GET "https://fcdhcntyvsydnvjwopfe.supabase.co/functions/v1/api-v1/health/services" \
-  -H "Authorization: Bearer demo_public_key"
+  -H "Authorization: Bearer $ANIMUS_API_KEY"
 ```

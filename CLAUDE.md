@@ -57,15 +57,35 @@ VITE_SUPABASE_ANON_KEY=sb_publishable_...
   - If Licitus is also down, the endpoints return **503 `SOURCE_UNAVAILABLE`** — they never fabricate records. Do not reintroduce a hardcoded dataset here (see the note in the backend `CLAUDE.md`).
 
 ### 2. Rate Limiting Quotas & Tiers (`ratelimit.ts`)
-- Configured in backend `ratelimit.ts`.
-- **Free Plan (`free`):** **500 testing credits / month** and **30 requests / min** burst limit. Developers on the Free tier can query all public B2G and macro endpoints immediately without `403 Forbidden` errors.
-- **Starter:** 10,000 credits / month, 120 req/min.
-- **Pro:** 50,000 credits / month, 300 req/min.
-- **Enterprise:** Unlimited credits, 1,000 req/min.
 
-### 3. Fintoc-style Unauthenticated Testing & API Connection Hub
-- **API Connection Hub (`ApiConnectionHub.tsx`):** Provides copy-paste integration snippets in cURL, Node.js (TypeScript), Python, and **MCP Server (`animus-engine-mcp`)** JSON configuration.
-- **Fintoc Methodology:** Unauthenticated developers can immediately test endpoints in the API Playground using demo tokens (`demo_public_key` or `sk_demo_live_...`).
+Los topes reales están en `TIER_CREDIT_LIMITS` / `TIER_BURST_LIMITS` de
+`api-v1/middleware/ratelimit.ts`. Los nombres que figuraban acá antes
+(`starter` 10.000, `pro` 50.000, `enterprise` ilimitado) **no existen en el
+código**; `starter` ni siquiera es un tier válido.
+
+| Tier | Créditos/mes | Ráfaga |
+|---|---:|---:|
+| `anon` | 150 | 10 req/min |
+| `free` | 500 | 30 req/min |
+| `basic` | 1.000 | 60 req/min |
+| `pro` | 15.000 | 180 req/min |
+| `premium` | 100.000 | 300 req/min |
+| `enterprise` | 5.000.000 | 1.200 req/min |
+
+**La unidad es el crédito, no la petición ni el token.** Cada endpoint tiene un
+precio en `ENDPOINT_CREDITS` y la respuesta lo informa en
+`X-RateLimit-Request-Cost`. `api_usage_logs.credits_used` guarda lo cobrado;
+`tokens_used` es telemetría del costo real y NO debe compararse contra ningún
+tope (el portal las mezclaba: mostraba 30 donde se cobra 1).
+
+El tier `anon` quedó inalcanzable al cerrar el acceso anónimo. Se conserva a
+propósito como default defensivo: si alguien reabre un camino sin credencial,
+que herede el cupo más bajo y no el de un usuario registrado.
+
+### 3. Autenticación obligatoria & API Connection Hub
+- **API Connection Hub (`ApiConnectionHub.tsx`):** snippets copiables en cURL, Node.js (TypeScript), Python y configuración JSON del **MCP (`animus-engine-mcp`, publicado en npm)**.
+- **No hay pruebas sin autenticar.** Hasta el 2026-08-03 el gateway aceptaba peticiones sin token y también los literales `demo_public_key` / `demo_*` / `sb_publishable_*`. Las dos puertas están cerradas: hoy devuelven `401 AUTH_REQUIRED`. Todo snippet o pestaña que ofrezca una clave de demostración está desactualizado.
+- Únicas rutas abiertas: `GET /health/services` y `GET /`, que se registran en `api-v1/index.ts` **antes** del `app.use` de los middlewares. Es una consecuencia del orden de registro, no una excepción declarada: agregar ahí una ruta de datos la publica sin cuota ni registro y nada falla para avisarlo.
 
 ### 4. LLM & AI Agent Standard (`/llms.txt`)
 - Supports automated agent indexing via `/llms.txt`, `/llms-full.txt`, and `/robots.txt` conforming to modern LLM accessibility guidelines.

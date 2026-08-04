@@ -57,7 +57,21 @@ export interface ApiUsageLog {
   id: string;
   endpoint: string;
   requests_count: number;
+  /**
+   * Créditos cobrados. ES LA UNIDAD DE LA CUOTA: el tope del tier se compara
+   * contra la suma de esta columna, y es el número que el gateway anuncia en
+   * `X-RateLimit-Request-Cost`.
+   */
+  credits_used: number;
+  /**
+   * Telemetría del costo real (tokens LLM u operaciones). NO es la unidad de
+   * cobro. El portal las mostraba mezcladas: sumaba `tokens_used` y lo
+   * etiquetaba como créditos, así que /data/macro aparecía costando 30 cuando
+   * se cobra 1.
+   */
   tokens_used: number;
+  /** null cuando el consumo vino de una sesión del portal y no de una API key. */
+  api_key_id: string | null;
   created_at: string;
 }
 
@@ -83,6 +97,11 @@ export interface WebhookSub {
 
 export interface PortalStats {
   totalReqs: number;
+  /** Créditos del mes EN CURSO: es contra esto que se aplica la cuota. */
+  creditsThisMonth: number;
+  /** Tope mensual del tier del usuario. */
+  creditLimit: number;
+  tier: string;
   totalTokens: number;
   todayReqs: number;
   activeKeys: number;

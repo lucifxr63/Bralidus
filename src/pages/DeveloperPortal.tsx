@@ -70,7 +70,10 @@ export function DeveloperPortal() {
       )}
 
       {activeTab === 'quotas' && (
-        <QuotasTab usageCount={stats.totalReqs} />
+        // Créditos del mes, no requests totales. La cuota se aplica sobre
+        // créditos y se reinicia cada mes calendario: pasarle `totalReqs` era
+        // comparar un número histórico contra un tope mensual de otra unidad.
+        <QuotasTab usageCount={stats.creditsThisMonth} />
       )}
 
       {activeTab === 'forensic' && (

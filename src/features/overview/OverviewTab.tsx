@@ -1,4 +1,4 @@
-import { Activity, Zap, TrendingUp, Key } from 'lucide-react';
+import { Activity, Zap, TrendingUp, Key, Gauge } from 'lucide-react';
 import type { PortalStats, ApiUsageLog } from '@/types/portal';
 
 interface OverviewTabProps {
@@ -10,10 +10,27 @@ interface OverviewTabProps {
 }
 
 export function OverviewTab({ stats, loading, logs, onNavigate }: OverviewTabProps) {
+  // El consumo que importa es el de CRÉDITOS del mes en curso, porque es la
+  // única cifra contra la que el gateway aplica la cuota. Antes acá sólo se
+  // veían requests y tokens: dos números que no se comparan con ningún tope, y
+  // por eso "no se descontaba nada" aunque el backend sí estuviera midiendo.
+  const pctCuota = stats.creditLimit > 0
+    ? Math.min(100, (stats.creditsThisMonth / stats.creditLimit) * 100)
+    : 0;
+  const colorCuota = pctCuota >= 90 ? '#EF4444' : pctCuota >= 70 ? '#F59E0B' : '#10B981';
+
   const kpis = [
+    {
+      label: `Créditos del mes · plan ${stats.tier}`,
+      value: `${stats.creditsThisMonth.toLocaleString()} / ${stats.creditLimit.toLocaleString()}`,
+      icon: Gauge, accent: colorCuota, bg: 'rgba(16,185,129,0.10)',
+    },
     { label: 'Requests totales', value: stats.totalReqs.toLocaleString(), icon: Activity, accent: '#8B5CF6', bg: 'rgba(139,92,246,0.10)' },
     { label: 'Hoy', value: stats.todayReqs.toLocaleString(), icon: Zap, accent: '#0EB5C6', bg: 'rgba(14,181,198,0.10)' },
-    { label: 'Tokens usados', value: stats.totalTokens > 1000 ? `${(stats.totalTokens / 1000).toFixed(1)}k` : stats.totalTokens.toString(), icon: TrendingUp, accent: '#F59E0B', bg: 'rgba(245,158,11,0.10)' },
+    // Se deja explícito que esto NO es la cuota: son dos unidades distintas y
+    // mezclarlas fue el bug original (/data/macro cobra 1 crédito y reporta 30
+    // tokens).
+    { label: 'Tokens (telemetría, no cuota)', value: stats.totalTokens > 1000 ? `${(stats.totalTokens / 1000).toFixed(1)}k` : stats.totalTokens.toString(), icon: TrendingUp, accent: '#F59E0B', bg: 'rgba(245,158,11,0.10)' },
     { label: 'Llaves activas', value: stats.activeKeys.toString(), icon: Key, accent: '#EC4899', bg: 'rgba(236,72,153,0.10)' },
   ];
 
