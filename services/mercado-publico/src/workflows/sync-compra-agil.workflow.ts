@@ -5,6 +5,7 @@ import {
   beginCompraAgilDate,
   syncCompraAgilDateSlice,
   completeCompraAgilDate,
+  extraerOfertasCompraAgil,
   isoToDate,
   type CompraAgilJobOptions,
   type CompraAgilRunPlan,
@@ -105,6 +106,22 @@ async function notifyStep(opportunityIds: string[]): Promise<void> {
   await notifyIngested(opportunityIds);
 }
 notifyStep.maxRetries = 1;
+
+/**
+ * Extraer la competencia del payload recién ingerido.
+ *
+ * Va como STEP propio y no dentro de finishStep: cada step corre en su propia
+ * invocación con su propio presupuesto, y esto reconstruye ~7.000 ofertas y
+ * ~18.000 líneas de producto. Metido junto al cierre, un run grande podría
+ * agotar el tiempo del step y dejar el sync sin marcar como terminado.
+ *
+ * Antes de finishStep para que el mensaje de "Sincronización completada" sea
+ * verdad: cuando aparece, las ofertas ya están extraídas.
+ */
+async function extraerOfertasStep(activeJobName: string): Promise<void> {
+  'use step';
+  await extraerOfertasCompraAgil(activeJobName);
+}
 
 async function finishStep(
   activeJobName: string,
@@ -208,6 +225,8 @@ export async function syncCompraAgilWorkflow(params: SyncCompraAgilParams = {}):
       break;
     }
   }
+
+  await extraerOfertasStep(plan.activeJobName);
 
   await finishStep(plan.activeJobName, aborted, quotaExhausted, perDate.length);
 

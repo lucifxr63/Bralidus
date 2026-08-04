@@ -364,6 +364,51 @@ function computeDates(options: CompraAgilJobOptions): Date[] {
 }
 
 /** Resuelve fechas + ventana. Null si ya hay un job del mismo nombre corriendo. */
+/**
+ * Normaliza a `mp_ofertas` / `mp_oferta_items` la competencia que viene enterrada
+ * en `raw_payload->detalle->proveedores_cotizando`: quién cotizó, cuánto, quién
+ * ganó y por qué se declaró inadmisible al resto.
+ *
+ * ESTÁ ACÁ Y NO INLINE EN EL JOB porque el camino que corre en producción es el
+ * Workflow, y el Workflow NO llama a `runSyncCompraAgilJob` — usa las funciones
+ * de slice. La primera versión metió esto dentro de esa función monolítica, que
+ * hoy no la invoca nadie: el deploy salió bien, el sync corrió, y la extracción
+ * nunca se ejecutó porque vivía en código muerto. Exportada, la llaman los dos
+ * caminos y no hay lógica duplicada que se desincronice.
+ *
+ * Idempotente: reconstruye completo desde el payload, que es la fuente de verdad.
+ * No relanza el error — un fallo acá no debe tumbar un sync cuyos datos crudos ya
+ * están guardados—, pero sí avisa a operaciones para que no sea silencioso.
+ */
+export async function extraerOfertasCompraAgil(activeJobName: string): Promise<void> {
+  try {
+    const [extraccion] = await bralidusQuery<{ ofertas_insertadas: string; items_insertados: string }>(
+      'select * from public.mp_extraer_ofertas()',
+    );
+    logger.info(
+      { ofertas: extraccion?.ofertas_insertadas, items: extraccion?.items_insertados },
+      `[${activeJobName}] Ofertas extraídas del payload`,
+    );
+    syncProgress.log(
+      `⚙ Competencia extraída: ${extraccion?.ofertas_insertadas ?? 0} ofertas, ${extraccion?.items_insertados ?? 0} líneas`,
+    );
+  } catch (err) {
+    const error = err instanceof Error ? err.message : String(err);
+    logger.error({ error }, `[${activeJobName}] Falló la extracción de ofertas — el sync sigue`);
+    syncProgress.log(`✗ La extracción de ofertas falló (${error}). Los datos crudos quedaron guardados.`);
+    void sendOpsAlert({
+      level: 'error',
+      channel: 'degradacion',
+      title: 'La extracción de ofertas de compra ágil falló',
+      detail:
+        `mp_extraer_ofertas() no corrió (${error}). Los datos crudos quedaron guardados en ` +
+        `raw_payload, pero mp_ofertas / mp_oferta_items se quedan con la foto anterior y ` +
+        `/mercado-publico/ofertas y /precios devuelven datos viejos hasta que se repare.`,
+      dedupeKey: 'mp-extraccion-ofertas',
+    });
+  }
+}
+
 export async function planCompraAgilRun(
   options: CompraAgilJobOptions = {},
 ): Promise<CompraAgilRunPlan | null> {
@@ -542,51 +587,7 @@ export async function runSyncCompraAgilJob(options: CompraAgilJobOptions = {}): 
 
   aborted = aborted || syncProgress.isAbortRequested();
 
-  // ── Extraer la competencia del payload recién ingerido ─────────────────────
-  //
-  // Cada compra ágil trae en `raw_payload->detalle->proveedores_cotizando` la
-  // licitación competitiva completa —quién cotizó, cuánto, quién ganó y por qué
-  // se rechazó al resto—, que `mp_extraer_ofertas()` normaliza a `mp_ofertas` y
-  // `mp_oferta_items`.
-  //
-  // Va ACÁ y no en un cron aparte a propósito: es la única forma de que la
-  // extracción no se desincronice del sync. Un schedule independiente se desfasa
-  // el día que el sync falle o cambie de horario, y la tabla se queda con una
-  // foto vieja sin que nada avise.
-  //
-  // Es idempotente: reconstruye completo desde el payload, que es la fuente de
-  // verdad. Si falla NO tumba el sync — los datos crudos ya quedaron guardados y
-  // la extracción se repone sola en la corrida siguiente.
-  try {
-    const [extraccion] = await bralidusQuery<{ ofertas_insertadas: string; items_insertados: string }>(
-      'select * from public.mp_extraer_ofertas()',
-    );
-    logger.info(
-      { ofertas: extraccion?.ofertas_insertadas, items: extraccion?.items_insertados },
-      `[${plan.activeJobName}] Ofertas extraídas del payload`,
-    );
-    syncProgress.log(
-      `⚙ Competencia extraída: ${extraccion?.ofertas_insertadas ?? 0} ofertas, ${extraccion?.items_insertados ?? 0} líneas`,
-    );
-  } catch (err) {
-    const error = err instanceof Error ? err.message : String(err);
-    logger.error({ error }, `[${plan.activeJobName}] Falló la extracción de ofertas — el sync sigue`);
-    syncProgress.log(`✗ La extracción de ofertas falló (${error}). Los datos crudos quedaron guardados.`);
-    // El try/catch protege al sync, pero deja el fallo enterrado en los logs: la
-    // tabla se congelaría y nadie se enteraría hasta que alguien notara que las
-    // ofertas son viejas. Se avisa al canal de operaciones para que un fallo
-    // silencioso sea uno ruidoso.
-    void sendOpsAlert({
-      level: 'error',
-      channel: 'degradacion',
-      title: 'La extracción de ofertas de compra ágil falló',
-      detail:
-        `mp_extraer_ofertas() no corrió (${error}). Los datos crudos quedaron guardados en ` +
-        `raw_payload, pero mp_ofertas / mp_oferta_items se quedan con la foto anterior y ` +
-        `/mercado-publico/ofertas y /precios devuelven datos viejos hasta que se repare.`,
-      dedupeKey: 'mp-extraccion-ofertas',
-    });
-  }
+  await extraerOfertasCompraAgil(plan.activeJobName);
 
   const msg = quotaExhausted
     ? 'Sincronización detenida: cuota diaria de la API agotada'
