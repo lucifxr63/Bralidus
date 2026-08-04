@@ -11,6 +11,7 @@ import { syncLogRepository } from '../modules/sync/infrastructure/sync-log.repos
 import { deriveRunStatus } from '../modules/sync/domain/run-status.js';
 import { syncProgress } from './sync-progress.store.js';
 import { notifyIngested } from '../infrastructure/licitus-callback/licitus-callback.js';
+import { query } from '../infrastructure/database/client/pg-client.js';
 
 /**
  * Sync de Compras Ágiles (procesos COT) desde la API v2 de Mercado Público.
@@ -534,6 +535,39 @@ export async function runSyncCompraAgilJob(options: CompraAgilJobOptions = {}): 
   }
 
   aborted = aborted || syncProgress.isAbortRequested();
+
+  // ── Extraer la competencia del payload recién ingerido ─────────────────────
+  //
+  // Cada compra ágil trae en `raw_payload->detalle->proveedores_cotizando` la
+  // licitación competitiva completa —quién cotizó, cuánto, quién ganó y por qué
+  // se rechazó al resto—, que `mp_extraer_ofertas()` normaliza a `mp_ofertas` y
+  // `mp_oferta_items`.
+  //
+  // Va ACÁ y no en un cron aparte a propósito: es la única forma de que la
+  // extracción no se desincronice del sync. Un schedule independiente se desfasa
+  // el día que el sync falle o cambie de horario, y la tabla se queda con una
+  // foto vieja sin que nada avise.
+  //
+  // Es idempotente: reconstruye completo desde el payload, que es la fuente de
+  // verdad. Si falla NO tumba el sync — los datos crudos ya quedaron guardados y
+  // la extracción se repone sola en la corrida siguiente.
+  try {
+    const [extraccion] = await query<{ ofertas_insertadas: string; items_insertados: string }>(
+      'select * from public.mp_extraer_ofertas()',
+    );
+    logger.info(
+      { ofertas: extraccion?.ofertas_insertadas, items: extraccion?.items_insertados },
+      `[${plan.activeJobName}] Ofertas extraídas del payload`,
+    );
+    syncProgress.log(
+      `⚙ Competencia extraída: ${extraccion?.ofertas_insertadas ?? 0} ofertas, ${extraccion?.items_insertados ?? 0} líneas`,
+    );
+  } catch (err) {
+    const error = err instanceof Error ? err.message : String(err);
+    logger.error({ error }, `[${plan.activeJobName}] Falló la extracción de ofertas — el sync sigue`);
+    syncProgress.log(`✗ La extracción de ofertas falló (${error}). Los datos crudos quedaron guardados.`);
+  }
+
   const msg = quotaExhausted
     ? 'Sincronización detenida: cuota diaria de la API agotada'
     : aborted
