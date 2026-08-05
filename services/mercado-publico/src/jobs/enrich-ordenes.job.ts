@@ -45,6 +45,33 @@ const JOB_NAME = 'enrich-ordenes';
  */
 const ENRICH_DELAY_MS = 2500;
 
+/**
+ * Techo de tiempo de una pasada, como red de seguridad bajo los 300 s de la
+ * función.
+ *
+ * POR QUÉ HACE FALTA SI YA HAY UN TOPE DE ÍTEMS
+ * ---------------------------------------------
+ * Porque el tope de ítems se calibró contando sólo el sleep: «100 ítems × 2,5 s
+ * ≈ 250 s». Falta la latencia del request y el `incrementEnrichmentAttempts` de
+ * cada fila. Medido sobre 492 corridas terminadas (2026-08-05):
+ *
+ *     p50   255 s      (90 ítems → 2,83 s por ítem, no 2,5)
+ *     p90   400 s
+ *
+ * O sea que en un día normal la pasada usa el **85%** del presupuesto, y en uno
+ * lento se pasa: el proceso muere sin llegar a `complete()`, la fila queda
+ * 'running' huérfana y la corrida siguiente la marca 'failed' con
+ * `error_details` vacío. Cinco veces en los últimos 7 días.
+ *
+ * Peor que perder la pasada: el step muere, y con `maxRetries = 1` eso corta la
+ * cadena de 10 pasadas del workflow. Una pasada que se pasa por 20 segundos
+ * cuesta las nueve que venían detrás.
+ *
+ * Un contador fijo no aguanta la varianza de latencia de MP; un reloj sí. El
+ * tope de ítems define el trabajo, el presupuesto de tiempo garantiza el cierre.
+ */
+const ENRICH_TIME_BUDGET_MS = 250_000;
+
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 
 /**
@@ -141,7 +168,23 @@ export async function runEnrichOrdenesJob(): Promise<EnrichStats & { skipped: bo
     stats.candidates = candidates.length;
     logger.info({ candidates: candidates.length }, `[${JOB_NAME}] Starting enrichment pass`);
 
+    // El reloj arranca DESPUÉS de la consulta de candidatos: lo que se acota es
+    // el recorrido, que es lo que se puede cortar a mitad sin dejar nada roto.
+    const deadline = Date.now() + ENRICH_TIME_BUDGET_MS;
+    let sinTiempo = false;
+    let procesadas = 0;
+
     for (const candidate of candidates) {
+      if (Date.now() >= deadline) {
+        sinTiempo = true;
+        logger.warn(
+          { enriquecidas: stats.enriched, pendientes: stats.candidates - procesadas },
+          `[${JOB_NAME}] Presupuesto de tiempo agotado — cerrando limpio para no morir a mitad`,
+        );
+        break;
+      }
+      procesadas++;
+
       let outcome: EnrichmentOutcome;
       try {
         // execute() = fetch detalle por código + normalize + upsert (COALESCE)
@@ -208,18 +251,34 @@ export async function runEnrichOrdenesJob(): Promise<EnrichStats & { skipped: bo
     // Estado por TASA de fallo (regla compartida en run-status.ts), no por
     // "hubo al menos un éxito": con la condición anterior un único acierto
     // enmascaraba cualquier cantidad de fallos y la alerta nunca se disparaba.
-    const counters = { succeeded: stats.enriched, failed: stats.failed };
+    // `aborted` si se cortó por reloj: la pasada no falló, se contuvo antes de
+    // que la mataran. `found` distingue "la cola estaba vacía" de "no
+    // procesamos ninguno" (ver run-status.ts).
+    const counters = {
+      succeeded: stats.enriched,
+      failed: stats.failed,
+      aborted: sinTiempo,
+      found: stats.candidates,
+    };
     const status = deriveRunStatus(counters);
     const failureRate = runFailureRate(counters);
     const degraded = status !== 'success';
 
+    // Sólo se etiqueta HIGH_FAILURE_RATE cuando la tasa de fallo es realmente la
+    // causa. Una pasada cortada por reloj también sale degradada, y ponerle esa
+    // etiqueta mandaría a buscar un problema de calidad donde hay uno de
+    // presupuesto.
+    const porTasaDeFallo = degraded && !sinTiempo;
+
     await syncLogRepository.complete(logId, {
       status,
       totalFound: stats.candidates,
-      totalProcessed: stats.candidates,
+      // Lo REALMENTE recorrido, no el tamaño del lote: si se cortó a mitad,
+      // decir que se procesaron los 90 esconde justo lo que hay que ver.
+      totalProcessed: procesadas,
       totalSucceeded: stats.enriched,
       totalFailed: stats.failed,
-      ...(degraded
+      ...(porTasaDeFallo
         ? {
             errorCodes: ['HIGH_FAILURE_RATE'],
             errorDetails: [
@@ -232,6 +291,18 @@ export async function runEnrichOrdenesJob(): Promise<EnrichStats & { skipped: bo
             ],
           }
         : {}),
+      ...(sinTiempo
+        ? {
+            errorCodes: ['TIME_BUDGET_EXCEEDED'],
+            errorDetails: [
+              {
+                presupuestoMs: ENRICH_TIME_BUDGET_MS,
+                procesadas,
+                deLote: stats.candidates,
+              },
+            ],
+          }
+        : {}),
       metadata: {
         stillIncomplete: stats.stillIncomplete,
         notFound: stats.notFound,
@@ -239,6 +310,7 @@ export async function runEnrichOrdenesJob(): Promise<EnrichStats & { skipped: bo
         // Si esto sube, MP está frenando y el ritmo hay que revisarlo — no es
         // que las OCs no se puedan enriquecer.
         throttled: stats.throttled,
+        cortadaPorTiempo: sinTiempo,
       },
     });
 
