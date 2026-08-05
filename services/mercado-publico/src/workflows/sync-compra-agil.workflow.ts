@@ -10,6 +10,8 @@ import {
   type CompraAgilJobOptions,
   type CompraAgilRunPlan,
   type CompraAgilSliceResult,
+  type SliceFailure,
+  type TramoPlano,
 } from '../jobs/sync-compra-agil.job.js';
 import { notifyIngested } from '../infrastructure/licitus-callback/licitus-callback.js';
 import { clampPageSize } from '../infrastructure/mercado-publico/compra-agil.client.js';
@@ -63,6 +65,7 @@ async function syncSliceStep(
     estados: CompraAgilRunPlan['estados'];
     skipDetalle: CompraAgilRunPlan['skipDetalle'];
     incrementalHours: CompraAgilRunPlan['incrementalHours'];
+    tramo?: TramoPlano;
   },
 ): Promise<CompraAgilSliceResult> {
   'use step';
@@ -73,6 +76,8 @@ async function syncSliceStep(
       succeeded: 0,
       failed: 0,
       newIds: [],
+      failures: [],
+      capReached: false,
       aborted: true,
       quotaExhausted: false,
     };
@@ -85,7 +90,16 @@ syncSliceStep.maxRetries = 2;
 async function completeDateStep(
   logId: string,
   isoFecha: string,
-  totals: { found: number; succeeded: number; failed: number; aborted: boolean; errored: boolean },
+  totals: {
+    found: number;
+    succeeded: number;
+    failed: number;
+    aborted: boolean;
+    errored: boolean;
+    failures: SliceFailure[];
+    fatalError?: string;
+    capReached: boolean;
+  },
 ): Promise<void> {
   'use step';
   await completeCompraAgilDate(logId, isoFecha, totals);
@@ -156,15 +170,20 @@ export async function syncCompraAgilWorkflow(params: SyncCompraAgilParams = {}):
   let quotaExhausted = false;
   const perDate: Array<{ date: string; succeeded: number; failed: number }> = [];
 
-  const sliceOptions = {
-    cambioHasta: plan.cambioHasta,
-    estados: plan.estados,
-    skipDetalle: plan.skipDetalle,
-    incrementalHours: plan.incrementalHours,
-  };
+  // Cada unidad es una fecha (backfill) o un TRAMO de la ventana de cambios ya
+  // acotado bajo el techo de la API. El bucle es el mismo: lo que cambia es qué
+  // ventana consulta el slice.
+  for (let i = 0; i < plan.unidades.length; i++) {
+    const unidad = plan.unidades[i]!;
+    const iso = unidad.iso;
 
-  for (let i = 0; i < plan.isoDates.length; i++) {
-    const iso = plan.isoDates[i]!;
+    const sliceOptions = {
+      cambioHasta: plan.cambioHasta,
+      estados: plan.estados,
+      skipDetalle: plan.skipDetalle,
+      incrementalHours: plan.incrementalHours,
+      tramo: unidad.tramo,
+    };
 
     const { logId, isoFecha } = await beginDateStep(iso, plan.activeJobName);
 
@@ -174,7 +193,10 @@ export async function syncCompraAgilWorkflow(params: SyncCompraAgilParams = {}):
     let failed = 0;
     let dateAborted = false;
     let dateErrored = false;
+    let fatalError: string | undefined;
+    let capReached = false;
     const newIds: string[] = [];
+    const failures: SliceFailure[] = [];
 
     try {
       for (;;) {
@@ -184,6 +206,8 @@ export async function syncCompraAgilWorkflow(params: SyncCompraAgilParams = {}):
         succeeded += r.succeeded;
         failed += r.failed;
         newIds.push(...r.newIds);
+        failures.push(...r.failures);
+        capReached = capReached || r.capReached;
 
         if (r.quotaExhausted) {
           quotaExhausted = true;
@@ -202,8 +226,12 @@ export async function syncCompraAgilWorkflow(params: SyncCompraAgilParams = {}):
       // Ver nota equivalente en sync-ordenes.workflow.ts: una fecha que agota
       // reintentos no debe tumbar el run ni dejar su sync_log 'running' huérfano.
       dateErrored = true;
-      const error = err instanceof Error ? err.message : String(err);
-      await logDateFailureStep(plan.activeJobName, iso, error);
+      // Se GUARDA además de loguearse. `logDateFailureStep` escribe a stdout de
+      // una invocación serverless; lo que queda para diagnosticar tres días
+      // después es `sync_logs.error_details`, que hasta el 2026-08-05 este job
+      // dejaba vacío en sus 13 fallos.
+      fatalError = err instanceof Error ? err.message : String(err);
+      await logDateFailureStep(plan.activeJobName, iso, fatalError);
     }
 
     await completeDateStep(logId, isoFecha, {
@@ -212,6 +240,9 @@ export async function syncCompraAgilWorkflow(params: SyncCompraAgilParams = {}):
       failed,
       aborted: dateAborted,
       errored: dateErrored,
+      failures,
+      fatalError,
+      capReached,
     });
 
     if (newIds.length > 0 && !plan.skipAutoAnalysis) {

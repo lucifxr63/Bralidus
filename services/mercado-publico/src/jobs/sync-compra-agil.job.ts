@@ -4,11 +4,18 @@ import {
   compraAgilClient,
   clampPageSize,
   isQuotaExhausted,
+  PAGE_SIZE_MIN,
 } from '../infrastructure/mercado-publico/compra-agil.client.js';
 import type { CompraAgilListItem } from '../infrastructure/mercado-publico/compra-agil.types.js';
 import { ingestCompraAgilUseCase } from '../modules/opportunities/application/ingest-compra-agil.use-case.js';
 import { syncLogRepository } from '../modules/sync/infrastructure/sync-log.repository.js';
 import { deriveRunStatus } from '../modules/sync/domain/run-status.js';
+import {
+  partirVentana,
+  totalEstimado,
+  tramosTruncados,
+  type Tramo,
+} from '../modules/sync/domain/window-split.js';
 import { syncProgress } from './sync-progress.store.js';
 import { notifyIngested } from '../infrastructure/licitus-callback/licitus-callback.js';
 // `bralidusQuery` y NO `query`: esta última apunta al pool de Licitus, y
@@ -31,6 +38,46 @@ import { sendOpsAlert } from '../infrastructure/ops-alert/ops-alert.js';
  */
 
 const JOB_NAME = 'sync-compra-agil';
+
+/**
+ * Tope de fallos guardados en `sync_logs.error_details`. Una fecha con 4.400
+ * procesos puede fallar entera; guardar 4.400 objetos en una columna JSONB
+ * infla la fila sin agregar información — los primeros 50 ya dicen QUÉ falla.
+ */
+const MAX_FAILURES_RECORDED = 50;
+
+/**
+ * Techo duro de `total_resultados` de la API v2. **No es un límite nuestro.**
+ *
+ * Medido contra producción el 2026-08-05, mismo instante, mismo ticket:
+ *
+ *   ventana   3 h → total_resultados      0
+ *   ventana   6 h → total_resultados     18
+ *   ventana  26 h → total_resultados 10.000  (200 páginas)
+ *   ventana  72 h → total_resultados 10.000  (200 páginas)
+ *
+ * Una ventana tres veces más ancha devuelve el mismo número: es un tope, no un
+ * conteo. La página 201 responde `success: OK` con cero items — no un 400, no un
+ * error. O sea que al pasarse, la API no avisa: deja de haber datos.
+ *
+ * POR QUÉ IMPORTA
+ * ---------------
+ * El bucle de paginación corta en `offset >= found`. Con `found` topado en
+ * 10.000, una ventana que en realidad contiene 14.000 procesos termina
+ * ordenadamente habiendo ingerido 10.000 y reporta éxito. Los 4.000 que faltan
+ * no aparecen en ningún contador ni en ningún log: la corrida se ve perfecta.
+ *
+ * Por eso `capReached` fuerza 'partial' y avisa. Un dato truncado es un dato
+ * incompleto, y decir "success" sobre él es exactamente el fallo silencioso que
+ * este servicio arrastra.
+ */
+export const RESULT_CAP = 10_000;
+
+/** Un fallo de ingesta, con el código que lo identifica en Mercado Público. */
+export interface SliceFailure {
+  codigo: string;
+  error: string;
+}
 
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 
@@ -87,10 +134,35 @@ function buildDateWindow(date: Date, cambioHasta: string): QueryWindow {
  *   'Publicada' para siempre en nuestra base: `refresh-opportunities` re-consulta
  *   licitaciones por la API v1 y no cubre los COT.
  */
-function buildIncrementalWindow(cambioHasta: string, hours: number): QueryWindow {
-  const hasta = new Date(cambioHasta);
-  const desde = new Date(hasta.getTime() - hours * 3_600_000);
-  return { cambioDesde: desde.toISOString(), cambioHasta };
+/**
+ * Ventana de un tramo ya calculado por `partirVentana`.
+ *
+ * REEMPLAZA a la ventana incremental de una sola pieza que había acá. Esa
+ * construía `[hasta - N horas, hasta]` y la consultaba entera, lo que con el
+ * techo de 10.000 de la API significaba truncar sin enterarse. Se eliminó en vez
+ * de dejarla como fallback: un camino que ya no se recorre es exactamente lo que
+ * este servicio viene pagando caro (la extracción de ofertas vivió meses en una
+ * función que no llamaba nadie).
+ */
+function buildTramoWindow(tramo: TramoPlano): QueryWindow {
+  return { cambioDesde: tramo.desde, cambioHasta: tramo.hasta };
+}
+
+/**
+ * Cuántas compras ágiles cambiaron en un rango. Es la sonda de `partirVentana`.
+ *
+ * Pide `tamano_pagina` mínimo a propósito: el número sale de
+ * `paginacion.total_resultados`, que viene igual con 10 items que con 50, y cada
+ * sondeo gasta cuota diaria.
+ */
+async function contarCambios(desde: Date, hasta: Date): Promise<number> {
+  const payload = await compraAgilClient.list({
+    cambioDesde: desde.toISOString(),
+    cambioHasta: hasta.toISOString(),
+    numeroPagina: 1,
+    tamanoPagina: PAGE_SIZE_MIN,
+  });
+  return payload.paginacion?.total_resultados ?? 0;
 }
 
 // ── Procesamiento de una página ───────────────────────────────
@@ -106,16 +178,24 @@ function buildIncrementalWindow(cambioHasta: string, hours: number): QueryWindow
 async function processItems(
   items: CompraAgilListItem[],
   skipDetalle: boolean,
-): Promise<{ succeeded: number; failed: number; newIds: string[]; aborted: boolean; quotaExhausted: boolean }> {
+): Promise<{
+  succeeded: number;
+  failed: number;
+  newIds: string[];
+  failures: SliceFailure[];
+  aborted: boolean;
+  quotaExhausted: boolean;
+}> {
   let succeeded = 0;
   let failed = 0;
   let quotaExhausted = false;
   const newIds: string[] = [];
+  const failures: SliceFailure[] = [];
   const concurrency = skipDetalle ? 1 : env.COMPRA_AGIL_CONCURRENCY;
 
   for (let i = 0; i < items.length; i += concurrency) {
     if (syncProgress.isAbortRequested()) {
-      return { succeeded, failed, newIds, aborted: true, quotaExhausted };
+      return { succeeded, failed, newIds, failures, aborted: true, quotaExhausted };
     }
 
     const wave = items.slice(i, i + concurrency);
@@ -139,6 +219,10 @@ async function processItems(
       failed++;
       const error =
         outcome.reason instanceof Error ? outcome.reason.message : String(outcome.reason);
+      // Se ACUMULA además de loguearse: el log vive en stdout de una invocación
+      // serverless que nadie va a leer tres días después. Lo que queda es
+      // `sync_logs.error_details` (ver nota en completeCompraAgilDate).
+      if (failures.length < MAX_FAILURES_RECORDED) failures.push({ codigo: wave[j]!.codigo, error });
       logger.warn(
         { codigo: wave[j]!.codigo, error },
         `[${JOB_NAME}] Failed to ingest compra ágil`,
@@ -147,7 +231,7 @@ async function processItems(
 
     if (quotaExhausted) {
       syncProgress.log('🛑 Cuota diaria de la API Compra Ágil agotada — deteniendo');
-      return { succeeded, failed, newIds, aborted: true, quotaExhausted: true };
+      return { succeeded, failed, newIds, failures, aborted: true, quotaExhausted: true };
     }
 
     if (!skipDetalle && env.SYNC_REQUEST_DELAY_MS > 0) {
@@ -155,7 +239,7 @@ async function processItems(
     }
   }
 
-  return { succeeded, failed, newIds, aborted: false, quotaExhausted: false };
+  return { succeeded, failed, newIds, failures, aborted: false, quotaExhausted: false };
 }
 
 // ── Slice (unidad de trabajo de un step del Workflow) ─────────
@@ -168,6 +252,10 @@ export interface CompraAgilSliceResult {
   failed: number;
   /** UUIDs nuevos — para auto-analysis. */
   newIds: string[];
+  /** Qué falló y por qué. Viaja hasta `sync_logs.error_details`. */
+  failures: SliceFailure[];
+  /** La ventana topó los 10.000 de la API: hay datos que no vamos a ver. */
+  capReached: boolean;
   aborted: boolean;
   quotaExhausted: boolean;
 }
@@ -200,13 +288,18 @@ export async function syncCompraAgilDateSlice(
     skipDetalle?: boolean;
     /** Si viene, se ignora `date` y se consulta por ventana de cambios. */
     incrementalHours?: number;
+    /**
+     * Tramo ya acotado bajo el techo de la API. Tiene prioridad sobre todo lo
+     * demás: es el único modo que garantiza no truncar (ver window-split.ts).
+     */
+    tramo?: TramoPlano;
   },
 ): Promise<CompraAgilSliceResult> {
   const pageSize = clampPageSize(limit);
   const numeroPagina = Math.floor(offset / pageSize) + 1;
-  const window = opts.incrementalHours
-    ? buildIncrementalWindow(opts.cambioHasta, opts.incrementalHours)
-    : buildDateWindow(date, opts.cambioHasta);
+  // En modo incremental el plan SIEMPRE produce tramos, así que `tramo` viene
+  // puesto; el modo fecha (backfills) es el que consulta por publicación.
+  const window = opts.tramo ? buildTramoWindow(opts.tramo) : buildDateWindow(date, opts.cambioHasta);
 
   const empty = (found: number): CompraAgilSliceResult => ({
     found,
@@ -214,6 +307,8 @@ export async function syncCompraAgilDateSlice(
     succeeded: 0,
     failed: 0,
     newIds: [],
+    failures: [],
+    capReached: found >= RESULT_CAP,
     aborted: false,
     quotaExhausted: false,
   });
@@ -238,11 +333,23 @@ export async function syncCompraAgilDateSlice(
   }
 
   const found = payload.paginacion?.total_resultados ?? 0;
+  const capReached = found >= RESULT_CAP;
   const items = payload.items ?? [];
   if (items.length === 0) return empty(found);
 
-  const scope = opts.incrementalHours
-    ? `cambios ${opts.incrementalHours}h`
+  // Se avisa una sola vez, en la primera página: repetirlo en las 200 llenaría
+  // el canal con el mismo hecho.
+  if (capReached && numeroPagina === 1) {
+    syncProgress.log(
+      `⚠ La ventana topó los ${RESULT_CAP.toLocaleString('es-CL')} resultados de la API — ` +
+        `hay procesos que esta corrida NO va a ver. Achicar la ventana.`,
+    );
+  }
+
+  // El tramo concreto y no "cambios 26h": si una franja falla, el registro tiene
+  // que decir CUÁL, no el nombre del modo.
+  const scope = opts.tramo
+    ? `${opts.tramo.desde.slice(11, 16)}–${opts.tramo.hasta.slice(11, 16)} UTC del ${opts.tramo.desde.slice(0, 10)}`
     : toIsoDateString(date);
   syncProgress.log(
     `Slice compra ágil ${offset + 1}-${offset + items.length}/${found} (${scope})...`,
@@ -260,12 +367,29 @@ export async function syncCompraAgilDateSlice(
     succeeded: r.succeeded,
     failed: r.failed,
     newIds: r.newIds,
+    failures: r.failures,
+    capReached,
     aborted: r.aborted,
     quotaExhausted: r.quotaExhausted,
   };
 }
 
-/** Completa el sync_log de la fecha con los totales acumulados de los slices. */
+/**
+ * Completa el sync_log de la fecha con los totales acumulados de los slices.
+ *
+ * POR QUÉ VIAJAN LOS ERRORES HASTA ACÁ
+ * ------------------------------------
+ * Hasta el 2026-08-05 esta función no pasaba `errorCodes` ni `errorDetails`, así
+ * que las 13 corridas fallidas de `sync-compra-agil` quedaron con
+ * `error_details = []`: el status decía "failed" y no había una sola pista de
+ * por qué. Dos de ellas ardieron 27,4 minutos exactos —1641 y 1643 segundos, la
+ * misma escalera de timeouts— y fueron indiagnosticables durante semanas.
+ *
+ * El mensaje SÍ se escribía, pero a stdout de una invocación serverless que
+ * nadie lee tres días después. `sync-licitaciones` ya guardaba el detalle (31 de
+ * 38 fallos); acá el cableado nunca se hizo. El repositorio lo soportaba desde
+ * siempre — incluso manda el primer error a Discord al marcar 'failed'.
+ */
 export async function completeCompraAgilDate(
   logId: string,
   isoFecha: string,
@@ -276,15 +400,58 @@ export async function completeCompraAgilDate(
     aborted: boolean;
     /** La fecha reventó por error de step (p.ej. CPU limit) — nunca es 'success'. */
     errored?: boolean;
+    /** Fallos por proceso, acumulados de los slices. */
+    failures?: SliceFailure[];
+    /** Mensaje de la excepción que tumbó la fecha entera, si la hubo. */
+    fatalError?: string;
+    /** La ventana topó el techo de la API: el dato quedó truncado. */
+    capReached?: boolean;
   },
 ): Promise<void> {
-  const { found, succeeded, failed, aborted, errored } = totals;
+  const {
+    found,
+    succeeded,
+    failed,
+    aborted,
+    errored,
+    failures = [],
+    fatalError,
+    capReached = false,
+  } = totals;
   // `errored` (la fecha reventó por error de step) nunca puede ser 'success'.
-  const status = errored
+  const base = errored
     ? succeeded > 0
       ? 'partial'
       : 'failed'
-    : deriveRunStatus({ succeeded, failed, aborted });
+    : deriveRunStatus({ succeeded, failed, aborted, found });
+
+  // Topar el techo de la API significa que quedaron procesos afuera, aunque
+  // todo lo que sí se pidió haya entrado bien. 'success' sobre un dato truncado
+  // es mentira; degradar a 'partial' es exactamente lo que 'partial' significa.
+  const status = capReached && base === 'success' ? 'partial' : base;
+
+  // El fatal va PRIMERO: el repositorio manda `errorDetails[0]` a Discord, y lo
+  // que explica una fecha caída es la excepción, no el primer proceso que falló.
+  const errorDetails: Record<string, unknown>[] = [
+    ...(fatalError ? [{ fatal: fatalError }] : []),
+    ...(capReached
+      ? [{ truncado: `La ventana topó los ${RESULT_CAP} resultados de la API v2`, found }]
+      : []),
+    ...failures.map((f) => ({ codigo: f.codigo, error: f.error })),
+  ];
+
+  if (capReached) {
+    void sendOpsAlert({
+      level: 'warn',
+      channel: 'degradacion',
+      title: 'Ventana de Compra Ágil truncada por el techo de la API',
+      detail:
+        `La consulta de ${isoFecha} devolvió ${found} resultados, que es el techo de ` +
+        `${RESULT_CAP} de la API v2 — el número real es MAYOR y esos procesos no se ` +
+        `ingirieron. Hay que achicar la ventana (partirla en tramos) para verlos.`,
+      dedupeKey: `compra-agil-cap:${isoFecha}`,
+    });
+  }
 
   await syncLogRepository.complete(logId, {
     status,
@@ -292,6 +459,8 @@ export async function completeCompraAgilDate(
     totalProcessed: succeeded + failed,
     totalSucceeded: succeeded,
     totalFailed: failed,
+    errorCodes: failures.map((f) => f.codigo),
+    errorDetails,
   });
 
   syncProgress.log(
@@ -328,17 +497,44 @@ export interface CompraAgilJobOptions {
   incrementalHours?: number;
 }
 
+/** Tramo de tiempo plano, serializable como parámetro de un Workflow step. */
+export interface TramoPlano {
+  desde: string;
+  hasta: string;
+  /** Lo que la sonda dijo que hay. Para comparar contra lo ingerido. */
+  estimado: number;
+  /** No se pudo bajar del techo ni al mínimo: va a quedar incompleto. */
+  truncado: boolean;
+}
+
+/**
+ * Una unidad de trabajo del plan: lo que se abre como un `sync_log` y se pagina
+ * de punta a punta.
+ *
+ * - Modo fecha (backfills): una unidad por día, sin `tramo`.
+ * - Modo incremental: una unidad por TRAMO de la ventana de cambios.
+ *
+ * `iso` es sólo la etiqueta que va a `fecha_consultada`; en modo incremental la
+ * ventana real la define el tramo, no el día.
+ */
+export interface UnidadDeTrabajo {
+  iso: string;
+  tramo?: TramoPlano;
+}
+
 export interface CompraAgilRunPlan {
   activeJobName: string;
-  /** Fechas ISO (YYYY-MM-DD) — serializables como params de un Workflow step. */
-  isoDates: string[];
+  /** Serializables como params de un Workflow step. */
+  unidades: UnidadDeTrabajo[];
   /** Extremo superior FIJO de la ventana de cambios (ver buildDateWindow). */
   cambioHasta: string;
   estados?: string[];
   skipAutoAnalysis: boolean;
   skipDetalle: boolean;
-  /** > 0 = modo incremental; isoDates contiene una sola entrada (hoy). */
+  /** > 0 = modo incremental; las unidades son tramos. */
   incrementalHours?: number;
+  /** Sondeos gastados al partir la ventana, para vigilar el costo en cuota. */
+  sondeos?: number;
 }
 
 function computeDates(options: CompraAgilJobOptions): Date[] {
@@ -421,11 +617,54 @@ export async function planCompraAgilRun(
     return null;
   }
 
-  // En incremental la "fecha" es solo la etiqueta del sync_log: la ventana real
-  // la define cambio_desde/cambio_hasta, no el día.
-  let dates = options.incrementalHours ? [new Date()] : computeDates(options);
+  const cambioHasta = new Date().toISOString();
 
-  if (options.skipAlreadySynced && !options.incrementalHours) {
+  // Modo incremental por defecto cuando no se pidió un rango explícito.
+  //
+  // Hasta el 2026-08-05 esto no se activaba NUNCA: `incrementalHours` no lo
+  // pasaba ningún caller y `COMPRA_AGIL_INCREMENTAL_HOURS` no la leía nadie. El
+  // cron manda `{}`, así que corría en modo fecha con lookback=2 y
+  // re-sincronizaba 3 días cada noche — cada fecha se sincronizó entre 2 y 4
+  // veces. Cuarenta líneas explicando por qué el incremental era mejor, y era
+  // código muerto.
+  //
+  // No se activa si el caller pidió fechas: un backfill de enero tiene que
+  // barrer por publicación, no traer "lo que cambió en las últimas 26 h".
+  const pidioFechas =
+    options.specificDate != null ||
+    (options.startDate != null && options.endDate != null) ||
+    options.daysBack != null;
+
+  // El flag va SEPARADO de `pidioFechas`: apagado, el cron vuelve al modo fecha
+  // de siempre, pero un caller que pida `incrementalHours` explícitamente igual
+  // lo obtiene (para probarlo a mano sin cambiar el comportamiento del cron).
+  const incrementalPorDefecto =
+    env.COMPRA_AGIL_INCREMENTAL_ENABLED && !pidioFechas
+      ? env.COMPRA_AGIL_INCREMENTAL_HOURS
+      : undefined;
+  const incrementalHours = options.incrementalHours ?? incrementalPorDefecto;
+
+  if (incrementalHours) {
+    const { unidades, sondeos } = await planificarTramos(
+      activeJobName,
+      cambioHasta,
+      incrementalHours,
+    );
+    return {
+      activeJobName,
+      unidades,
+      cambioHasta,
+      estados: options.estados,
+      skipAutoAnalysis: options.skipAutoAnalysis ?? false,
+      skipDetalle: options.skipDetalle ?? false,
+      incrementalHours,
+      sondeos,
+    };
+  }
+
+  let dates = computeDates(options);
+
+  if (options.skipAlreadySynced) {
     const filtered: Date[] = [];
     for (const d of dates) {
       const iso = toIsoDateString(d);
@@ -440,32 +679,121 @@ export async function planCompraAgilRun(
 
   return {
     activeJobName,
-    isoDates: dates.map(toIsoDateString),
-    cambioHasta: new Date().toISOString(),
+    unidades: dates.map((d) => ({ iso: toIsoDateString(d) })),
+    cambioHasta,
     estados: options.estados,
     skipAutoAnalysis: options.skipAutoAnalysis ?? false,
     skipDetalle: options.skipDetalle ?? false,
-    incrementalHours: options.incrementalHours,
+  };
+}
+
+/**
+ * Parte la ventana de cambios en tramos que quepan bajo el techo de la API.
+ *
+ * Cada tramo es una unidad de trabajo con su propio `sync_log`: si uno revienta,
+ * los demás siguen, y en el registro queda qué franja horaria falló.
+ */
+async function planificarTramos(
+  activeJobName: string,
+  cambioHasta: string,
+  horas: number,
+): Promise<{ unidades: UnidadDeTrabajo[]; sondeos: number }> {
+  const hasta = new Date(cambioHasta);
+  const desde = new Date(hasta.getTime() - horas * 3_600_000);
+
+  let particion;
+  try {
+    particion = await partirVentana(desde, hasta, contarCambios, { cap: RESULT_CAP });
+  } catch (err) {
+    // Cuota agotada SONDEANDO. Verificado el 2026-08-05: la API responde
+    // `success: NOK` + código 429 con `payload: null`.
+    //
+    // Se atrapa acá y se devuelve un plan vacío en vez de dejar que la excepción
+    // suba: si sube, revienta el step de planificación y la corrida entera queda
+    // como error, cuando en realidad no hay nada roto — se acabó la cuota del
+    // día y mañana sigue. Es el mismo trato que ya reciben los slices.
+    //
+    // OJO al tocar `contarCambios`: si alguna vez devolviera 0 ante un error en
+    // vez de lanzar, la ventana entera se daría por vacía, el sync no ingeriría
+    // nada y cerraría en verde. Que `compraAgilClient.list` lance ante NOK es lo
+    // único que separa "no hay nada" de "no pudimos preguntar".
+    if (isQuotaExhausted(err)) {
+      logger.warn(`[${activeJobName}] Cuota agotada al sondear la ventana — sin tramos`);
+      syncProgress.log('🛑 Cuota diaria agotada al planificar — la corrida no arranca');
+      void sendOpsAlert({
+        level: 'warn',
+        channel: 'degradacion',
+        title: 'Cuota de la API Compra Ágil agotada al planificar los tramos',
+        detail:
+          'No se alcanzó a sondear la ventana. La corrida no ingiere nada y retoma ' +
+          'en el próximo día calendario, cuando la cuota se restablece.',
+        dedupeKey: 'compra-agil-quota-plan',
+      });
+      return { unidades: [], sondeos: 0 };
+    }
+    throw err;
+  }
+
+  const { tramos, sondeos, incompleto } = particion;
+
+  const truncados = tramosTruncados(tramos);
+  if (truncados.length > 0 || incompleto) {
+    // Que la ventana no se haya podido partir del todo es exactamente el
+    // escenario que este mecanismo existe para no tragarse en silencio.
+    void sendOpsAlert({
+      level: 'error',
+      channel: 'degradacion',
+      title: 'No se pudo partir la ventana de Compra Ágil bajo el techo de la API',
+      detail:
+        (incompleto ? `Se agotó el presupuesto de ${sondeos} sondeos explorando. ` : '') +
+        (truncados.length > 0
+          ? `${truncados.length} tramo(s) siguen en el techo de ${RESULT_CAP} aun al mínimo ` +
+            `subdivisible: ${truncados.map((t) => `${t.desde}→${t.hasta}`).join(', ')}. `
+          : '') +
+        'Esos procesos NO se van a ingerir en esta corrida.',
+      dedupeKey: `compra-agil-particion:${cambioHasta.slice(0, 13)}`,
+    });
+  }
+
+  logger.info(
+    { tramos: tramos.length, sondeos, estimado: totalEstimado(tramos), truncados: truncados.length },
+    `[${activeJobName}] Ventana de ${horas}h partida en tramos`,
+  );
+
+  return {
+    unidades: tramos.map((t: Tramo) => ({
+      // Etiqueta legible en `fecha_consultada`: día + hora de inicio del tramo.
+      // Es TEXT, así que aguanta el sufijo y el panel sigue mostrando el día.
+      iso: t.desde.slice(0, 10),
+      tramo: { desde: t.desde, hasta: t.hasta, estimado: t.estimado, truncado: t.truncado },
+    })),
+    sondeos,
   };
 }
 
 /** Inicializa la fila de progreso y anuncia la corrida. */
 export async function startCompraAgilRun(plan: CompraAgilRunPlan): Promise<void> {
   await syncProgress.start(plan.activeJobName);
-  syncProgress.updateStats({ totalDates: plan.isoDates.length, currentDateIndex: 0 });
+  syncProgress.updateStats({ totalDates: plan.unidades.length, currentDateIndex: 0 });
   if (plan.incrementalHours) {
+    const estimado = plan.unidades.reduce((a, u) => a + (u.tramo?.estimado ?? 0), 0);
     syncProgress.log(
-      `Modo incremental: compras ágiles cambiadas en las últimas ${plan.incrementalHours}h`,
+      `Modo incremental: ${plan.incrementalHours}h de cambios, partidas en ` +
+        `${plan.unidades.length} tramo(s) bajo el techo de ${RESULT_CAP} ` +
+        `(${plan.sondeos ?? 0} sondeos, ~${estimado.toLocaleString('es-CL')} procesos)`,
     );
+    const truncados = plan.unidades.filter((u) => u.tramo?.truncado).length;
+    if (truncados > 0) {
+      syncProgress.log(`⚠ ${truncados} tramo(s) siguen topados: su dato va a quedar incompleto`);
+    }
   } else {
-    syncProgress.log(
-      `Fechas de compras ágiles a procesar (${plan.isoDates.length}): ${plan.isoDates.join(', ')}`,
-    );
+    const isos = plan.unidades.map((u) => u.iso);
+    syncProgress.log(`Fechas de compras ágiles a procesar (${isos.length}): ${isos.join(', ')}`);
   }
   if (plan.estados?.length) syncProgress.log(`⚙ Estados: ${plan.estados.join(', ')}`);
   if (plan.skipAutoAnalysis) syncProgress.log('⚙ Auto-análisis desactivado para esta corrida');
   if (plan.skipDetalle) syncProgress.log('⚠ Sin fetch de detalle: no habrá UNSPSC ni descripción');
-  logger.info({ dates: plan.isoDates }, `[${plan.activeJobName}] Starting run`);
+  logger.info({ unidades: plan.unidades.length }, `[${plan.activeJobName}] Starting run`);
 }
 
 /** Cuenta cuántas compras ágiles hay en el rango sin ingerir nada (dry-run). */
@@ -505,8 +833,9 @@ export async function runSyncCompraAgilJob(options: CompraAgilJobOptions = {}): 
   let aborted = false;
   let quotaExhausted = false;
 
-  for (let i = 0; i < plan.isoDates.length && !aborted; i++) {
-    const iso = plan.isoDates[i]!;
+  for (let i = 0; i < plan.unidades.length && !aborted; i++) {
+    const unidad = plan.unidades[i]!;
+    const iso = unidad.iso;
     const date = isoToDate(iso);
 
     if (await syncProgress.refreshAbort()) {
@@ -524,7 +853,10 @@ export async function runSyncCompraAgilJob(options: CompraAgilJobOptions = {}): 
     let failed = 0;
     let dateAborted = false;
     let dateErrored = false;
+    let fatalError: string | undefined;
+    let capReached = false;
     const newIds: string[] = [];
+    const failures: SliceFailure[] = [];
 
     try {
       for (;;) {
@@ -533,12 +865,15 @@ export async function runSyncCompraAgilJob(options: CompraAgilJobOptions = {}): 
           estados: plan.estados,
           skipDetalle: plan.skipDetalle,
           incrementalHours: plan.incrementalHours,
+          tramo: unidad.tramo,
         });
 
         found = r.found;
         succeeded += r.succeeded;
         failed += r.failed;
         newIds.push(...r.newIds);
+        failures.push(...r.failures);
+        capReached = capReached || r.capReached;
 
         if (r.quotaExhausted) {
           quotaExhausted = true;
@@ -562,9 +897,9 @@ export async function runSyncCompraAgilJob(options: CompraAgilJobOptions = {}): 
       }
     } catch (err) {
       dateErrored = true;
-      const error = err instanceof Error ? err.message : String(err);
-      logger.error({ iso, error }, `[${plan.activeJobName}] Date failed — continuing`);
-      syncProgress.log(`✗ Fecha ${iso} falló (${error}) — continúo con la siguiente`);
+      fatalError = err instanceof Error ? err.message : String(err);
+      logger.error({ iso, error: fatalError }, `[${plan.activeJobName}] Date failed — continuing`);
+      syncProgress.log(`✗ Fecha ${iso} falló (${fatalError}) — continúo con la siguiente`);
     }
 
     totalIngested += succeeded;
@@ -574,6 +909,9 @@ export async function runSyncCompraAgilJob(options: CompraAgilJobOptions = {}): 
       failed,
       aborted: dateAborted,
       errored: dateErrored,
+      failures,
+      fatalError,
+      capReached,
     });
 
     // Post-proceso en Licitus (ver licitus-callback). `skipAutoAnalysis` se

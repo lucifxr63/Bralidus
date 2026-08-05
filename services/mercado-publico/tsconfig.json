@@ -9,6 +9,11 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "noEmit": true,
+    // Los .test.ts importan con extensión .ts porque el runner nativo de Node
+    // (`node --test`, sin framework) resuelve el archivo real, no el .js que
+    // nunca se emite. Es seguro con noEmit: acá tsc sólo verifica tipos, y
+    // quien construye es nitro.
+    "allowImportingTsExtensions": true,
     "resolveJsonModule": true
   },
   "include": ["src/**/*.ts"]

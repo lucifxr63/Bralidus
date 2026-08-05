@@ -17,9 +17,28 @@ const canalDeLatido = (jobName: string): OpsChannel => CANAL_POR_JOB[jobName] ??
 /** Corridas 'running' más viejas que esto se consideran huérfanas/atascadas. */
 const STALE_RUNNING_HOURS = 2;
 
+/**
+ * Corridas vacías seguidas antes de alertar. Mismo umbral que `job_health` en el
+ * worker de Bralidus, y por la misma razón: una sola corrida vacía puede ser un
+ * feriado; tres seguidas no.
+ */
+const EMPTY_STREAK_THRESHOLD = 3;
+
 // ── Types ────────────────────────────────────────────────────
 
-export type SyncStatus = 'running' | 'success' | 'partial' | 'failed';
+/**
+ * `empty` = la corrida terminó sin error y sin traer nada.
+ *
+ * NO es un éxito y NO es un fallo: un feriado sin publicaciones y una consulta
+ * rota se ven idénticos en una sola corrida, porque `total_found` lo dicta la
+ * fuente. Lo que los separa es la RACHA — por eso `empty` existe como estado
+ * propio y `empty_run_streak` (migración 20260805) es lo que alerta.
+ *
+ * Queda deliberadamente FUERA de los `status IN ('success','partial')` que
+ * calculan `last_success`, `ok_48h` y `hasSuccessForDate`: una fecha que volvió
+ * vacía no está sincronizada y debe reintentarse.
+ */
+export type SyncStatus = 'running' | 'success' | 'partial' | 'failed' | 'empty';
 
 export interface CreateSyncLogInput {
   jobName: string;
@@ -181,6 +200,65 @@ class SyncLogRepository {
         footer: jobName,
         dedupeKey: `sync-done:${id}`,
       });
+    }
+
+    if (input.status === 'empty') {
+      void this.alertarSiRachaVacia(jobName);
+    }
+  }
+
+  /**
+   * Avisa cuando un job lleva `EMPTY_STREAK_THRESHOLD` corridas seguidas sin
+   * traer nada. Equivalente de `job_health_report()` del worker de Bralidus.
+   *
+   * POR QUÉ LA RACHA SE CUENTA EN LA BASE
+   * -------------------------------------
+   * Es la lección que costó cuatro extractores muertos durante meses. Hasta el
+   * 2026-08-04 el worker llevaba ese contador en un dict del proceso; funcionó
+   * mientras corría persistente, y el día que se desplegó serverless cada
+   * invocación pasó a ser un proceso nuevo, el contador volvía a 0 siempre y el
+   * umbral quedó matemáticamente inalcanzable. Nadie rompió nada: una migración
+   * de arquitectura invalidó el detector en silencio.
+   *
+   * mp-sync corre serverless desde el día uno, así que un contador en memoria
+   * acá nacería roto. La racha la calcula `mp_job_health_resumen` sobre las
+   * filas — el único lugar que sobrevive entre invocaciones.
+   *
+   * UNA corrida vacía no alerta a propósito: un feriado sin publicaciones es
+   * legítimamente vacío. Tres seguidas ya no son casualidad.
+   */
+  private async alertarSiRachaVacia(jobName: string): Promise<void> {
+    try {
+      const row = await queryOne<{ racha_vacia: string; dias_sin_producir: string | null }>(
+        `SELECT racha_vacia::text, dias_sin_producir::text
+           FROM mp_job_health_resumen WHERE job_name = $1`,
+        [jobName],
+      );
+      const racha = parseInt(row?.racha_vacia ?? '0', 10);
+      if (racha < EMPTY_STREAK_THRESHOLD) return;
+
+      const dias = row?.dias_sin_producir;
+      void sendOpsAlert({
+        level: 'error',
+        channel: 'degradacion',
+        title: `'${jobName}' lleva ${racha} corridas seguidas sin traer nada`,
+        detail:
+          `La fuente viene respondiendo bien pero con cero resultados. Eso ya no es ` +
+          `un día tranquilo: apunta a una consulta que dejó de calzar (ventana, ` +
+          `filtro de estados, o un endpoint que se movió).\n\n` +
+          (dias ? `Sin producir hace ${dias} días.\n` : '') +
+          '```sql\nselect * from mp_job_health_resumen where diagnostico <> \'ok\';\n```',
+        // Por racha y no por corrida: si no, cada corrida vacía posterior
+        // volvería a sonar y el aviso se volvería ruido que se aprende a ignorar.
+        dedupeKey: `mp-racha-vacia:${jobName}:${racha}`,
+      });
+    } catch (err) {
+      // El detector nunca debe tumbar el sync. Pero tampoco debe fallar callado:
+      // un monitor que se rompe en silencio es peor que no tener monitor.
+      logger.error(
+        { jobName, err: err instanceof Error ? err.message : String(err) },
+        'No se pudo evaluar la racha de corridas vacías',
+      );
     }
   }
 

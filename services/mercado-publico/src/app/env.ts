@@ -76,6 +76,28 @@ const envSchema = z.object({
     .default('true'),
   COMPRA_AGIL_LOOKBACK_DAYS: z.coerce.number().int().min(0).max(30).default(2),
   COMPRA_AGIL_INCREMENTAL_HOURS: z.coerce.number().int().min(1).max(168).default(26),
+  /**
+   * Interruptor del modo incremental troceado.
+   *
+   * **Default `false` a propósito.** El modo incremental cambia lo que hace el
+   * sync nocturno: en vez de re-barrer 3 fechas por publicación, parte la
+   * ventana de cambios en tramos bajo el techo de 10.000 de la API. Es el
+   * comportamiento correcto, pero al 2026-08-05 **no está verificado contra
+   * Mercado Público** — la cuota diaria estaba agotada al probarlo, así que sólo
+   * se validó contra distribuciones sintéticas (ver window-split.test.ts).
+   *
+   * El flag separa dos riesgos que si no viajan juntos en el mismo deploy:
+   * arreglar cosas rotas, y cambiar cómo funciona la ingesta. Con `false` sale
+   * todo lo primero sin tocar lo segundo.
+   *
+   * Para activarlo: poner `true` en el proyecto Vercel y mirar la corrida
+   * siguiente en `mp_job_health_resumen` + el canal `degradacion`, que es donde
+   * avisa si un tramo topa el techo o si la ventana no se pudo partir.
+   */
+  COMPRA_AGIL_INCREMENTAL_ENABLED: z
+    .string()
+    .transform((v) => v === 'true')
+    .default('false'),
   // = tamano_pagina de la API v2, que solo admite 10..50.
   COMPRA_AGIL_CHUNK_SIZE: z.coerce.number().int().min(10).max(50).default(50),
   COMPRA_AGIL_CONCURRENCY: z.coerce.number().int().min(1).max(12).default(6),
@@ -140,7 +162,21 @@ const envSchema = z.object({
   // pasadas. Para volver a 100 o más hay que subir `maxDuration` en vercel.json
   // primero (Fluid admite más de 300 s según el plan), no bajar el ritmo: los
   // 2,5 s son lo que da 100 % de acierto.
-  ENRICH_OC_MAX_ITEMS: z.coerce.number().int().min(1).max(1000).default(90),
+  //
+  // ── Recalibrado el 2026-08-05, sobre 492 corridas terminadas ──────────
+  // La estimación de arriba era correcta (252 s previstos, p50 real 255 s). Lo
+  // que no cubría es la VARIANZA: p90 = 400 s. O sea que 90 ítems entran en un
+  // día normal y no entran en uno lento, y ahí el proceso muere sin llegar a
+  // `complete()` — 5 huérfanas en 7 días. Cada una además corta la cadena de 10
+  // pasadas del workflow, así que una pasada perdida arrastra hasta nueve más.
+  //
+  // Se baja a 80 (≈226 s al ritmo medido de 2,83 s/ítem) para que la pasada
+  // NORMAL termine holgada por debajo de ENRICH_TIME_BUDGET_MS (250 s), y ese
+  // presupuesto quede como red de seguridad que sólo actúa en los días lentos.
+  //
+  // Si el tope fuera a dispararse en todas las corridas, 'partial' pasaría a ser
+  // lo normal y el estado dejaría de significar algo — ver run-status.ts.
+  ENRICH_OC_MAX_ITEMS: z.coerce.number().int().min(1).max(1000).default(80),
   // Las pasadas encadenadas por disparo NO son configurables por entorno: viven
   // como constante en enrich-ordenes.workflow.ts (MAX_PASADAS). El cuerpo de un
   // `'use workflow'` tiene que ser determinista, y leer env ahí adentro hace

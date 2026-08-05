@@ -56,6 +56,116 @@ VITE_SUPABASE_ANON_KEY=sb_publishable_...
   - Compra Ágil `official_url` points to `compra-agil.mercadopublico.cl/resumen-cotizacion/<code>`. The old `www.mercadopublico.cl/CompraAgil/Ficha/<code>` returns HTTP 200 with an empty page instead of 404, so broken links looked valid.
   - If Licitus is also down, the endpoints return **503 `SOURCE_UNAVAILABLE`** — they never fabricate records. Do not reintroduce a hardcoded dataset here (see the note in the backend `CLAUDE.md`).
 
+### 1.b `mp-sync` — cuatro cosas que muerden (verificadas 2026-08-05)
+
+**1. La API v2 de Compra Ágil tope en 10.000 resultados y no lo dice.**
+
+| Ventana de cambios | `total_resultados` |
+|---:|---:|
+| 6 h | 18 |
+| 26 h | **10.000** |
+| 72 h | **10.000** |
+
+Tres veces más ancha, mismo número: es un techo, no un conteo. La **página 201
+responde `success: OK` con cero items**, no un 400. Como el bucle de paginación
+corta en `offset >= found`, una ventana que contenga más de 10.000 procesos
+termina ordenadamente y reporta éxito habiendo perdido el resto.
+
+`RESULT_CAP` en `sync-compra-agil.job.ts` lo detecta: fuerza `partial` y avisa a
+`degradacion`. **No subir la ventana sin partirla en tramos.**
+
+**2. El modo incremental corre TROCEADO, y no se puede volver a la ventana única.**
+Hasta el 2026-08-05 `COMPRA_AGIL_INCREMENTAL_HOURS` no la leía nadie y el cron
+(que manda `BODY='{}'`) corría en modo fecha re-sincronizando 3 días cada noche.
+Activarlo tal cual habría truncado en 10.000.
+
+Hoy `planCompraAgilRun` parte la ventana de cambios con `partirVentana`
+(`modules/sync/domain/window-split.ts`): búsqueda binaria sobre el tiempo, cada
+tramo bajo el techo. **El tamaño de tramo NO puede ser fijo** — la actividad se
+concentra en horario hábil (6 h de madrugada → 18 resultados; 6 h de mañana
+puede topar).
+
+Dos cosas que parecen detalles y no lo son:
+- Los tramos **comparten** el instante de corte. Repetir un proceso es inocuo
+  (el upsert es idempotente); un hueco de un milisegundo lo pierde para siempre.
+- **La sonda tiene que LANZAR ante un error, nunca devolver 0.** Si un 429
+  llegara como "cero resultados", la ventana entera se daría por vacía, el sync
+  no ingeriría nada y cerraría en verde. `compraAgilClient.list` lanza ante
+  `success: NOK` y eso es lo único que separa "no hay nada" de "no pudimos
+  preguntar". Hay dos tests que lo fijan.
+
+**3. El DETALLE de la API v1 no tolera el ritmo de los listados.**
+Rechaza con `HTTP 429 · Codigo 10500` "peticiones simultáneas". Medido
+secuencialmente (2026-07-29 sobre OCs, remedido 2026-08-05 sobre licitaciones):
+**200 ms → ~50% de éxito · 1500 ms → 100%.** Los jobs que consultan detalle usan
+2500 ms (`ENRICH_DELAY_MS`, `REFRESH_DELAY_MS`), **no** `SYNC_REQUEST_DELAY_MS`,
+que son 200 ms y sirve sólo para listados. Un job nuevo que pida detalle y herede
+los 200 ms va a fallar en la mitad de los items y a arrastrarse durante horas.
+
+**4. Un job que no esté en `JOB_EXPECTED_INTERVAL_HOURS` no se vigila.**
+Sin entrada ahí, `expectedIntervalHours` es `null` y la regla de "sin éxito hace
+más de 2× el intervalo" nunca se evalúa: el job puede pasar semanas caído y
+verse `healthy`. Es opt-in silencioso. `sync-compra-agil` faltaba desde siempre.
+
+#### ⚠️ `knowledge_edges` enlaza por TÍTULO y no tiene foreign key
+
+Una arista hacia un nodo inexistente **se inserta sin error y se cuenta como
+éxito**. Y `search_hybrid_graphrag` trae los vecinos con un **INNER JOIN**, así
+que esa arista aporta **cero filas en silencio**: el grafo promete contexto, el
+join lo descarta, y el LLM completa el hueco. Es un generador de alucinaciones.
+
+`sync-jurisprudencia-grafo` creaba nodos con topes (`TOP_MATERIAS=12`) y aristas
+con otro umbral sin tope (`n>500 y 20%`) — 38 huérfanas el 2026-08-03, con
+materias como Bancos y AFP apuntando al vacío. Hoy el job **descarta las aristas
+cuyos extremos no son nodos y avisa a `degradacion`** con los títulos faltantes.
+
+**Al agregar aristas desde cualquier job: verificar que ambos extremos existan
+como `document_title`.** Nada te lo va a avisar.
+
+#### Salud real de los jobs
+
+```sql
+select * from mp_job_health_resumen where diagnostico <> 'ok';
+```
+
+Mide si **produjeron**, no si terminaron. Estados: `NUNCA PRODUJO` /
+`NUNCA TERMINA (huerfanas)` / `FALLO SILENCIOSO` (3 vacías seguidas) /
+`SIN PRODUCIR HACE MAS DE 7 DIAS`.
+
+**Huérfana ≠ fallo real.** `clearStaleRunning` marca `failed` las corridas que
+quedaron en 'running' más de 2 h y les deja `metadata.stale_cleared = true`. Esas
+no fallaron: **el proceso murió antes de llamar a `complete()`**, típicamente por
+pasarse del presupuesto de la función. Por eso tienen `error_details = []` — no
+hay excepción que leer porque nunca la hubo. Buscarle el error a una huérfana es
+buscar algo que no existe; lo que hay que mirar es cuánto tardó y por qué.
+
+Al 2026-08-05 `refresh-opportunities` tenía 26 huérfanas y 2 fallos reales en 7
+días: llevaba 27 corridas seguidas sin terminar y se veía como "el job falla".
+
+**Acotar por CANTIDAD no protege de una latencia que varía.** `enrich-ordenes`
+tenía el tope de ítems bien calculado —252 s estimados, p50 real 255 s— y aun así
+generaba huérfanas, porque el **p90 es 400 s** contra un techo de 300 s. Todo job
+que recorra ítems necesita además un presupuesto de RELOJ
+(`REFRESH_TIME_BUDGET_MS`, `ENRICH_TIME_BUDGET_MS`) que corte limpio antes de que
+lo maten. Calibrar el tope de ítems para que la corrida normal termine **por
+debajo** de ese presupuesto: si saltara siempre, `partial` sería lo normal y el
+estado dejaría de significar algo.
+
+En un workflow encadenado el costo es peor que perder la pasada: el step muere,
+y con `maxRetries = 1` se lleva puestas las pasadas que venían detrás.
+
+El estado `empty` de `sync_logs` (migración 026) existe porque una corrida vacía
+no es ni éxito ni fallo: `total_found` lo dicta la fuente, así que un feriado y
+una consulta rota se ven idénticos **en una sola corrida**. Lo que los separa es
+la racha. Por eso `empty` queda fuera de los `status IN ('success','partial')`
+que calculan `last_success` y `hasSuccessForDate` — una fecha vacía no está
+sincronizada y se reintenta.
+
+**La racha se cuenta en la BASE, nunca en memoria.** mp-sync corre serverless:
+un contador de instancia vuelve a 0 en cada invocación y el umbral queda
+inalcanzable. Es exactamente lo que dejó inservible al detector del worker de
+Bralidus cuando se migró a Vercel.
+
 ### 2. Rate Limiting Quotas & Tiers (`ratelimit.ts`)
 
 Los topes reales están en `TIER_CREDIT_LIMITS` / `TIER_BURST_LIMITS` de
