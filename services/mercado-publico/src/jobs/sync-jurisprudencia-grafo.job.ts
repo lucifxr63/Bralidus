@@ -278,6 +278,38 @@ async function generarAristas(): Promise<number> {
     filas.push([PANORAMA, n.document_title, 'AGREGA']);
   }
 
+  // ── Descartar las aristas cuyos extremos no son nodos ────────────────────
+  //
+  // POR QUÉ HACE FALTA
+  // ------------------
+  // Los NODOS se crean con un tope (TOP_TIPOS=12, TOP_SALAS=7, TOP_MATERIAS=12).
+  // Las ARISTAS, en cambio, salen de las consultas de arriba con un umbral
+  // distinto (n > 500 y 20 %) y sin tope. Los dos conjuntos NO coinciden: una
+  // materia que pasa el umbral pero queda fuera del top nunca recibe nodo, y la
+  // arista igual se escribía.
+  //
+  // `knowledge_edges` enlaza por TÍTULO y no tiene foreign key, así que insertar
+  // una arista hacia un nodo inexistente no falla — se escribe y se cuenta como
+  // éxito. Al 2026-08-05 había 38 así, creadas el 03-08 por este mismo job:
+  // la mitad de RESUELVE_MATERIA y SE_LITIGA_VIA apuntaba al vacío, incluidas
+  // materias tan relevantes como Bancos, AFP y Carabineros.
+  //
+  // Y el daño no es cosmético: `search_hybrid_graphrag` recorre los vecinos con
+  // un INNER JOIN contra knowledge_nodes, así que una arista huérfana **aporta
+  // cero filas sin decirlo**. El grafo promete un vecino, el join lo descarta, y
+  // el modelo recibe un contexto parcial indistinguible de uno completo. Eso es
+  // exactamente el material del que se hacen las alucinaciones.
+  const existentes = new Set(
+    (
+      await bralidusQuery<{ document_title: string }>(
+        `SELECT document_title FROM knowledge_nodes`,
+      )
+    ).map((r) => r.document_title),
+  );
+
+  const validas = filas.filter(([src, tgt]) => existentes.has(src) && existentes.has(tgt));
+  const descartadas = filas.length - validas.length;
+
   // Se borran las anteriores de estos tipos antes de reinsertar: si una sala
   // deja de ver un recurso, la arista vieja tiene que desaparecer, no quedar
   // contradiciendo al dato.
@@ -288,7 +320,7 @@ async function generarAristas(): Promise<number> {
   );
 
   let escritas = 0;
-  for (const [src, tgt, rel] of filas) {
+  for (const [src, tgt, rel] of validas) {
     try {
       await bralidusQuery(
         `INSERT INTO knowledge_edges (source_title, target_title, relation_type)
@@ -300,6 +332,36 @@ async function generarAristas(): Promise<number> {
       logger.warn({ src, tgt, rel, err }, `[${JOB_NAME}] arista rechazada`);
     }
   }
+
+  // Descartar en silencio sería cambiar un problema por otro: el desajuste
+  // significa que los topes de nodos se quedaron cortos frente a los umbrales
+  // de arista, y eso hay que verlo para corregir la calibración — no taparlo.
+  if (descartadas > 0) {
+    const faltantes = [
+      ...new Set(
+        filas
+          .filter(([src, tgt]) => !existentes.has(src) || !existentes.has(tgt))
+          .flatMap(([src, tgt]) => [src, tgt].filter((t) => !existentes.has(t))),
+      ),
+    ];
+    logger.warn(
+      { descartadas, faltantes: faltantes.slice(0, 20) },
+      `[${JOB_NAME}] aristas descartadas por apuntar a nodos inexistentes`,
+    );
+    void sendOpsAlert({
+      level: 'warn',
+      channel: 'degradacion',
+      title: `${descartadas} relaciones de jurisprudencia quedaron fuera del grafo`,
+      detail:
+        `Los umbrales de arista (n>500 y 20 %) alcanzan entidades que los topes de ` +
+        `nodo (TOP_TIPOS/TOP_SALAS/TOP_MATERIAS) dejan fuera, así que esas relaciones ` +
+        `no tienen a qué apuntar y se descartan.\n\n` +
+        `Sin nodo: ${faltantes.slice(0, 8).join(', ')}${faltantes.length > 8 ? `, +${faltantes.length - 8}` : ''}\n\n` +
+        `Para recuperarlas hay que subir los topes, no bajar los umbrales.`,
+      dedupeKey: 'jurisprudencia-aristas-descartadas',
+    });
+  }
+
   return escritas;
 }
 
