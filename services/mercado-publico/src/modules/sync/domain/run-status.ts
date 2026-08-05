@@ -19,7 +19,7 @@
  * después de tres días de ingesta caída sin que nadie lo notara.
  */
 
-export type RunStatus = 'success' | 'partial' | 'failed';
+export type RunStatus = 'success' | 'partial' | 'failed' | 'empty';
 
 /**
  * Fracción de fallos que se atribuye a inestabilidad del upstream y NO degrada
@@ -36,6 +36,12 @@ export interface RunCounters {
   failed: number;
   /** El job se cortó antes de terminar (abort pedido, cuota agotada, …). */
   aborted?: boolean;
+  /**
+   * Cuántos procesos dijo la fuente que había. Distingue "no había nada que
+   * hacer" de "no encontramos nada" — ver la nota de `deriveRunStatus`.
+   * Omitirlo conserva el comportamiento viejo para los jobs que no lo reportan.
+   */
+  found?: number;
 }
 
 export function runFailureRate({ succeeded, failed }: RunCounters): number {
@@ -49,7 +55,23 @@ export function deriveRunStatus(counters: RunCounters): RunStatus {
   if (counters.aborted) return 'partial';
 
   const attempted = counters.succeeded + counters.failed;
-  if (attempted === 0) return 'success'; // no había nada que hacer
+
+  // UNA CORRIDA VACÍA NO ES UNA CORRIDA EXITOSA.
+  //
+  // Esto devolvía 'success' con el comentario "no había nada que hacer". Es
+  // cierto para un feriado sin publicaciones, y falso para el caso que importa:
+  // pedimos y volvimos con las manos vacías. Los dos casos son indistinguibles
+  // por los contadores de procesamiento, así que colapsarlos en 'success'
+  // convierte la falta de resultados en un dato — la misma clase de fallo
+  // silencioso que tuvo cuatro extractores de Bralidus muertos durante meses.
+  //
+  // `found` desempata: es lo que la fuente dijo que había. Si el job lo
+  // reporta, una corrida sin nada es 'empty' y se puede vigilar (tres 'empty'
+  // seguidas alertan). Si no lo reporta, se conserva el comportamiento viejo
+  // para no reescribir el historial de los otros cuatro jobs de un saque.
+  if (attempted === 0) {
+    return counters.found === undefined ? 'success' : 'empty';
+  }
 
   const rate = runFailureRate(counters);
   if (rate === 0) return 'success';

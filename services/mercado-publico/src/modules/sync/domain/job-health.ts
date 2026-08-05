@@ -31,12 +31,23 @@ export interface JobHealth extends JobHealthRaw {
  * Cada cuántas horas se espera que corra con éxito cada job (para juzgar
  * antigüedad). Debe reflejar los cron de wrangler.jsonc / worker.ts.
  */
+/**
+ * Un job que NO figure acá tiene `expectedIntervalHours = null`, y entonces la
+ * regla de "sin éxito hace más de 2× el intervalo" **nunca se evalúa para él**:
+ * puede pasar semanas sin completar y seguir viéndose 'healthy'. Es opt-in
+ * silencioso, así que cada job agendado en mp-sync-cron.yml debe estar en esta
+ * tabla. `sync-compra-agil` faltaba desde que existe.
+ */
 export const JOB_EXPECTED_INTERVAL_HOURS: Record<string, number> = {
   'sync-licitaciones': 24,
   'sync-ordenes': 24,
-  'enrich-ordenes': 24, // encadenado al sync de OC
+  'sync-compra-agil': 24,
+  'enrich-ordenes': 24, // encadenado al sync de OC + su propio cron cada 2 h
   'refresh-opportunities': 6,
   'build-buyer-profiles': 168, // semanal
+  'reporte-frescura': 24,
+  'sync-pjud': 168, // semanal (lunes)
+  'sync-pjud-suprema': 720, // mensual (día 1)
 };
 
 /**

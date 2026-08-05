@@ -9,7 +9,8 @@
   "scripts": {
     "dev": "nitro dev",
     "build": "nitro build",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "node --test \"src/**/*.test.ts\""
   },
   "dependencies": {
     "@opentelemetry/api": "^1.9.1",
