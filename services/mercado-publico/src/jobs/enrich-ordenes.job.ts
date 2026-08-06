@@ -22,6 +22,16 @@ import {
   FAILURE_RATE_THRESHOLD,
 } from '../modules/sync/domain/run-status.js';
 import { AppError } from '../shared/errors/app-error.js';
+import {
+  esThrottling,
+  esAbortoPorTiempo,
+  classifyEnrichment,
+  type EnrichmentOutcome,
+} from './enrich-ordenes.classify.js';
+
+// Re-export: había código importando estos helpers desde el job.
+export { esThrottling, esAbortoPorTiempo, classifyEnrichment };
+export type { EnrichmentOutcome };
 import { sendOpsAlert } from '../infrastructure/ops-alert/ops-alert.js';
 
 const JOB_NAME = 'enrich-ordenes';
@@ -73,35 +83,6 @@ const ENRICH_DELAY_MS = 2500;
 const ENRICH_TIME_BUDGET_MS = 250_000;
 
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
-
-/**
- * True si el error viene de que MP nos está frenando (429), no de la fila.
- * El cliente preserva el status en `details.httpStatus`.
- */
-function esThrottling(err: unknown): boolean {
-  if (!(err instanceof AppError)) return false;
-  const d = err.details as { httpStatus?: number } | undefined;
-  return d?.httpStatus === 429;
-}
-
-// ── Helper puro (testeable) ───────────────────────────────────
-
-export type EnrichmentOutcome = 'enriched' | 'still_incomplete' | 'not_found';
-
-/**
- * Clasifica el resultado de intentar enriquecer una OC:
- *  - not_found:        MP no devolvió detalle (raw = null / NOT_FOUND)
- *  - enriched:         el detalle trajo proveedor (supplierCode o supplierRut)
- *  - still_incomplete: hubo detalle pero sigue sin proveedor
- * Pura: no toca DB ni red — recibe solo los campos relevantes.
- */
-export function classifyEnrichment(
-  detail: { supplierCode: string | null; supplierRut?: string | null } | null,
-): EnrichmentOutcome {
-  if (detail == null) return 'not_found';
-  if (detail.supplierCode != null || detail.supplierRut != null) return 'enriched';
-  return 'still_incomplete';
-}
 
 // ── Job ───────────────────────────────────────────────────────
 
@@ -189,11 +170,33 @@ export async function runEnrichOrdenesJob(): Promise<EnrichStats & { skipped: bo
       try {
         // execute() = fetch detalle por código + normalize + upsert (COALESCE)
         // + recalcula buyer reputation fire-and-forget.
-        const order = await ingestOrdenCompraUseCase.execute(candidate.externalCode);
+        //
+        // El segundo argumento es lo que hace que el presupuesto de arriba sirva
+        // de verdad. El `if (Date.now() >= deadline)` sólo mira ENTRE ítems, y
+        // un ítem puede quedarse hasta ~70 s adentro reintentando (5 intentos ×
+        // 10 s de timeout + 20 s de backoff). Sin esto, una pasada que arranca
+        // su último ítem a los 249 s termina cerca de los 320 s y la función la
+        // mata antes de que llame a `complete()`: corrida huérfana, y en el
+        // workflow encadenado se pierden también las pasadas siguientes.
+        const order = await ingestOrdenCompraUseCase.execute(
+          candidate.externalCode,
+          () => Date.now() >= deadline,
+        );
         outcome = classifyEnrichment(order);
       } catch (err) {
         if (err instanceof AppError && err.code === 'NOT_FOUND') {
           outcome = 'not_found';
+        } else if (esAbortoPorTiempo(err)) {
+          // Se acabó el reloj mientras este ítem estaba en vuelo. No cuenta como
+          // fallo, no gasta intento, y se corta acá: seguir sólo empujaría la
+          // pasada más allá del techo de 300 s, que es exactamente lo que
+          // dejaba corridas huérfanas.
+          sinTiempo = true;
+          logger.warn(
+            { codigo: candidate.externalCode, enriquecidas: stats.enriched },
+            `[${JOB_NAME}] Presupuesto agotado con un ítem en vuelo — cortando sin gastar intento`,
+          );
+          break;
         } else {
           stats.failed++;
           const error = err instanceof Error ? err.message : String(err);

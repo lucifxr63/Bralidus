@@ -92,13 +92,36 @@ class MercadoPublicoClient {
     ); // MP puede ser muy lento para OC
   }
 
-  async getOrdenCompraByCodigo(codigo: string): Promise<MpOrdenCompraRaw> {
+  /**
+   * `shouldAbort` no es decorativo: sin él, un ítem lento puede consumir hasta
+   * ~70 s dentro del bucle de reintentos (5 intentos × 10 s de timeout + 20 s
+   * de backoff acumulado). El job que llama tiene un presupuesto de reloj, pero
+   * sólo puede mirarlo ENTRE ítems — así que un ítem que arranca a los 249 s de
+   * un presupuesto de 250 s termina pasado el techo de 300 s de la función, y
+   * la pasada muere sin llamar a `complete()`.
+   *
+   * Eso es exactamente lo que dejaba huérfanas a `enrich-ordenes`: la corrida
+   * quedaba en 'running', `clearStaleRunning` la marcaba `failed` horas después
+   * sin excepción que leer, y en un workflow encadenado con `maxRetries = 1` se
+   * llevaba puestas las pasadas que venían detrás.
+   *
+   * `getLicitacionByCodigo` ya recibía el gancho; este camino nunca se cableó.
+   */
+  async getOrdenCompraByCodigo(
+    codigo: string,
+    shouldAbort?: () => boolean,
+  ): Promise<MpOrdenCompraRaw> {
     // OJO: el detalle usa el MISMO endpoint que el listado, con ?codigo=.
     // 'publico/OrdenCompra.json' no existe (404) — bug que dejó OC en cero.
-    const raw = await this.get<MpApiResponse<MpOrdenCompraRaw>>('publico/ordenesdecompra.json', {
-      codigo,
-      ticket: this.ticket,
-    });
+    const raw = await this.get<MpApiResponse<MpOrdenCompraRaw>>(
+      'publico/ordenesdecompra.json',
+      {
+        codigo,
+        ticket: this.ticket,
+      },
+      undefined,
+      shouldAbort,
+    );
 
     const item = raw.Listado?.[0];
     if (!item) throw AppError.notFound('Orden de Compra', codigo);
@@ -179,6 +202,17 @@ class MercadoPublicoClient {
           dedupeKey: `mp-circuit-open:${path}`,
         });
       }
+    }
+
+    // Un ABORTO no es un fallo de la fila: al caller se le acabó el presupuesto
+    // de reloj y cortó, nada más. Se marca distinto para que el job no lo cuente
+    // como fallo ni le gaste un intento a la fila — si lo hiciera, 5 cortes de
+    // presupuesto la excluirían para siempre de una cola de la que nunca tuvo la
+    // culpa. Es el mismo razonamiento que ya se aplicaba al 429.
+    if (shouldAbort?.()) {
+      throw AppError.externalApiError(`Abortado por presupuesto de tiempo — ${path}`, {
+        aborted: true,
+      });
     }
 
     if (lastError instanceof AppError) throw lastError;
