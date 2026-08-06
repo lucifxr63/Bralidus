@@ -19,6 +19,40 @@ on:
     - cron: '0 12 */3 * *'       # seia_sync (cada 3 días 08:00 Chile)
     - cron: '0 3 * * 0'          # fred_sync (dom 03:00)
     - cron: '0 4 1 * *'          # yfinance_sync (día 1, 04:00)
+    - cron: '20 */6 * * *'       # embeddings_pendientes (cada 6 h, :20)
+                                 #
+                                 # NO ESTABA AGENDADO. El job existe en _JOBS y
+                                 # es disparable por HTTP, pero nada lo llamaba:
+                                 # había que acordarse a mano.
+                                 #
+                                 # Un nodo sin embedding NO ES RECUPERABLE. Así
+                                 # que un extractor podía insertar contenido
+                                 # perfecto y el RAG no verlo nunca, sin que
+                                 # fallara nada — el nodo está, la corrida cierra
+                                 # en verde, y la única señal es que las
+                                 # respuestas no lo mencionan. Se detectó el
+                                 # 2026-08-06 al reubicar 4 chunks en CAL-3b:
+                                 # quedaron con el contenido intacto e
+                                 # invisibles.
+                                 #
+                                 # Cada 6 h y no diario porque el costo de una
+                                 # corrida vacía es una consulta: `fetch_nodes_
+                                 # pending_embedding` no devuelve nada y no se
+                                 # llama a OpenAI. Sólo gasta cuando hay algo
+                                 # que vectorizar, que es exactamente cuando
+                                 # hace falta.
+                                 #
+                                 # A los :20 para no encimarse con el resto
+                                 # (:00, :15 y :30 están tomados). El de las
+                                 # 12:20 cae 20 min después de seia_sync, que es
+                                 # el productor más pesado.
+                                 #
+                                 # OJO: este job reporta 1 cuando NO hay
+                                 # pendientes, a propósito — ahí el cero es el
+                                 # resultado sano y reportarlo haría que el
+                                 # umbral de corridas vacías alertara justo
+                                 # cuando funciona perfecto. Correrlo seguido es
+                                 # inocuo para el monitoreo.
   workflow_dispatch:
     inputs:
       job:
@@ -56,6 +90,7 @@ jobs:
               '0 12 */3 * *')       JOB=seia_sync ;;
               '0 3 * * 0')          JOB=fred_sync ;;
               '0 4 1 * *')          JOB=yfinance_sync ;;
+              '20 */6 * * *')       JOB=embeddings_pendientes ;;
               *) echo "schedule no mapeado: $SCHED"; exit 1 ;;
             esac
           fi
