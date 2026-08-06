@@ -48,16 +48,39 @@ on:
                              #
                              # El upsert es idempotente, asi que reingerir no
                              # duplica. Ver docs/PJUD_API_HALLAZGOS.md.
-    - cron: '45 */2 * * *'   # enrich-ordenes (cada 2 h a los :45).
+    - cron: '45 * * * *'     # enrich-ordenes (CADA HORA a los :45).
                              #
                              # NO ESTABA AGENDADO: solo corria encadenado al
                              # final de sync-ordenes, una vez al dia. Medido el
                              # 2026-07-31 quedaban 78.731 OCs pendientes a 100
                              # por pasada — mas de dos años a ese ritmo.
                              #
-                             # Con ENRICH_OC_MAX_SLICES=10 cada disparo drena
-                             # hasta 1.000, y 12 disparos diarios dan ~12.000:
-                             # la cola se vacia en alrededor de una semana.
+                             # PASO DE CADA 2 H A CADA HORA el 2026-08-06, y el
+                             # motivo es que la cuenta original miraba el
+                             # backlog pero no lo que ENTRA. Medido:
+                             #
+                             #   entran   8.833 cascaras/dia (sync-ordenes,
+                             #            en un solo lote diario)
+                             #   salian  ~6.300/dia real (81 pasadas medidas
+                             #            en 24 h x 78 enriquecidas c/u)
+                             #
+                             # O sea que la cola CRECIA ~2.500 por dia. Aun con
+                             # los 12 disparos completos (9.360/dia) el margen
+                             # eran ~500 diarias contra un backlog de 72.303:
+                             # cinco meses para drenarlo.
+                             #
+                             # Con 24 disparos el techo pasa a ~18.700/dia, que
+                             # deja ~9.900 netas y vacia la cola en ~7 dias.
+                             #
+                             # POR QUE MAS DISPAROS Y NO MAS PASADAS POR DISPARO
+                             # (MAX_PASADAS sigue en 10): una cadena mas larga
+                             # aumenta lo que se pierde si un step muere, porque
+                             # con maxRetries = 1 se lleva las pasadas que
+                             # vienen detras. Cadenas cortas y frecuentes acotan
+                             # ese daño. Cada disparo tarda ~42 min (10 x 250 s)
+                             # y deja ~18 min de holgura dentro de la hora; si
+                             # igual se solapara, `hasRunningJob` hace que el
+                             # tick siguiente se saltee sin hacer nada.
                              #
                              # A los :45 para no encimarse con los syncs (:00 y
                              # :30) ni con refresh-opportunities (:15). La
@@ -134,7 +157,7 @@ jobs:
               '0 3 * * 0')     JOB=build-buyer-profiles ;;
               '30 12 * * *')   JOB=reporte-frescura ;;
               '0 5 * * 1')     JOB=sync-pjud ;;
-              '45 */2 * * *')  JOB=enrich-ordenes ;;
+              '45 * * * *')    JOB=enrich-ordenes ;;
               '0 8 1 * *')     JOB=sync-pjud-suprema ;;
               '0 13 * * 1')    JOB=reporte-pjud ;;
               *) echo "::error::schedule no mapeado: $SCHED"; exit 1 ;;

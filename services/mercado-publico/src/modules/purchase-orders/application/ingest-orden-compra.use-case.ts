@@ -20,10 +20,19 @@ export class IngestOrdenCompraUseCase {
     return order;
   }
 
-  async execute(codigo: string): Promise<PurchaseOrder & { items: PurchaseOrderItem[] }> {
+  /**
+   * `shouldAbort` deja que el caller corte los reintentos cuando se le acaba el
+   * presupuesto de tiempo. `ingest-licitacion.use-case` ya lo propagaba; acá
+   * faltaba, y esa asimetría es la que producía las corridas huérfanas de
+   * `enrich-ordenes` (ver la nota en `getOrdenCompraByCodigo`).
+   */
+  async execute(
+    codigo: string,
+    shouldAbort?: () => boolean,
+  ): Promise<PurchaseOrder & { items: PurchaseOrderItem[] }> {
     logger.info({ codigo }, 'Ingesting orden de compra from Mercado Público');
 
-    const raw = await mercadoPublicoClient.getOrdenCompraByCodigo(codigo);
+    const raw = await mercadoPublicoClient.getOrdenCompraByCodigo(codigo, shouldAbort);
     const normalized = normalizeOrdenCompra(raw);
     const order = await purchaseOrderRepository.upsertFromNormalized(normalized);
 
