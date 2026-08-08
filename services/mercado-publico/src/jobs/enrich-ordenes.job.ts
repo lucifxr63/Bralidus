@@ -25,12 +25,13 @@ import { AppError } from '../shared/errors/app-error.js';
 import {
   esThrottling,
   esAbortoPorTiempo,
+  esFuenteSinRespuesta,
   classifyEnrichment,
   type EnrichmentOutcome,
 } from './enrich-ordenes.classify.js';
 
 // Re-export: había código importando estos helpers desde el job.
-export { esThrottling, esAbortoPorTiempo, classifyEnrichment };
+export { esThrottling, esAbortoPorTiempo, esFuenteSinRespuesta, classifyEnrichment };
 export type { EnrichmentOutcome };
 import { sendOpsAlert } from '../infrastructure/ops-alert/ops-alert.js';
 
@@ -208,6 +209,29 @@ export async function runEnrichOrdenesJob(): Promise<EnrichStats & { skipped: bo
           //
           // Se corta la corrida entera: MP ya está saturado y seguir pidiendo
           // sólo suma 429s. La próxima corrida retoma con la cola intacta.
+          // Cuota diaria agotada (o MP devolviendo un error como 2xx sin
+          // `Listado`). Se trata EXACTAMENTE igual que el 429: la fila no tuvo
+          // la culpa, no gasta intento, y se corta la corrida porque insistir
+          // con la cuota agotada sólo suma llamadas vacías. Se cuenta como
+          // `throttled` para que el workflow rompa la cadena de pasadas.
+          if (esFuenteSinRespuesta(err)) {
+            stats.throttled++;
+            logger.warn(
+              { codigo: candidate.externalCode, enriquecidas: stats.enriched },
+              `[${JOB_NAME}] MP sin respuesta útil (cuota diaria) — cortando sin gastar intentos`,
+            );
+            void sendOpsAlert({
+              level: 'warn',
+              channel: 'degradacion',
+              title: 'Enriquecimiento de OCs cortado: cuota diaria de Mercado Público agotada',
+              detail:
+                `Se enriquecieron ${stats.enriched} antes de que MP dejara de responder. ` +
+                'La cola queda intacta: ninguna fila gastó intento. Se retoma cuando la cuota se renueve.',
+              dedupeKey: 'enrich-cuota-mp',
+            });
+            break;
+          }
+
           if (esThrottling(err)) {
             stats.throttled++;
             logger.warn(
