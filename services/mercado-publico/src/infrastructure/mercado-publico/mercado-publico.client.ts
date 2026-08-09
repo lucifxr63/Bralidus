@@ -157,6 +157,7 @@ class MercadoPublicoClient {
         logger.debug({ url: path, params: { ...params, ticket: '[REDACTED]' } }, 'MP API →');
         const data = await this.http.get<T>(path, { params, timeoutMs });
         logger.debug({ url: path }, 'MP API ←');
+        exigirListado(data, path);
         breaker.recordSuccess();
         return data;
       } catch (err) {
@@ -230,6 +231,55 @@ class MercadoPublicoClient {
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Un 2xx SIN `Listado` no es «no hay resultados»: es que no pudimos preguntar.
+ *
+ * LO QUE PASÓ, medido el 2026-08-08 contra la API real
+ * ----------------------------------------------------
+ * Con la cuota diaria del ticket agotada, la v1 de Mercado Público responde:
+ *
+ *     HTTP 203 Non-Authoritative Information
+ *     {"Codigo": 203, "Mensaje": "Ticket superó la cuota diaria asignada."}
+ *
+ * Sin `Listado`. Ni un 401 ni un 429: un 2xx que el cliente daba por bueno.
+ * `getOrdenCompraByCodigo` hacía `raw.Listado?.[0]` → `undefined` → lanzaba
+ * `NOT_FOUND`, y `enrich-ordenes` lo leía como «esta orden no existe» y le
+ * gastaba un intento.
+ *
+ * A 80 órdenes por corrida y 5 intentos cada una, eso EXCLUYÓ de la cola a
+ * 1.608 órdenes que estaban perfectas, por una razón que no tenía nada que ver
+ * con ellas. Comprobado pidiendo dos órdenes YA ENRIQUECIDAS: también
+ * respondían vacío.
+ *
+ * También explica la intermitencia que se veía en los latidos: horas
+ * produciendo 800/h, se agota la cuota, horas de «notFound» en bloque, y al día
+ * siguiente vuelve a andar.
+ *
+ * Es el mismo defecto que ya mordió en SEIA, en Concursal y en empleo_sync: una
+ * respuesta 200 sin contenido ingerida como dato. La regla ya estaba escrita
+ * para Compra Ágil —«la sonda tiene que LANZAR ante un error, nunca devolver
+ * 0»—; acá faltaba aplicarla.
+ *
+ * Va en `get<T>()` y no en cada método a propósito: los `*ByFecha` tenían el
+ * mismo agujero, sólo que ahí un lote vacío se veía como «ese día no hubo
+ * órdenes» y el sync cerraba en verde.
+ */
+function exigirListado(data: unknown, path: string): void {
+  const cuerpo = data as { Listado?: unknown; Codigo?: number; Mensaje?: string } | null;
+  if (cuerpo && Array.isArray(cuerpo.Listado)) return;
+
+  const mensaje = cuerpo?.Mensaje;
+  if (!mensaje) return; // forma inesperada pero sin mensaje: que siga el flujo normal
+
+  const cuotaAgotada = /cuota diaria/i.test(mensaje);
+  throw AppError.externalApiError(
+    cuotaAgotada
+      ? `Mercado Público: cuota diaria del ticket agotada — ${path}`
+      : `Mercado Público respondió sin Listado en ${path}: ${mensaje}`,
+    { mpCodigo: cuerpo?.Codigo ?? null, mpMensaje: mensaje, cuotaAgotada, sinListado: true },
+  );
 }
 
 function extractDetail(err: unknown): Record<string, unknown> {
