@@ -1,6 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { esThrottling, esAbortoPorTiempo, classifyEnrichment } from './enrich-ordenes.classify.ts';
+import {
+  esThrottling,
+  esAbortoPorTiempo,
+  esFuenteSinRespuesta,
+  classifyEnrichment,
+} from './enrich-ordenes.classify.ts';
 
 /**
  * Corre con el runner nativo: `npm test`.
@@ -70,4 +75,43 @@ test('con detalle pero sin proveedor sigue incompleta', () => {
   // Distinto de not_found: MP respondió, la OC existe, pero no trae proveedor.
   // Consume intento igual, porque volver a pedirla daría lo mismo.
   assert.equal(classifyEnrichment({ supplierCode: null, supplierRut: null }), 'still_incomplete');
+});
+
+
+// ── La cuota diaria de MP, que costó 1.608 órdenes ───────────
+
+const cuotaAgotada = conDetalles({
+  mpCodigo: 203,
+  mpMensaje: 'Ticket superó la cuota diaria asignada.',
+  cuotaAgotada: true,
+  sinListado: true,
+});
+
+test('cuota diaria agotada se reconoce como fuente sin respuesta', () => {
+  // Medido el 2026-08-08: MP devuelve HTTP 203 con {Codigo, Mensaje} y SIN
+  // Listado. El cliente hacía `raw.Listado?.[0]` y lanzaba NOT_FOUND, así que
+  // el job creía que la orden no existía y le gastaba un intento.
+  assert.equal(esFuenteSinRespuesta(cuotaAgotada), true);
+});
+
+test('cuota agotada NO es un aborto por tiempo ni un 429', () => {
+  // Cada uno corta la corrida por su motivo y con su mensaje; mezclarlos haría
+  // ilegible el diagnóstico del próximo que mire los latidos.
+  assert.equal(esAbortoPorTiempo(cuotaAgotada), false);
+  assert.equal(esThrottling(cuotaAgotada), false);
+});
+
+test('un NOT_FOUND real NO se confunde con la fuente sin respuesta', () => {
+  // Lo que distingue "esta orden no existe" de "no pudimos preguntar" es que la
+  // segunda trae `sinListado`. Sin esa marca, una orden inexistente tiene que
+  // seguir gastando su intento — si no, se reintenta para siempre.
+  const noExiste = conDetalles({ httpStatus: 404 });
+  assert.equal(esFuenteSinRespuesta(noExiste), false);
+  assert.equal(esFuenteSinRespuesta(fallaReal), false);
+});
+
+test('sin Listado alcanza aunque no sea por cuota', () => {
+  // Cualquier 2xx de MP que no traiga Listado es "no pudimos preguntar",
+  // aunque el mensaje sea otro.
+  assert.equal(esFuenteSinRespuesta(conDetalles({ sinListado: true })), true);
 });

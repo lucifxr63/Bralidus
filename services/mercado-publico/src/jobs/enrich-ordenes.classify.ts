@@ -46,6 +46,22 @@ export function esAbortoPorTiempo(err: unknown): boolean {
   return detalles(err)?.aborted === true;
 }
 
+/**
+ * Mercado Público respondió 2xx pero sin `Listado` — cuota diaria agotada o un
+ * error suyo devuelto como éxito.
+ *
+ * ES LA MISMA FAMILIA QUE EL 429 Y HAY QUE TRATARLA IGUAL. La orden que se
+ * estaba pidiendo no tiene nada de malo: no pudimos preguntar por ella. Hasta el
+ * 2026-08-08 esto llegaba al job como `NOT_FOUND` —porque el cliente hacía
+ * `raw.Listado?.[0]` sobre un cuerpo que ni siquiera traía `Listado`— y le
+ * gastaba un intento. A 80 por corrida y 5 intentos cada una, dejó 1.608
+ * órdenes buenas fuera de la cola para siempre.
+ */
+export function esFuenteSinRespuesta(err: unknown): boolean {
+  const d = detalles(err);
+  return d?.sinListado === true || d?.cuotaAgotada === true;
+}
+
 export type EnrichmentOutcome = 'enriched' | 'still_incomplete' | 'not_found';
 
 /**
