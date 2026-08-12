@@ -49,7 +49,9 @@ VITE_SUPABASE_ANON_KEY=sb_publishable_...
   - `GET /api-v1/mercado-publico/licitaciones` — Large public tenders (LE, LP, LR).
   - `GET /api-v1/mercado-publico/health` — B2G integration service status.
 - **Fuente primaria: la tabla canónica `licitaciones_mercado_publico`.**  
-  La alimenta `mp-sync` (en `services/mercado-publico/`, desplegado en Vercel). Al 2026-07-30 tiene **27.267 filas** (13.454 licitaciones + 13.813 compras ágiles), todas con `published_at` real. Los endpoints responden `meta.source = 'mercado_publico'`.
+  La alimenta `mp-sync` (en `services/mercado-publico/`, desplegado en Vercel). Al 2026-08-12 tiene **60.528 filas** (15.669 licitaciones + 44.545 compras ágiles + 274 convenios marco + 40 tratos directos), todas con `published_at` real. Los endpoints responden `meta.source = 'mercado_publico'`.
+
+  ⚠️ **Fechar todo volumen que se publique.** Estas cifras crecieron 58 % entre el 04 y el 12 de agosto. Un integrador reportó como "inconsistencia" que `health` dijera 60.528 y la documentación 38.305: los dos números eran correctos, lo que faltaba era la fecha al lado.
 - **Fallback a Licitus (`fetchLicitusActivas()` en `api-v1/routes/data.ts`):**  
   Sólo si la consulta canónica no devuelve nada. `api-v1` consulta **Licitus**, que tiene datos vivos de Mercado Público, y los mapea al vocabulario canónico. La procedencia es explícita: `meta.source = 'licitus_live'` más `data_source` en cada ítem.
   - En ESA ruta `published_at` va en `null` — Licitus expone la fecha de cierre, no la de publicación. Nunca se inventa una fecha para rellenar el hueco.
