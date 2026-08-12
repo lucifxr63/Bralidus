@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Search, Building2, CheckCircle2, Clock, Tag, Code2, RefreshCw, ExternalLink, Download, FileText, Check, ShieldAlert, KeyRound, Lock, Unlock, HelpCircle, History, MailCheck, BarChart3, HelpCircle as HelpIcon, Award, FileCheck, ShieldCheck, ShoppingBag, CalendarDays, Gavel, Copy, Database, Layers, Zap, ChevronDown, ChevronUp } from 'lucide-react';
 import { BASE } from '@/data/api-docs';
+import { supabase } from '@/lib/supabase';
 
 export interface OpportunityItem {
   id: string;
@@ -648,10 +649,23 @@ export function MercadoPublicoLiveTable() {
   const fetchLiveOpportunities = async () => {
     setLoading(true);
     try {
-      // 1. Intentar API Gateway Animus
-      const res = await fetch(`${BASE}/data/b2g/licitaciones/activas`, {
-        headers: { 'Authorization': 'Bearer demo_public_key' }
-      }).catch(() => null);
+      // 1. API Gateway Animus, con la sesión del usuario.
+      //
+      // Acá iba `Bearer demo_public_key`. El gateway cerró ese literal el
+      // 2026-08-03 (devuelve 401 AUTH_REQUIRED), así que esta rama venía
+      // fallando SIEMPRE y el componente caía sin excepción al fallback que
+      // pegaba directo a Mercado Público con un ticket hardcodeado — o sea,
+      // cada visita a la página gastaba cuota del ticket institucional.
+      //
+      // El middleware acepta el JWT de sesión de Supabase (`token.startsWith('ey')`),
+      // que es el mismo patrón de KnowledgeGraph.tsx y no expone ninguna
+      // credencial en el bundle.
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = session?.access_token
+        ? await fetch(`${BASE}/data/b2g/licitaciones/activas`, {
+            headers: { 'Authorization': `Bearer ${session.access_token}` },
+          }).catch(() => null)
+        : null;
       if (res && res.ok) {
         const json = await res.json();
         if (json.data && Array.isArray(json.data) && json.data.length > 0) {
@@ -666,33 +680,26 @@ export function MercadoPublicoLiveTable() {
         }
       }
 
-      // 2. Fallback: API Oficial Mercado Público Chile
-      const ticket = '319CF43E-C87A-4D50-9581-DD1B6C79B9E8';
-      const mpRes = await fetch(`https://api.mercadopublico.cl/servicios/v1/publico/licitaciones.json?estado=publicada&ticket=${ticket}`).catch(() => null);
-      if (mpRes && mpRes.ok) {
-        const mpJson = await mpRes.json().catch(() => null);
-        if (mpJson && mpJson.Listado && Array.isArray(mpJson.Listado) && mpJson.Listado.length > 0) {
-          const liveMapped = mpJson.Listado.slice(0, 15).map((item: any, idx: number) => ({
-            id: `live_${idx + 1}`,
-            external_code: item.CodigoExterno,
-            title: item.Nombre,
-            buyer_name: 'Organismo Público / Gobierno de Chile',
-            source_type: item.CodigoExterno.includes('CO') ? 'agile_purchase' : (item.CodigoExterno.includes('LP') ? 'tender' : 'tender'),
-            status_code: 'publicada',
-            amount_estimated: (idx + 1) * 15000000,
-            currency: 'CLP',
-            published_at: new Date().toISOString(),
-            closing_at: item.FechaCierre || new Date(Date.now() + 7 * 86400000).toISOString(),
-            category: 'Contratación Pública',
-            official_url: `https://www.mercadopublico.cl/BuscarLicitacion?q=${item.CodigoExterno}`
-          }));
-          
-          // Combine live items with canonical 9-mechanism opportunities
-          const existingCodes = new Set(liveMapped.map((m: OpportunityItem) => m.external_code));
-          const extraCanonical = DEMO_OPPORTUNITIES.filter(d => !existingCodes.has(d.external_code));
-          setOpportunities([...liveMapped, ...extraCanonical]);
-        }
-      }
+      // 2. NO hay fallback contra api.mercadopublico.cl desde el navegador.
+      //
+      // Acá había un fetch directo con el ticket institucional escrito en el
+      // código: `319CF43E-…`. Un ticket de MP en un bundle público lo puede leer
+      // cualquiera con las herramientas de desarrollador, y se gasta contra la
+      // cuota diaria de ChileCompra de la organización. El 2026-08-11 la API
+      // respondía `{"Codigo":203,"Mensaje":"Ticket superó la cuota diaria
+      // asignada."}` — con esta rama corriendo en cada carga de la página.
+      //
+      // Además fabricaba los datos que no venían en ese endpoint:
+      // `buyer_name: 'Organismo Público / Gobierno de Chile'`,
+      // `amount_estimated: (idx + 1) * 15000000` y `published_at: new Date()`
+      // en CADA request. Es exactamente el defecto que ya se había sacado del
+      // backend (ver la nota de `fetchLicitusActivas` en api-v1/routes/data.ts:
+      // "no se repone: si la fuente no responde, se dice por qué").
+      //
+      // Si el gateway no responde, se conserva lo que ya estaba en pantalla y
+      // se avisa por consola. Mercado Público se consulta desde el servidor,
+      // que es donde vive la credencial.
+      console.warn('[mp-live] El gateway Animus no devolvió oportunidades; no hay fallback directo a Mercado Público.');
     } catch {
       // Keep canonical 9-mechanism data on fallback
     } finally {
