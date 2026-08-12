@@ -61,6 +61,22 @@ const envSchema = z.object({
   // variantes sin uno u otro no responden.
   MERCADO_PUBLICO_BASE_URL: z.string().url().default('https://api.mercadopublico.cl/servicios/v1'),
   MERCADO_PUBLICO_TICKET: z.string().min(1),
+  /**
+   * Segundo ticket, opcional. Cada ticket tiene SU PROPIA cuota diaria y —esto
+   * es lo que no era obvio— su propio límite de concurrencia.
+   *
+   * Medido el 2026-08-12 desde una sola IP, 60 consultas por condición
+   * intercaladas en 12 bloques para promediar la carga de MP:
+   *
+   *   200 ms, un ticket        → 37/60 = 62 % de acierto
+   *   200 ms, alternando A/B   → 53/60 = 88 %
+   *
+   * Si el límite fuera por IP, alternar no habría cambiado nada (z ≈ 3,4).
+   * Como es por ticket, dos tickets dan el DOBLE de caudal a la misma tasa de
+   * acierto: verificado a 1250 ms alternando —cada ticket recibe una consulta
+   * cada 2500 ms, el ritmo ya validado— con 30/30 = 100 %.
+   */
+  MERCADO_PUBLICO_TICKET2: z.string().min(1).optional(),
   // Circuit breaker: fallas seguidas para abrir y cooldown antes de reintentar.
   // Evita quemar una corrida entera cuando MP está caído.
   MP_CIRCUIT_FAILURE_THRESHOLD: z.coerce.number().int().min(1).default(5),
