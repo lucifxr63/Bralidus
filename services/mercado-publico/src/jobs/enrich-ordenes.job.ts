@@ -79,11 +79,26 @@ function delayPorTicketsMs(): number {
 }
 
 /**
- * Costo por ítem por ENCIMA de la espera: latencia del request más el
- * `incrementEnrichmentAttempts` de la fila. Sale de la medición sobre 492
- * corridas: 2,83 s por ítem con una espera de 2,5 s.
+ * Costo por ítem por ENCIMA de la espera: latencia del request más las
+ * escrituras de la fila.
+ *
+ * MEDIDO en producción el 2026-08-12, no estimado:
+ *
+ *   espera 2500 ms → 3,47 s por ítem (123 corridas)  ⇒ overhead ~0,97 s
+ *   espera 1250 ms → 2,55 s por ítem (1 corrida)     ⇒ overhead ~1,30 s
+ *
+ * Acá había 330 ms, sacados de restarle 2,5 s a un promedio viejo de 2,83 s.
+ * Estaba mal por un factor de tres, y la consecuencia fue concreta: el tope
+ * calculado dio 134 ítems cuando en 250 s sólo entran ~100, así que la primera
+ * pasada con dos tickets terminó `cortadaPorTiempo` con 104 de 134. Una pasada
+ * que SIEMPRE se corta convierte `partial` en el estado normal y lo vacía de
+ * significado — justo lo que el presupuesto de reloj venía a evitar.
+ *
+ * Se toma 1100 ms, entre las dos mediciones. El overhead no es constante
+ * —crece un poco al pedir más seguido—, así que el techo por reloj queda
+ * ligeramente conservador en el régimen rápido, que es donde conviene errar.
  */
-const OVERHEAD_POR_ITEM_MS = 330;
+const OVERHEAD_POR_ITEM_MS = 1100;
 
 /** Fracción del presupuesto de reloj que se deja usar a la pasada normal. */
 const USO_OBJETIVO_DEL_PRESUPUESTO = 0.85;
@@ -99,9 +114,20 @@ const USO_OBJETIVO_DEL_PRESUPUESTO = 0.85;
  * El techo por reloj se recalcula con la espera vigente, así que con un solo
  * ticket vivo el tope baja solo y la pasada sigue cerrando bajo presupuesto.
  *
- * OJO — con un ticket esto da 75 y no 80. Es a propósito: la calibración vieja
- * estimaba 250 s contando sólo el sleep, y la medición real dio p50 = 255 s, o
- * sea que 80 ya se pasaba del presupuesto en la mitad de las corridas.
+ * CUÁNTO DA, con el overhead ya medido:
+ *
+ *   1 ticket  (2500 ms) → 59 ítems
+ *   2 tickets (1250 ms) → 90 ítems
+ *
+ * OJO — con un ticket da 59 y no 80. No es una regresión: las 123 corridas
+ * medidas con 80 de tope completaban 72 en promedio y duraban 238 s, o sea que
+ * el tope de 80 no se alcanzaba casi nunca y la pasada cerraba por reloj. 59 es
+ * lo que de verdad entra; la diferencia era un número que no describía nada.
+ *
+ * Y por eso la ganancia de los dos tickets es de ~25 % por pasada, no del 100 %:
+ * el overhead de ~1 s no se reduce al bajar la espera. Lo que sí desapareció
+ * por completo es el throttling (429), que era lo que cortaba las cadenas de
+ * pasadas — ahí puede estar el resto del caudal, pero hay que medirlo.
  */
 function maxItemsPorPasada(): number {
   const costoPorItem = delayPorTicketsMs() + OVERHEAD_POR_ITEM_MS;
