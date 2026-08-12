@@ -4,6 +4,7 @@ import type {
 } from '../mercado-publico.types.js';
 import type { CompraAgilDetalle, CompraAgilListItem } from '../compra-agil.types.js';
 import { TENDER_TYPE } from '../../../shared/constants/tender-types.js';
+import { parseFechaChile } from '../../../shared/utils/chile-time.js';
 
 /**
  * Traduce una Compra Ágil (API v2) al DTO interno que ya consume
@@ -81,13 +82,17 @@ export function normalizeCompraAgil(
     // Comprador — la API v2 entrega el RUT del organismo, no el código interno
     // que usa la v1. Se guarda el RUT: es el identificador estable y público.
     buyerOrgCode: institucion?.rut ?? null,
-    buyerOrgName: institucion?.organismo_comprador ?? null,
+    buyerOrgName: institucion?.organismo_comprador?.trim() || null,
+    buyerRut: institucion?.rut?.trim() || null,
     buyerUnitCode: null,
-    buyerUnitName: institucion?.unidad_compra ?? null,
-    buyerRegion: institucion?.nombre_region ?? null,
+    // La v2 también manda nombres con espacio al final ("Departamento Comunal
+    // de Salud "). Sin recortar, el mismo organismo se agrupa como dos.
+    buyerUnitName: institucion?.unidad_compra?.trim() || null,
+    buyerRegion: institucion?.nombre_region?.trim() || null,
     buyerCommune: null,
     buyerAddress: null,
     buyerResponsibleUser: null,
+    buyerResponsibleRole: null,
 
     // Fechas
     publishedAt,
@@ -152,6 +157,20 @@ export function normalizeCompraAgil(
 
     items,
 
+    // Los documentos ya venían en el payload y se estaban descartando: al
+    // 2026-08-11, 31.689 de 44.237 compras ágiles los tenían guardados en
+    // `raw_payload` mientras la API respondía `attachments: []`. Es el único
+    // mecanismo de MP que publica sus bases por API.
+    attachments: (detalle?.documentos ?? item.documentos ?? []).map((d) => ({
+      id: d.id != null ? String(d.id) : null,
+      nombre: d.nombre?.trim() || null,
+      // La fuente entrega id y nombre, nunca un enlace de descarga.
+      url: null,
+      tipo: 'archivo' as const,
+      origen: 'compra_agil' as const,
+      descargable: false,
+    })),
+
     // Se guarda el par completo: convocatoria, proveedores_cotizando, flags e
     // id_orden_compra no se modelan hoy en columnas, pero quedan disponibles sin
     // volver a pegarle a la API.
@@ -206,18 +225,18 @@ function toUnspscClass(productCode: string | null): string | null {
   return digits.slice(0, 6) + '00';
 }
 
-function parseDate(value: string | undefined | null): string | null {
-  if (!value) return null;
-  // La API mezcla ISO-8601 con UTC ("2026-07-25T23:35:00.907Z") y un formato
-  // corto sin zona ("2026-07-25 23:30"). El corto es hora de Chile; se
-  // interpreta como UTC igual que el normalizer v1 para no introducir un
-  // desfase distinto entre ambas fuentes.
-  const normalized = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}/.test(value)
-    ? value.replace(' ', 'T') + 'Z'
-    : value;
-  const d = new Date(normalized);
-  return isNaN(d.getTime()) ? null : d.toISOString();
-}
+/**
+ * La API mezcla ISO-8601 con UTC ("2026-07-25T23:35:00.907Z") y un formato
+ * corto sin zona ("2026-07-25 23:30"). El corto es hora de Chile.
+ *
+ * Antes el corto se interpretaba como UTC "igual que el normalizer v1, para no
+ * introducir un desfase distinto entre ambas fuentes". La intención era buena
+ * pero la premisa era falsa: v1 no tenía UN convenio, tenía el de la máquina
+ * donde corriera. Así que esto no igualaba nada — sólo garantizaba que las
+ * 44.237 compras ágiles quedaran corridas 3–4 horas. Ahora ambas fuentes pasan
+ * por el mismo conversor y el ISO con zona se respeta tal cual.
+ */
+const parseDate = parseFechaChile;
 
 function computeDaysToClose(closingAt: string | null, publishedAt: string | null): number | null {
   if (!closingAt || !publishedAt) return null;

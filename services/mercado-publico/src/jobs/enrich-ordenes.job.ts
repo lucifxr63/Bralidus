@@ -198,10 +198,32 @@ export async function runEnrichOrdenesJob(): Promise<EnrichStats & { skipped: bo
             `[${JOB_NAME}] Presupuesto agotado con un ítem en vuelo — cortando sin gastar intento`,
           );
           break;
-        } else {
-          stats.failed++;
-          const error = err instanceof Error ? err.message : String(err);
-
+        } else if (esFuenteSinRespuesta(err)) {
+          // Cuota diaria de MP agotada, o MP devolviendo un error suyo como un
+          // 2xx sin `Listado`. La fila no tuvo la culpa: no pudimos preguntar.
+          //
+          // VA ANTES DE `stats.failed++`, Y ESO ES EL PUNTO. En la primera
+          // versión de este arreglo quedó DESPUÉS, así que cada corte por cuota
+          // se contaba como un fallo: con 1 procesada y 1 fallida la tasa daba
+          // 1.0 contra un umbral de 0.5, `deriveRunStatus` marcaba la corrida
+          // como `failed` y salía por INCIDENTES — "Sync enrich-ordenes falló"—
+          // cuando lo que pasaba era que se acabó la cuota del ticket.
+          stats.throttled++;
+          logger.warn(
+            { codigo: candidate.externalCode, enriquecidas: stats.enriched },
+            `[${JOB_NAME}] MP sin respuesta útil (cuota diaria) — cortando sin gastar intentos`,
+          );
+          void sendOpsAlert({
+            level: 'warn',
+            channel: 'degradacion',
+            title: 'Enriquecimiento de OCs cortado: cuota diaria de Mercado Público agotada',
+            detail:
+              `Se enriquecieron ${stats.enriched} antes de que MP dejara de responder. ` +
+              'La cola queda intacta: ninguna fila gastó intento. Se retoma cuando la cuota se renueve.',
+            dedupeKey: 'enrich-cuota-mp',
+          });
+          break;
+        } else if (esThrottling(err)) {
           // Throttling NO es un fallo de la fila: MP rechaza por "peticiones
           // simultáneas" y esa OC sigue siendo perfectamente enriquecible. Si se
           // le consumiera un intento, 5 corridas con el ritmo mal calibrado la
@@ -209,53 +231,30 @@ export async function runEnrichOrdenesJob(): Promise<EnrichStats & { skipped: bo
           //
           // Se corta la corrida entera: MP ya está saturado y seguir pidiendo
           // sólo suma 429s. La próxima corrida retoma con la cola intacta.
-          // Cuota diaria agotada (o MP devolviendo un error como 2xx sin
-          // `Listado`). Se trata EXACTAMENTE igual que el 429: la fila no tuvo
-          // la culpa, no gasta intento, y se corta la corrida porque insistir
-          // con la cuota agotada sólo suma llamadas vacías. Se cuenta como
-          // `throttled` para que el workflow rompa la cadena de pasadas.
-          if (esFuenteSinRespuesta(err)) {
-            stats.throttled++;
-            logger.warn(
-              { codigo: candidate.externalCode, enriquecidas: stats.enriched },
-              `[${JOB_NAME}] MP sin respuesta útil (cuota diaria) — cortando sin gastar intentos`,
-            );
-            void sendOpsAlert({
-              level: 'warn',
-              channel: 'degradacion',
-              title: 'Enriquecimiento de OCs cortado: cuota diaria de Mercado Público agotada',
-              detail:
-                `Se enriquecieron ${stats.enriched} antes de que MP dejara de responder. ` +
-                'La cola queda intacta: ninguna fila gastó intento. Se retoma cuando la cuota se renueve.',
-              dedupeKey: 'enrich-cuota-mp',
-            });
-            break;
-          }
-
-          if (esThrottling(err)) {
-            stats.throttled++;
-            logger.warn(
-              { codigo: candidate.externalCode, procesadas: stats.enriched },
-              `[${JOB_NAME}] MP saturado (429) — cortando la corrida sin gastar intentos`,
-            );
-            // Degradación: la corrida no falló, se contuvo. Si esto aparece
-            // seguido, el ritmo (ENRICH_DELAY_MS) hay que revisarlo.
-            void sendOpsAlert({
-              level: 'warn',
-              channel: 'degradacion',
-              title: 'Enriquecimiento de OCs cortado por saturación de MP',
-              detail: `Se enriquecieron ${stats.enriched} antes del 429. La cola queda intacta — ninguna fila gastó intento.`,
-              dedupeKey: 'enrich-throttled',
-            });
-            break;
-          }
-
+          //
+          // También estaba después de `stats.failed++` — el mismo defecto, sólo
+          // que un 429 es raro y nunca llegó a verse.
+          stats.throttled++;
+          logger.warn(
+            { codigo: candidate.externalCode, procesadas: stats.enriched },
+            `[${JOB_NAME}] MP saturado (429) — cortando la corrida sin gastar intentos`,
+          );
+          void sendOpsAlert({
+            level: 'warn',
+            channel: 'degradacion',
+            title: 'Enriquecimiento de OCs cortado por saturación de MP',
+            detail: `Se enriquecieron ${stats.enriched} antes del 429. La cola queda intacta — ninguna fila gastó intento.`,
+            dedupeKey: 'enrich-throttled',
+          });
+          break;
+        } else {
+          // Fallo real de la fila.
+          stats.failed++;
+          const error = err instanceof Error ? err.message : String(err);
           logger.warn({ codigo: candidate.externalCode, error }, `[${JOB_NAME}] Enrichment failed`);
           // Un fallo real SÍ consume intento: sin esto la fila vuelve idéntica
           // en la próxima corrida (el orden del query es determinista) y ocupa
-          // el presupuesto para siempre. Era la razón de que las 78.829 filas
-          // pendientes tuvieran enrichment_attempts = 0 y de que cada corrida
-          // acertara siempre las mismas ~30 de 150.
+          // el presupuesto para siempre.
           await purchaseOrderRepository.incrementEnrichmentAttempts(candidate.externalCode);
           await sleep(ENRICH_DELAY_MS);
           continue;
