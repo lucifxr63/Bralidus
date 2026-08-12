@@ -1,3 +1,4 @@
+import { parseFechaChile } from '../../../shared/utils/chile-time.js';
 import type {
   MpLicitacionRaw,
   NormalizedLicitacion,
@@ -47,12 +48,14 @@ export function normalizeLicitacion(raw: MpLicitacionRaw): NormalizedLicitacion 
     // Comprador
     buyerOrgCode: extractBuyerOrgCode(buyer) ?? null,
     buyerOrgName: extractBuyerOrgName(buyer) ?? null,
-    buyerUnitCode: extractUnitCode(buyer) ?? null,
-    buyerUnitName: extractUnitName(buyer) ?? null,
-    buyerRegion: extractRegion(buyer) ?? null,
-    buyerCommune: extractCommune(buyer) ?? null,
-    buyerAddress: extractAddress(buyer) ?? null,
-    buyerResponsibleUser: raw.Comprador?.NombreUsuario ?? null,
+    buyerRut: limpiarTexto(buyer?.RutUnidad),
+    buyerUnitCode: limpiarTexto(extractUnitCode(buyer)),
+    buyerUnitName: limpiarTexto(extractUnitName(buyer)),
+    buyerRegion: limpiarTexto(extractRegion(buyer)),
+    buyerCommune: limpiarTexto(extractCommune(buyer)),
+    buyerAddress: limpiarTexto(extractAddress(buyer)),
+    buyerResponsibleUser: limpiarTexto(raw.Comprador?.NombreUsuario),
+    buyerResponsibleRole: limpiarTexto(raw.Comprador?.CargoUsuario),
 
     // Fechas — se resuelven desde la estructura Fechas o desde campos planos
     publishedAt: parseDate(fechas?.FechaPublicacion ?? raw.FechaPublicacion),
@@ -74,7 +77,7 @@ export function normalizeLicitacion(raw: MpLicitacionRaw): NormalizedLicitacion 
     estimatedAmount: raw.MontoEstimado ?? null,
     amountIsPublic: raw.VisibilidadMonto != null ? raw.VisibilidadMonto === 1 : null,
     amountEstimationType: raw.Estimacion ?? null,
-    amountJustification: raw.JustificacionMontoEstimado ?? null,
+    amountJustification: limpiarTexto(raw.JustificacionMontoEstimado),
 
     // Pago y contrato
     paymentModalityCode: raw.Modalidad ?? raw.TipoPago ?? null,
@@ -85,9 +88,12 @@ export function normalizeLicitacion(raw: MpLicitacionRaw): NormalizedLicitacion 
     renewalPeriodLabel: raw.PeriodoTiempoRenovacion ?? null,
 
     // Responsable de contrato
-    contractResponsibleName: raw.NombreResponsableContrato ?? null,
-    contractResponsibleEmail: raw.EmailResponsableContrato ?? null,
-    contractResponsiblePhone: raw.FonoResponsableContrato ?? null,
+    // MP manda estas tres claves SIEMPRE y vacías casi siempre: el email del
+    // responsable de contrato viene `""` en las 15.695 fichas. Sin limpiar,
+    // la columna guarda un string vacío que parece dato y no lo es.
+    contractResponsibleName: limpiarTexto(raw.NombreResponsableContrato),
+    contractResponsibleEmail: limpiarTexto(raw.EmailResponsableContrato),
+    contractResponsiblePhone: limpiarTexto(raw.FonoResponsableContrato),
 
     // Características
     allowsSubcontracting:
@@ -111,6 +117,9 @@ export function normalizeLicitacion(raw: MpLicitacionRaw): NormalizedLicitacion 
     awardActUrl: raw.Adjudicacion?.UrlActa ?? null,
 
     items,
+    // La v1 no entrega adjuntos en ninguna de sus 15.387 fichas. Va vacío
+    // porque la fuente no los tiene, no porque falte extraerlos.
+    attachments: [],
 
     rawPayloadJson: raw as unknown as Record<string, unknown>,
     normalizedPayloadJson: {}, // se completa abajo, una vez construido el objeto
@@ -122,11 +131,25 @@ export function normalizeLicitacion(raw: MpLicitacionRaw): NormalizedLicitacion 
 
 // ── Private helpers ─────────────────────────────────────────
 
-function parseDate(value: string | undefined | null): string | null {
-  if (!value) return null;
-  const d = new Date(value);
-  return isNaN(d.getTime()) ? null : d.toISOString();
+/**
+ * MP devuelve campos "presentes pero vacíos" con bastante frecuencia:
+ * `RutUsuario: ""` y regiones con espacio al final (`"Región del Biobío "`).
+ * Un string vacío guardado como dato obliga a cada consumidor a re-descubrir
+ * que no significa nada; `null` ya lo dice.
+ */
+function limpiarTexto(value: string | undefined | null): string | null {
+  const t = value?.trim();
+  return t ? t : null;
 }
+
+/**
+ * MP publica estas fechas sin zona y en hora de Chile. Acá había un
+ * `new Date(value)` pelado, que las resolvía contra la zona DEL PROCESO: el
+ * mismo dato quedaba distinto según si la ingesta corría local (Santiago) o en
+ * Vercel (UTC), y la tabla canónica terminó con tres convenios mezclados en la
+ * misma columna. El detalle medido está en `chile-time.ts`.
+ */
+const parseDate = parseFechaChile;
 
 function extractBuyerOrgCode(
   buyer: MpLicitacionRaw['Comprador'] | MpLicitacionRaw['Unidad'],

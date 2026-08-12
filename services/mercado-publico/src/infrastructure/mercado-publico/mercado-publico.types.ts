@@ -327,12 +327,16 @@ export type NormalizedLicitacion = {
   // Comprador
   buyerOrgCode: string | null;
   buyerOrgName: string | null;
+  /** RUT de la unidad de compra. v1 lo trae en `Comprador.RutUnidad`; v2 en `institucion.rut`. */
+  buyerRut: string | null;
   buyerUnitCode: string | null;
   buyerUnitName: string | null;
   buyerRegion: string | null;
   buyerCommune: string | null;
   buyerAddress: string | null;
   buyerResponsibleUser: string | null;
+  /** Cargo del encargado de la unidad de compra (`Comprador.CargoUsuario`). */
+  buyerResponsibleRole: string | null;
 
   // Fechas clave
   publishedAt: string | null;
@@ -388,8 +392,26 @@ export type NormalizedLicitacion = {
   awardActUrl: string | null;
 
   items: NormalizedLicitacionItem[];
+  /**
+   * Documentos oficiales del proceso. Sólo Compra Ágil (API v2) los entrega:
+   * la v1 de licitaciones NO devuelve adjuntos —verificado sobre 15.387 fichas,
+   * ninguna trae clave alguna de adjuntos—, así que ahí queda vacío y eso es un
+   * hecho de la fuente, no un pendiente de la ingesta.
+   */
+  attachments: NormalizedAttachment[];
   rawPayloadJson: Record<string, unknown>;
   normalizedPayloadJson: Record<string, unknown>;
+};
+
+/**
+ * `url` va aparte: la fuente entrega `id` y `nombre`, nunca un enlace de
+ * descarga. Se expone en `null` en vez de omitirse para que el consumidor
+ * sepa que el campo existe y que la fuente no lo llena.
+ */
+export type NormalizedAttachment = {
+  id: string | null;
+  nombre: string | null;
+  url: string | null;
 };
 
 export type NormalizedLicitacionItem = {

@@ -49,6 +49,43 @@ export interface CanonicalRow {
   attachments: unknown[];
   items: unknown[];
   raw_payload: Record<string, unknown>;
+
+  // ── Cronograma ────────────────────────────────────────────────────────────
+  // El normalizador ya resolvía estas nueve fechas y el mapper las tiraba: la
+  // tabla sólo guardaba publicación, cierre y adjudicación. Sin el resto no se
+  // puede preparar una oferta —cuándo se pregunta, cuándo se responde, cuándo
+  // se abre— y era lo segundo que pedía el integrador. No cuesta una llamada
+  // más a MP: ya estaban en el payload.
+  forum_start_at: string | null;
+  forum_end_at: string | null;
+  answers_published_at: string | null;
+  technical_opening_at: string | null;
+  economic_opening_at: string | null;
+  site_visit_at: string | null;
+  documents_deadline_at: string | null;
+  estimated_award_at: string | null;
+  estimated_sign_at: string | null;
+
+  // ── Comprador y contacto ──────────────────────────────────────────────────
+  buyer_unit_code: string | null;
+  buyer_unit_name: string | null;
+  buyer_region: string | null;
+  buyer_commune: string | null;
+  buyer_address: string | null;
+  buyer_contact_name: string | null;
+  buyer_contact_role: string | null;
+  contract_responsible_name: string | null;
+  contract_responsible_email: string | null;
+  contract_responsible_phone: string | null;
+
+  // ── Semántica del monto ───────────────────────────────────────────────────
+  // `amount_estimated = 0` colapsaba tres cosas distintas: sin monto informado,
+  // monto oculto por el organismo (`VisibilidadMonto = 0`) y proceso no
+  // estimable (`Estimacion = 3`). Estos dos campos las separan sin cambiar el
+  // significado del que ya existe.
+  amount_is_public: boolean | null;
+  amount_estimation_type: number | null;
+  amount_justification: string | null;
 }
 
 /**
@@ -127,9 +164,10 @@ export function toCanonicalRow(n: NormalizedLicitacion): CanonicalRow {
     // NOT NULL en destino: MP siempre trae organismo, pero un fallback explícito
     // es preferible a que reviente la corrida entera por un registro raro.
     buyer_name: n.buyerOrgName ?? n.buyerUnitName ?? 'Organismo no informado',
-    // MP no expone el RUT del comprador en este endpoint; queda para cuando
-    // se cruce con la identidad compartida del ecosistema.
-    buyer_rut: null,
+    // Decía "MP no expone el RUT del comprador en este endpoint". Sí lo expone:
+    // v1 en `Comprador.RutUnidad`, v2 en `institucion.rut` —presente en las
+    // 44.237 compras ágiles—. Se escribía `null` en las 59.932 filas.
+    buyer_rut: n.buyerRut,
     buyer_org_code: n.buyerOrgCode,
     source_type: sourceType,
     status_code: toCanonicalStatus(n.statusCode),
@@ -140,10 +178,37 @@ export function toCanonicalRow(n: NormalizedLicitacion): CanonicalRow {
     award_at: n.awardedAt,
     category: 'Contratación Pública',
     official_url: buildOfficialUrl(n.externalCode, sourceType),
-    // Este pipeline no descarga adjuntos (eso es el downloader aparte de
-    // BralidusPY); se deja el array vacío que la tabla espera por defecto.
-    attachments: [],
+    // Decía "este pipeline no descarga adjuntos" y devolvía siempre `[]`. No se
+    // trata de descargarlos: Compra Ágil los LISTA en su payload y el listado ya
+    // estaba guardado. Descargar el archivo sigue siendo otro problema —la
+    // fuente no da URL—, pero saber que existen y cómo se llaman no lo era.
+    attachments: n.attachments,
     items: n.items,
     raw_payload: n.rawPayloadJson,
+
+    forum_start_at: n.forumStartAt,
+    forum_end_at: n.forumEndAt,
+    answers_published_at: n.answersPublishedAt,
+    technical_opening_at: n.technicalOpeningAt,
+    economic_opening_at: n.economicOpeningAt,
+    site_visit_at: n.siteVisitAt,
+    documents_deadline_at: n.documentsDeadlineAt,
+    estimated_award_at: n.estimatedAwardAt,
+    estimated_sign_at: n.estimatedSignAt,
+
+    buyer_unit_code: n.buyerUnitCode,
+    buyer_unit_name: n.buyerUnitName,
+    buyer_region: n.buyerRegion,
+    buyer_commune: n.buyerCommune,
+    buyer_address: n.buyerAddress,
+    buyer_contact_name: n.buyerResponsibleUser,
+    buyer_contact_role: n.buyerResponsibleRole,
+    contract_responsible_name: n.contractResponsibleName,
+    contract_responsible_email: n.contractResponsibleEmail,
+    contract_responsible_phone: n.contractResponsiblePhone,
+
+    amount_is_public: n.amountIsPublic,
+    amount_estimation_type: n.amountEstimationType,
+    amount_justification: n.amountJustification,
   };
 }
