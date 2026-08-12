@@ -172,7 +172,24 @@ class CanonicalRepository {
       // refrescan: un registro de MP cambia de estado, monto y fechas con el
       // tiempo y la fila canónica debe reflejar el último dato conocido.
       const updates = COLUMNS.filter((c) => c !== 'external_code')
-        .map((c) => `${c} = EXCLUDED.${c}`)
+        .map((c) =>
+          c === 'attachments'
+            ? // Una lista VACÍA nunca pisa una que tenía algo.
+              //
+              // Sin esto, dos caminos normales borraban adjuntos buenos:
+              //   · `fetchEnlaceAnexos` devuelve [] cuando OCDS responde 429
+              //     (`consultado: false`) — o sea, "no pudimos preguntar" se
+              //     escribía como "no hay documentos".
+              //   · `refresh-opportunities` reingesta procesos que ya no están
+              //     adjudicados en su ventana y ni siquiera consulta OCDS.
+              // En ambos, una licitación con enlace guardado lo perdía. Los
+              // documentos de un proceso no desaparecen, así que degradar de
+              // "tiene" a "no tiene" es siempre un error de medición.
+              `${c} = case when EXCLUDED.${c} = '[]'::jsonb
+                           then licitaciones_mercado_publico.${c}
+                           else EXCLUDED.${c} end`
+            : `${c} = EXCLUDED.${c}`,
+        )
         .join(', ');
 
       try {
