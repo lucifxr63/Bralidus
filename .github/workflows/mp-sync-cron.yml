@@ -22,7 +22,11 @@ on:
     - cron: '0 6 * * *'      # sync-licitaciones (02:00 Chile)
     - cron: '30 6 * * *'     # sync-ordenes (02:30 Chile) — escalonado para no saturar MP
     - cron: '0 7 * * *'      # sync-compra-agil (03:00 Chile)
-    - cron: '15 */6 * * *'   # refresh-opportunities (cada 6 h a los :15)
+    - cron: '15 */3 * * *'   # refresh-opportunities (cada 3 h a los :15).
+                             # Pasó de 6 h a 3 h el 2026-08-12. Con cupo
+                             # reservado, el bucket de adjudicaciones recibe ~32
+                             # por corrida; a 4 corridas diarias el pool de 2.545
+                             # tardaba ~20 días en barrerse, con 8 baja a ~10.
     - cron: '0 3 * * 0'      # build-buyer-profiles (dom 03:00)
     - cron: '30 12 * * *'    # reporte-frescura (08:30 Chile) — despues de que
                              # corrieron los syncs de la madrugada, para que el
@@ -153,7 +157,7 @@ jobs:
               '0 6 * * *')     JOB=sync-licitaciones ;;
               '30 6 * * *')    JOB=sync-ordenes ;;
               '0 7 * * *')     JOB=sync-compra-agil ;;
-              '15 */6 * * *')  JOB=refresh-opportunities ;;
+              '15 */3 * * *')  JOB=refresh-opportunities ;;
               '0 3 * * 0')     JOB=build-buyer-profiles ;;
               '30 12 * * *')   JOB=reporte-frescura ;;
               '0 5 * * 1')     JOB=sync-pjud ;;

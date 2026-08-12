@@ -153,9 +153,24 @@ export class OpportunityRepository {
     return grouped;
   }
 
-  /** Candidatos para el refresh dirigido, ordenados por prioridad. */
-  async findRefreshCandidates(limit: number): Promise<RefreshCandidate[]> {
-    const rows = await query<Record<string, unknown>>(SQL.FIND_REFRESH_CANDIDATES, [limit]);
+  /**
+   * Candidatos para el refresh dirigido, ordenados por prioridad.
+   *
+   * `ventanaDias` acota hasta cuándo se sigue vigilando una licitación cerrada
+   * a la espera de su adjudicación. El default de 30 dejaba fuera el 36 % de
+   * los casos: la mediana real entre cierre y adjudicación son 22 días y el p90
+   * son 68 (medido sobre 5.766 adjudicadas).
+   */
+  async findRefreshCandidates(limit: number, ventanaDias = 30): Promise<RefreshCandidate[]> {
+    // Cupo reservado a la vigilancia de adjudicaciones. Sin piso, el bucket de
+    // "cierran en 72 h" —530 candidatos contra un lote de 80— se lleva el lote
+    // entero y las adjudicaciones no se miran nunca.
+    const cupoAdjudicaciones = Math.max(1, Math.floor(limit * 0.4));
+    const rows = await query<Record<string, unknown>>(SQL.FIND_REFRESH_CANDIDATES, [
+      limit,
+      ventanaDias,
+      cupoAdjudicaciones,
+    ]);
     return rows.map((row) => ({
       id: row['id'] as string,
       externalCode: row['external_code'] as string,
