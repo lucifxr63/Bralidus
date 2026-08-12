@@ -404,14 +404,37 @@ export type NormalizedLicitacion = {
 };
 
 /**
- * `url` va aparte: la fuente entrega `id` y `nombre`, nunca un enlace de
- * descarga. Se expone en `null` en vez de omitirse para que el consumidor
- * sepa que el campo existe y que la fuente no lo llena.
+ * Un adjunto puede venir de dos fuentes que NO entregan lo mismo, y mezclarlas
+ * bajo una forma común haría que un consumidor tratara una página web como si
+ * fuera un archivo descargable:
+ *
+ * · `compra_agil` — un ARCHIVO real, con nombre ("EETT.xlsx"), pero la fuente
+ *   nunca da enlace de descarga. `url` va en null.
+ * · `ocds_award`  — una PÁGINA que lista los anexos del proceso. El enlace
+ *   funciona, pero el listado que hay detrás exige un reCAPTCHA Enterprise, así
+ *   que tampoco se puede descargar programáticamente. Sólo existe en procesos
+ *   adjudicados.
+ *
+ * Por eso `tipo` y `descargable` van explícitos en vez de deducirse: hoy
+ * `descargable` es `false` en ambos casos, y quien itere esta lista tiene que
+ * poder saberlo sin conocer la historia de cada fuente.
  */
 export type NormalizedAttachment = {
   id: string | null;
   nombre: string | null;
+  /** Enlace, si la fuente lo da. `null` no significa que el documento no exista. */
   url: string | null;
+  /** `archivo` = un documento; `pagina` = dónde están listados. */
+  tipo: 'archivo' | 'pagina';
+  origen: 'compra_agil' | 'ocds_award';
+  /** Si se puede bajar sin intervención humana. Hoy siempre `false`. */
+  descargable: boolean;
+  /**
+   * Sólo para `ocds_award`: el token `enc` del enlace se regenera en cada
+   * respuesta de OCDS y no se conoce su caducidad. Guardar cuándo se obtuvo es
+   * lo que permitirá medirla si algún día empiezan a fallar.
+   */
+  obtenido_at?: string;
 };
 
 export type NormalizedLicitacionItem = {

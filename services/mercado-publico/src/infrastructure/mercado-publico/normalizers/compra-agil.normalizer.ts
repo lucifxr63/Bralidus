@@ -166,6 +166,9 @@ export function normalizeCompraAgil(
       nombre: d.nombre?.trim() || null,
       // La fuente entrega id y nombre, nunca un enlace de descarga.
       url: null,
+      tipo: 'archivo' as const,
+      origen: 'compra_agil' as const,
+      descargable: false,
     })),
 
     // Se guarda el par completo: convocatoria, proveedores_cotizando, flags e
