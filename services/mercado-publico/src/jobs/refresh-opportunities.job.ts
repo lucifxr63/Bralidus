@@ -19,6 +19,7 @@
 
 import { env } from '../app/env.js';
 import { logger } from '../infrastructure/logging/logger.js';
+import { mercadoPublicoClient } from '../infrastructure/mercado-publico/mercado-publico.client.js';
 import { ingestLicitacionUseCase } from '../modules/opportunities/application/ingest-licitacion.use-case.js';
 import {
   opportunityRepository,
@@ -77,6 +78,40 @@ const REFRESH_DELAY_MS = 2500;
  * 240 s deja 60 s de holgura para `notifyLicitus` y el cierre del log.
  */
 const REFRESH_TIME_BUDGET_MS = 240_000;
+
+/**
+ * Costo por candidato por encima de la espera. Mismo orden de magnitud que en
+ * `enrich-ordenes`, donde se midió en ~1,1 s: acá el ítem hace además el
+ * dual-write canónico, así que se toma algo más alto.
+ */
+const OVERHEAD_POR_ITEM_MS = 1300;
+
+/** Fracción del presupuesto de reloj que se deja usar a la corrida normal. */
+const USO_OBJETIVO_DEL_PRESUPUESTO = 0.85;
+
+/**
+ * Espera y tope derivados de los tickets VIVOS, igual que en `enrich-ordenes`.
+ *
+ * El límite de concurrencia de MP es por ticket y no por IP (62 % vs 88 % de
+ * acierto a 200 ms con uno y con dos), así que con dos se puede ir al doble sin
+ * perder acierto. Y si uno agota su cuota, `ticketsDisponibles()` baja y el
+ * ritmo vuelve solo al valor seguro.
+ *
+ * El tope por reloj importa acá más que en otros jobs: con 150 fijos y 2,5 s por
+ * ítem la corrida pedía ~6 min contra un techo de 300 s, y el resultado eran
+ * 31 corridas huérfanas. El tope nunca se alcanzaba — cortaba el reloj.
+ */
+function refreshDelayMs(): number {
+  return Math.round(REFRESH_DELAY_MS / mercadoPublicoClient.ticketsDisponibles());
+}
+
+function refreshMaxItems(): number {
+  const costoPorItem = refreshDelayMs() + OVERHEAD_POR_ITEM_MS;
+  const techoPorReloj = Math.floor(
+    (REFRESH_TIME_BUDGET_MS * USO_OBJETIVO_DEL_PRESUPUESTO) / costoPorItem,
+  );
+  return Math.max(1, Math.min(env.REFRESH_MAX_ITEMS, techoPorReloj));
+}
 
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 
@@ -260,7 +295,14 @@ export async function runRefreshOpportunitiesJob(): Promise<void> {
   const logId = await syncLogRepository.create({
     jobName: JOB_NAME,
     fechaConsultada: today,
-    metadata: { maxItems: env.REFRESH_MAX_ITEMS },
+    // El tope y el ritmo REALES, no los de env: con rotación de tickets no
+    // coinciden, y un diagnóstico posterior leería el número equivocado.
+    metadata: {
+      maxItems: refreshMaxItems(),
+      delayMs: refreshDelayMs(),
+      tickets: mercadoPublicoClient.ticketsDisponibles(),
+      ventanaDias: env.REFRESH_AWARD_WINDOW_DAYS,
+    },
   });
 
   const stats: RefreshStats = {
@@ -278,7 +320,11 @@ export async function runRefreshOpportunitiesJob(): Promise<void> {
   const events: PostIngestEvent[] = [];
 
   try {
-    const candidates = await opportunityRepository.findRefreshCandidates(env.REFRESH_MAX_ITEMS);
+    const maxItems = refreshMaxItems();
+    const candidates = await opportunityRepository.findRefreshCandidates(
+      maxItems,
+      env.REFRESH_AWARD_WINDOW_DAYS,
+    );
     stats.candidates = candidates.length;
     logger.info({ candidates: candidates.length }, `[${JOB_NAME}] Starting refresh pass`);
 
@@ -301,7 +347,7 @@ export async function runRefreshOpportunitiesJob(): Promise<void> {
         saturado = true;
         break;
       }
-      await sleep(REFRESH_DELAY_MS);
+      await sleep(refreshDelayMs());
     }
 
     if (saturado) {

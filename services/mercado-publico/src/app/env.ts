@@ -157,6 +157,19 @@ const envSchema = z.object({
   // ── Refresh / enriquecimiento ────────────────────────────────
   REFRESH_MAX_ITEMS: z.coerce.number().int().min(1).max(1000).default(150),
   REFRESH_CLOSING_SOON_HOURS: z.coerce.number().int().min(1).max(168).default(48),
+  /**
+   * Cuántos días se sigue vigilando una licitación ya cerrada esperando su
+   * adjudicación.
+   *
+   * Estaba fijo en 30 y eso dejaba fuera al 36 %: medido sobre 5.766
+   * adjudicadas, el rezago entre cierre y adjudicación tiene mediana 22 días,
+   * p80 48 y p90 68. La ventana cortaba justo por encima de la mediana, que es
+   * el peor lugar posible.
+   *
+   * 75 cubre el p90 sin el salto de tamaño de los 90: el pool del bucket pasa
+   * de 1.383 a 2.545 candidatos, mientras que a 90 días se dispara a 4.817.
+   */
+  REFRESH_AWARD_WINDOW_DAYS: z.coerce.number().int().min(1).max(180).default(75),
   ENRICH_OC_ENABLED: z
     .string()
     .transform((v) => v === 'true')

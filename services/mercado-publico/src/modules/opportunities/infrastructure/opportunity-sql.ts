@@ -94,35 +94,89 @@ export const SQL = {
    * modo incremental (COMPRA_AGIL_INCREMENTAL_HOURS) contra la API v2, que es
    * la única que las conoce.
    */
+  /**
+   * Candidatos del refresh dirigido. `$1` = tope, `$2` = días de la ventana de
+   * adjudicación.
+   *
+   * EL ORDEN DEL BUCKET 3 NO ES COSMÉTICO. Iba `closing_at ASC` —las que
+   * cerraron hace más tiempo, primero—, y una licitación que no se adjudica NO
+   * sale de la cola: sigue calificando hasta que envejece fuera de la ventana.
+   * O sea que la cabeza se reconsultaba en cada corrida y el resto nunca
+   * llegaba a su turno.
+   *
+   * Medido el 2026-08-12 sobre las 1.384 del bucket: 71 revisadas en 24 h y
+   * **902 (65 %) sin revisar hacía más de una semana**, la más antigua de hacía
+   * un mes. Eso —y no el largo de la ventana— es lo que hacía perder el 36 % de
+   * las adjudicaciones: no es que miráramos poco tiempo, es que mirábamos
+   * siempre a las mismas.
+   *
+   * Con `updated_at ASC` el bucket rota: la ingesta toca esa columna en cada
+   * refresco, así que "la menos revisada" es exactamente la que corresponde
+   * mirar. Los buckets 1 y 2 conservan `closing_at` porque ahí lo que manda es
+   * la urgencia del cierre, no la cobertura.
+   */
+  /**
+   * Candidatos del refresh. `$1` = tope del lote, `$2` = días de la ventana de
+   * adjudicación, `$3` = cupo reservado a la vigilancia de adjudicaciones.
+   *
+   * POR QUÉ HAY CUPO RESERVADO
+   * --------------------------
+   * Antes los tres buckets competían en un solo `ORDER BY priority`, y el
+   * bucket 2 (cierran en 72 h) tiene 530 candidatos contra un lote de 80: se
+   * llevaba el lote COMPLETO en cada corrida y el bucket 3 —el que detecta
+   * adjudicaciones— no recibía un solo cupo. Verificado antes de este cambio:
+   * el lote salía 80 de 80 en prioridad 2.
+   *
+   * Eso explica el 36 % de adjudicaciones perdidas mejor que el largo de la
+   * ventana: no es que mirásemos poco tiempo hacia atrás, es que no mirábamos.
+   *
+   * Y DENTRO del bucket 3 el orden es `updated_at ASC`, no `closing_at`: una
+   * licitación que no se adjudica NO sale de la cola, así que ordenar por fecha
+   * de cierre hacía que la cabeza se reconsultara eternamente. Medido: 902 de
+   * 1.384 (65 %) sin revisar hacía más de una semana. `updated_at` lo toca la
+   * ingesta en cada refresco, así que "la menos revisada" es exactamente la que
+   * corresponde mirar.
+   */
   FIND_REFRESH_CANDIDATES: `
-    SELECT * FROM (
-      SELECT DISTINCT ON (id) id, external_code, status_code, closing_at, priority FROM (
-        SELECT o.id, o.external_code, o.status_code, o.closing_at, 1 AS priority
-        FROM opportunities o
-        WHERE o.source_type NOT IN ('private', 'compra_agil')
-          AND (
-            EXISTS (SELECT 1 FROM saved_opportunities s WHERE s.opportunity_id = o.id)
-            OR EXISTS (SELECT 1 FROM opportunity_pipeline p WHERE p.opportunity_id = o.id)
-          )
-          AND (o.status_code IS NULL OR o.status_code NOT IN ('7','07','8','08','15','18','19'))
-          AND (o.closing_at IS NULL OR o.closing_at > NOW() - INTERVAL '30 days')
-        UNION ALL
-        SELECT o.id, o.external_code, o.status_code, o.closing_at, 2
-        FROM opportunities o
-        WHERE o.source_type NOT IN ('private', 'compra_agil')
-          AND o.status_code IN ('5','05')
-          AND o.closing_at BETWEEN NOW() AND NOW() + INTERVAL '72 hours'
-        UNION ALL
-        SELECT o.id, o.external_code, o.status_code, o.closing_at, 3
-        FROM opportunities o
-        WHERE o.source_type NOT IN ('private', 'compra_agil')
-          AND o.status_code IN ('5','05','6','06')
-          AND o.closing_at BETWEEN NOW() - INTERVAL '30 days' AND NOW()
-          AND o.award_act_url IS NULL
-      ) buckets
-      ORDER BY id, priority
-    ) dedup
-    ORDER BY priority ASC, closing_at ASC NULLS LAST
+    WITH urgentes AS (
+      SELECT * FROM (
+        SELECT DISTINCT ON (id) id, external_code, status_code, closing_at, priority, orden FROM (
+          SELECT o.id, o.external_code, o.status_code, o.closing_at, 1 AS priority, o.closing_at AS orden
+          FROM opportunities o
+          WHERE o.source_type NOT IN ('private', 'compra_agil')
+            AND (
+              EXISTS (SELECT 1 FROM saved_opportunities s WHERE s.opportunity_id = o.id)
+              OR EXISTS (SELECT 1 FROM opportunity_pipeline p WHERE p.opportunity_id = o.id)
+            )
+            AND (o.status_code IS NULL OR o.status_code NOT IN ('7','07','8','08','15','18','19'))
+            AND (o.closing_at IS NULL OR o.closing_at > NOW() - ($2 || ' days')::interval)
+          UNION ALL
+          SELECT o.id, o.external_code, o.status_code, o.closing_at, 2, o.closing_at
+          FROM opportunities o
+          WHERE o.source_type NOT IN ('private', 'compra_agil')
+            AND o.status_code IN ('5','05')
+            AND o.closing_at BETWEEN NOW() AND NOW() + INTERVAL '72 hours'
+        ) b ORDER BY id, priority
+      ) d ORDER BY priority ASC, orden ASC NULLS LAST
+      LIMIT GREATEST($1 - $3, 1)
+    ),
+    adjudicaciones AS (
+      SELECT o.id, o.external_code, o.status_code, o.closing_at, 3 AS priority, o.updated_at AS orden
+      FROM opportunities o
+      WHERE o.source_type NOT IN ('private', 'compra_agil')
+        AND o.status_code IN ('5','05','6','06')
+        AND o.closing_at BETWEEN NOW() - ($2 || ' days')::interval AND NOW()
+        AND o.award_act_url IS NULL
+        AND o.id NOT IN (SELECT id FROM urgentes)
+      ORDER BY o.updated_at ASC NULLS FIRST
+      LIMIT $1
+    )
+    SELECT id, external_code, status_code, closing_at, priority FROM (
+      SELECT * FROM urgentes
+      UNION ALL
+      SELECT * FROM adjudicaciones
+    ) lote
+    ORDER BY priority ASC, orden ASC NULLS LAST
     LIMIT $1
   `,
 
