@@ -354,6 +354,53 @@ class SyncLogRepository {
    * status daba verde sobre un job que no avanzaba, así que acá el status va
    * siempre acompañado del desglose que lo desmiente.
    */
+  /**
+   * Caudal REAL de un job en 24 h, no por corrida.
+   *
+   * "Harían falta ~648 corridas" no dice nada si nadie sabe cuántas corridas
+   * ocurren por día: pueden ser tres días o seis meses. Y `corridas` es además
+   * la señal que hay que vigilar ahora — un throttle hace `break` y corta la
+   * cadena de 10 pasadas del workflow, así que la mitad de las pasadas que
+   * faltaban no era lentitud sino cadenas rotas.
+   *
+   * `delayMs` y `tickets` salen del metadata que escribe cada pasada, no de
+   * env: con rotación de tickets no coinciden, y leer env acá mostraría un
+   * número que no es el que corrió.
+   */
+  async getDailyThroughput(jobName: string): Promise<{
+    corridas: number;
+    exitosas: number;
+    throttled: number;
+    cortadasPorTiempo: number;
+    itemsPorCorrida: number;
+    delayMs: number | null;
+    tickets: number | null;
+  }> {
+    const rows = await query<Record<string, string | null>>(
+      `SELECT count(*)                                              AS corridas,
+              coalesce(sum(total_succeeded), 0)                     AS exitosas,
+              coalesce(sum((metadata->>'throttled')::int), 0)       AS throttled,
+              count(*) FILTER (WHERE metadata->>'cortadaPorTiempo' = 'true') AS cortadas,
+              coalesce(avg(total_succeeded) FILTER (WHERE finished_at IS NOT NULL), 0) AS items_prom,
+              max((metadata->>'delayMs')::int)                      AS delay_ms,
+              max((metadata->>'tickets')::int)                      AS tickets
+         FROM sync_logs
+        WHERE job_name = $1
+          AND started_at > now() - interval '24 hours'`,
+      [jobName],
+    );
+    const r = rows[0] ?? {};
+    return {
+      corridas: Number(r['corridas'] ?? 0),
+      exitosas: Number(r['exitosas'] ?? 0),
+      throttled: Number(r['throttled'] ?? 0),
+      cortadasPorTiempo: Number(r['cortadas'] ?? 0),
+      itemsPorCorrida: Math.round(Number(r['items_prom'] ?? 0)),
+      delayMs: r['delay_ms'] == null ? null : Number(r['delay_ms']),
+      tickets: r['tickets'] == null ? null : Number(r['tickets']),
+    };
+  }
+
   async getRecentRuns(
     jobName: string,
     limit = 5,

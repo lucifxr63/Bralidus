@@ -462,25 +462,34 @@ export async function runReporteFrescuraJob(): Promise<void> {
     // sube a `warn` cuando el ritmo no alcanza para vaciar el backlog en un
     // plazo razonable — que es la pregunta real, no cuántas quedan.
     try {
-      const [backlog, corridas] = await Promise.all([
+      const [backlog, corridas, caudal, flujo] = await Promise.all([
         purchaseOrderRepository.getEnrichmentBacklog(),
         syncLogRepository.getRecentRuns('enrich-ordenes', 5),
+        syncLogRepository.getDailyThroughput('enrich-ordenes'),
+        purchaseOrderRepository.getFlowStats(),
       ]);
-
-      const terminadas = corridas.filter((r) => r.finishedAt !== null);
-      const exitosasPorCorrida =
-        terminadas.length > 0
-          ? terminadas.reduce((acc, r) => acc + r.succeeded, 0) / terminadas.length
-          : 0;
-      const corridasParaVaciar =
-        exitosasPorCorrida > 0 ? Math.ceil(backlog.pendientes / exitosasPorCorrida) : null;
 
       const pctCompleto =
         backlog.total > 0 ? Math.round((backlog.completas / backlog.total) * 1000) / 10 : 0;
 
-      // Más de 60 corridas (≈ 2 meses a una por día) o directamente sin ritmo
-      // medible: no está drenando.
-      const estancado = corridasParaVaciar === null || corridasParaVaciar > 60;
+      // EL NÚMERO QUE IMPORTA: lo que se enriquece menos lo que entra.
+      //
+      // Antes esto se reportaba como "harían falta ~N corridas", que no dice
+      // nada si nadie sabe cuántas corridas hay por día —pueden ser tres días o
+      // seis meses— y sobre todo ignora la ENTRADA. Con 8,3k enriquecidas y
+      // 8,8k llegando, el backlog no se mueve por más corridas que haya.
+      const neto = caudal.exitosas - flujo.entradas24h;
+      const diasParaVaciar = neto > 0 ? Math.ceil(backlog.pendientes / neto) : null;
+      const estancado = diasParaVaciar === null || diasParaVaciar > 30;
+
+      // Lo que se pidió de verdad: que una OC de hoy traiga su detalle hoy.
+      const pctDelDia =
+        flujo.delDia > 0 ? Math.round((flujo.completasDelDia / flujo.delDia) * 100) : 0;
+
+      // 240 = 10 pasadas encadenadas × 24 disparos horarios. Veníamos en ~120:
+      // un throttle hace `break` y se lleva puestas las pasadas que faltaban,
+      // así que esta razón es el termómetro de si las cadenas se completan.
+      const PASADAS_TEORICAS_DIA = 240;
 
       await sendOpsAlert({
         level: backlog.pendientes === 0 ? 'info' : estancado ? 'warn' : 'info',
@@ -490,22 +499,48 @@ export async function runReporteFrescuraJob(): Promise<void> {
           backlog.pendientes === 0
             ? '**Backlog vacío.** Todas las órdenes alcanzables están enriquecidas.'
             : estancado
-              ? `**No está drenando.** ${corridasParaVaciar === null ? 'Ninguna corrida reciente completó órdenes' : `harían falta ~${corridasParaVaciar} corridas`}. Revisar el ritmo (ENRICH_DELAY_MS) y los 429.`
-              : `Drenando: ~${corridasParaVaciar} corridas para vaciar el backlog.`,
+              ? `**No está drenando.** Entran ${flujo.entradas24h.toLocaleString('es-CL')}/día y se completan ${caudal.exitosas.toLocaleString('es-CL')}/día: ${neto <= 0 ? `la cola CRECE ${Math.abs(neto).toLocaleString('es-CL')}/día` : `sobran sólo ${neto.toLocaleString('es-CL')}/día`}. Mirar pasadas/día y throttled antes que el ritmo.`
+              : `Drenando ${neto.toLocaleString('es-CL')}/día · ~${diasParaVaciar} días para vaciar el backlog.`,
         fields: [
-          { name: 'Pendientes', value: backlog.pendientes.toLocaleString('es-CL'), inline: true },
-          { name: 'Completas', value: backlog.completas.toLocaleString('es-CL'), inline: true },
           {
-            name: 'Sin reintentos',
-            value: `${backlog.agotadas.toLocaleString('es-CL')}\nya no se reintentan`,
+            // El indicador de lo que se pidió: que la OC de hoy traiga su
+            // detalle hoy. El backlog puede estar enorme y esto igual sano.
+            name: 'OCs de hoy completas',
+            value: `${pctDelDia}%\n${flujo.completasDelDia.toLocaleString('es-CL')} de ${flujo.delDia.toLocaleString('es-CL')}`,
             inline: true,
           },
           {
-            name: 'Por corrida',
+            name: 'Caudal neto',
+            value: `${neto > 0 ? '+' : ''}${neto.toLocaleString('es-CL')}/día\n${caudal.exitosas.toLocaleString('es-CL')} ✓ vs ${flujo.entradas24h.toLocaleString('es-CL')} entradas`,
+            inline: true,
+          },
+          {
+            // Un throttle corta la cadena de 10 pasadas, así que esta razón
+            // detecta cadenas rotas — que valen mucho más que el ritmo.
+            name: 'Pasadas / día',
+            value: `${caudal.corridas} de ${PASADAS_TEORICAS_DIA}\n${caudal.cortadasPorTiempo} cortadas por reloj`,
+            inline: true,
+          },
+          {
+            name: 'Throttled (429)',
             value:
-              terminadas.length > 0
-                ? `${Math.round(exitosasPorCorrida)} OCs\n(medido en ${terminadas.length})`
-                : 'sin medir',
+              caudal.throttled === 0
+                ? '0\nsin cortes por MP'
+                : `${caudal.throttled.toLocaleString('es-CL')}\ncortan la cadena de pasadas`,
+            inline: true,
+          },
+          {
+            name: 'Ritmo real',
+            value:
+              caudal.delayMs == null
+                ? 'sin registrar'
+                : `${caudal.delayMs} ms · ${caudal.tickets ?? 1} ticket(s)\n${caudal.itemsPorCorrida} OCs por pasada`,
+            inline: true,
+          },
+          { name: 'Pendientes', value: backlog.pendientes.toLocaleString('es-CL'), inline: true },
+          {
+            name: 'Sin reintentos',
+            value: `${backlog.agotadas.toLocaleString('es-CL')}\nya no se reintentan`,
             inline: true,
           },
           {

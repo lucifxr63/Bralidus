@@ -260,6 +260,34 @@ export class PurchaseOrderRepository {
    * de órdenes faltantes, es de órdenes sin enriquecer. Verlos juntos evita
    * repetir el diagnóstico equivocado de salir a re-descargar meses enteros.
    */
+  /**
+   * Flujo de OCs: lo que ENTRA contra lo que se alcanza a completar.
+   *
+   * El backlog por sí solo no dice si el problema se está arreglando o
+   * empeorando — para eso hace falta la resta. Y `completasDelDia` es el
+   * indicador de lo que realmente se pidió: que una orden emitida hoy traiga su
+   * detalle hoy, no dentro de seis días.
+   */
+  async getFlowStats(): Promise<{
+    entradas24h: number;
+    delDia: number;
+    completasDelDia: number;
+  }> {
+    const rows = await query<Record<string, string>>(
+      `SELECT count(*) FILTER (WHERE created_at > now() - interval '24 hours') AS entradas_24h,
+              count(*) FILTER (WHERE created_at::date = current_date)          AS del_dia,
+              count(*) FILTER (WHERE created_at::date = current_date
+                                 AND supplier_code IS NOT NULL)                AS completas_del_dia
+         FROM purchase_orders`,
+    );
+    const r = rows[0] ?? {};
+    return {
+      entradas24h: Number(r['entradas_24h'] ?? 0),
+      delDia: Number(r['del_dia'] ?? 0),
+      completasDelDia: Number(r['completas_del_dia'] ?? 0),
+    };
+  }
+
   async getEnrichmentBacklog(): Promise<{
     total: number;
     completas: number;
