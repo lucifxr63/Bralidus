@@ -1119,7 +1119,7 @@ export const API_DOCS: EndpointDoc[] = [
       { name: 'anio', type: 'number', required: false, description: 'Año de la consulta (ej: 2025)' },
       { name: 'libro', type: 'string', required: false, description: 'Civil, Criminal, Familia, Reforma Laboral, …' },
       { name: 'tipo_recurso', type: 'string', required: false, description: 'Coincidencia parcial, ej: "Amparo" o "Casación"' },
-      { name: 'grupo_termino', type: 'string', required: false, description: 'Confirmados, Revocados, Rechazados, Inadmisibles, Acogidos…' },
+      { name: 'grupo_termino', type: 'string', required: false, description: 'Coincidencia EXACTA, no parcial: Confirmados, Revocados, Rechazados, Inadmisibles, Acogidos, Desistidos. La lista no es exhaustiva y un valor inexistente devuelve 0 filas sin error — no lo leas como ausencia de causas.' },
       { name: 'sala', type: 'string', required: false, description: 'Coincidencia parcial, ej: "CONSTITUCIONAL"' },
       { name: 'desde', type: 'string', required: false, description: 'Fecha de ingreso mínima (YYYY-MM-DD)' },
       { name: 'hasta', type: 'string', required: false, description: 'Fecha de ingreso máxima (YYYY-MM-DD)' },
