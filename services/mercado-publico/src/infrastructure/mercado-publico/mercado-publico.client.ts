@@ -11,9 +11,26 @@ const maxRetries = (): number => (env.NODE_ENV === 'test' ? 0 : 4);
 const RETRY_DELAY_MS = 2000;
 const RATE_LIMIT_DELAY_MS = 5000; // 429: esperar más antes de reintentar
 
+/**
+ * Cuánto queda sin usar un ticket que reportó cuota diaria agotada.
+ *
+ * MP la renueva a medianoche, pero no dice cuándo ni devuelve el cupo restante.
+ * 30 min es un reintento barato: si la cuota ya volvió se retoma solo, y si no,
+ * se pierde una llamada cada media hora en vez de quemar el lote entero contra
+ * un ticket muerto.
+ */
+const CUOTA_AGOTADA_COOLDOWN_MS = 30 * 60 * 1000;
+
+/** Código que MP devuelve —dentro de un 200— cuando el ticket agotó su cuota. */
+const CODIGO_CUOTA_AGOTADA = '203';
+
 class MercadoPublicoClient {
   private _http: HttpClient | null = null;
-  private _ticket: string | null = null;
+  private _tickets: string[] | null = null;
+  /** Round-robin: apunta al próximo ticket a usar. */
+  private _siguiente = 0;
+  /** ticket → instante hasta el que NO se usa por cuota agotada. */
+  private readonly _enPausa = new Map<string, number>();
   // Un breaker POR endpoint (path): si el detalle de OC se cae pero
   // licitaciones.json responde, abrir un breaker no debe bloquear al otro.
   private readonly _breakers = new Map<string, CircuitBreaker>();
@@ -22,8 +39,59 @@ class MercadoPublicoClient {
     return (this._http ??= createHttpClient(env.MERCADO_PUBLICO_BASE_URL, 30_000));
   }
 
-  private get ticket(): string {
-    return (this._ticket ??= env.MERCADO_PUBLICO_TICKET);
+  /** Tickets configurados, en orden. Uno o dos. */
+  get tickets(): string[] {
+    return (this._tickets ??= [
+      env.MERCADO_PUBLICO_TICKET,
+      ...(env.MERCADO_PUBLICO_TICKET2 ? [env.MERCADO_PUBLICO_TICKET2] : []),
+    ]);
+  }
+
+  /**
+   * Próximo ticket a usar, en round-robin, saltando los que están en pausa por
+   * cuota agotada.
+   *
+   * Si TODOS están en pausa devuelve igual el siguiente en vez de lanzar: que
+   * MP conteste 203 otra vez es información —y la maneja el caller—, mientras
+   * que fallar acá dejaría a la corrida sin poder distinguir "cuota agotada"
+   * de "cliente mal configurado".
+   */
+  private proximoTicket(): string {
+    const pool = this.tickets;
+    const ahora = Date.now();
+
+    for (let i = 0; i < pool.length; i++) {
+      const ticket = pool[(this._siguiente + i) % pool.length]!;
+      const pausadoHasta = this._enPausa.get(ticket) ?? 0;
+      if (pausadoHasta <= ahora) {
+        this._siguiente = (this._siguiente + i + 1) % pool.length;
+        return ticket;
+      }
+    }
+
+    const ticket = pool[this._siguiente % pool.length]!;
+    this._siguiente = (this._siguiente + 1) % pool.length;
+    return ticket;
+  }
+
+  /**
+   * Aparta un ticket que reportó cuota agotada. NO es un fallo del request: el
+   * caller decide si reintenta con otro o corta.
+   */
+  private pausarPorCuota(ticket: string): void {
+    this._enPausa.set(ticket, Date.now() + CUOTA_AGOTADA_COOLDOWN_MS);
+    const vivos = this.tickets.filter((t) => (this._enPausa.get(t) ?? 0) <= Date.now()).length;
+    logger.warn(
+      { ticketsVivos: vivos, deTotal: this.tickets.length },
+      '[mp] ticket apartado por cuota diaria agotada',
+    );
+  }
+
+  /** Cuántos tickets utilizables hay ahora. Lo usan los jobs para fijar su ritmo. */
+  ticketsDisponibles(): number {
+    const ahora = Date.now();
+    const vivos = this.tickets.filter((t) => (this._enPausa.get(t) ?? 0) <= ahora).length;
+    return Math.max(1, vivos);
   }
 
   private breakerFor(path: string): CircuitBreaker {
@@ -46,7 +114,7 @@ class MercadoPublicoClient {
       'publico/licitaciones.json',
       {
         codigo,
-        ticket: this.ticket,
+        ticket: this.proximoTicket(),
       },
       env.SYNC_ITEM_TIMEOUT_MS,
       shouldAbort,
@@ -68,7 +136,7 @@ class MercadoPublicoClient {
       {
         fecha,
         pagina: String(pagina),
-        ticket: this.ticket,
+        ticket: this.proximoTicket(),
       },
       60_000,
     ); // 60s — MP puede ser lento para fechas con muchas licitaciones
@@ -86,7 +154,7 @@ class MercadoPublicoClient {
       {
         fecha,
         pagina: String(pagina),
-        ticket: this.ticket,
+        ticket: this.proximoTicket(),
       },
       60_000,
     ); // MP puede ser muy lento para OC
@@ -117,7 +185,7 @@ class MercadoPublicoClient {
       'publico/ordenesdecompra.json',
       {
         codigo,
-        ticket: this.ticket,
+        ticket: this.proximoTicket(),
       },
       undefined,
       shouldAbort,
@@ -178,6 +246,24 @@ class MercadoPublicoClient {
 
         // No reintentar otros 4xx (errores de cliente)
         if (status != null && status >= 400 && status < 500) break;
+
+        // Cuota diaria agotada: no es un fallo del endpoint sino de ESTE
+        // ticket. Se aparta y, si hay otro vivo, el ítem se reintenta con él en
+        // vez de perderse. Va ANTES del `err instanceof AppError` de abajo, que
+        // cortaba de inmediato y hacía que el segundo ticket no sirviera de
+        // nada justo cuando más falta hace.
+        if (err instanceof AppError && esCuotaAgotada(err)) {
+          const usado = params.ticket;
+          if (usado) this.pausarPorCuota(usado);
+          const otro = this.proximoTicket();
+          if (otro && otro !== usado && attempt <= MAX_RETRIES) {
+            params = { ...params, ticket: otro };
+            logger.warn({ path, attempt }, '[mp] cuota agotada — reintentando con el otro ticket');
+            continue;
+          }
+          break;
+        }
+
         if (err instanceof AppError) break;
         if (shouldAbort?.()) break;
 
@@ -280,6 +366,17 @@ function exigirListado(data: unknown, path: string): void {
       : `Mercado Público respondió sin Listado en ${path}: ${mensaje}`,
     { mpCodigo: cuerpo?.Codigo ?? null, mpMensaje: mensaje, cuotaAgotada, sinListado: true },
   );
+}
+
+/**
+ * ¿Este AppError es "el ticket agotó su cuota diaria"?
+ *
+ * Se mira tanto la bandera que pone `exigirListado` como el código crudo de MP:
+ * el mensaje viene en castellano y podría cambiar de redacción, el código 203 no.
+ */
+function esCuotaAgotada(err: AppError): boolean {
+  const d = err.details as { cuotaAgotada?: boolean; mpCodigo?: unknown } | null | undefined;
+  return d?.cuotaAgotada === true || String(d?.mpCodigo ?? '') === CODIGO_CUOTA_AGOTADA;
 }
 
 function extractDetail(err: unknown): Record<string, unknown> {

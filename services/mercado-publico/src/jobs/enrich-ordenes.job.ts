@@ -15,6 +15,7 @@ import { env } from '../app/env.js';
 import { logger } from '../infrastructure/logging/logger.js';
 import { ingestOrdenCompraUseCase } from '../modules/purchase-orders/application/ingest-orden-compra.use-case.js';
 import { purchaseOrderRepository } from '../modules/purchase-orders/infrastructure/purchase-order.repository.js';
+import { mercadoPublicoClient } from '../infrastructure/mercado-publico/mercado-publico.client.js';
 import { syncLogRepository } from '../modules/sync/infrastructure/sync-log.repository.js';
 import {
   deriveRunStatus,
@@ -55,6 +56,87 @@ const JOB_NAME = 'enrich-ordenes';
  * de ahí que ENRICH_OC_MAX_ITEMS deba acompañar este valor.
  */
 const ENRICH_DELAY_MS = 2500;
+
+/**
+ * Espera real entre consultas, repartida entre los tickets disponibles.
+ *
+ * El límite de concurrencia de MP es POR TICKET, no por IP — medido el
+ * 2026-08-12 desde una sola IP con 60 consultas por condición: a 200 ms, un
+ * ticket acierta 62 % y alternando dos acierta 88 %. Si fuera por IP, alternar
+ * no habría cambiado nada.
+ *
+ * Así que con N tickets se puede ir N veces más rápido sin perder acierto: cada
+ * uno sigue recibiendo una consulta cada ENRICH_DELAY_MS. Verificado en el punto
+ * de operación exacto —dos tickets a 1250 ms— con 30/30 = 100 %.
+ *
+ * Se calcula por pasada y no una vez, a propósito: si un ticket agota su cuota
+ * el cliente lo aparta, `ticketsDisponibles()` baja a 1 y el ritmo vuelve solo a
+ * 2500 ms. Sin eso, seguiríamos pidiendo al doble de velocidad contra un único
+ * ticket vivo y la tasa de acierto se caería a la mitad.
+ */
+function delayPorTicketsMs(): number {
+  return Math.round(ENRICH_DELAY_MS / mercadoPublicoClient.ticketsDisponibles());
+}
+
+/**
+ * Costo por ítem por ENCIMA de la espera: latencia del request más las
+ * escrituras de la fila.
+ *
+ * MEDIDO en producción el 2026-08-12, no estimado:
+ *
+ *   espera 2500 ms → 3,47 s por ítem (123 corridas)  ⇒ overhead ~0,97 s
+ *   espera 1250 ms → 2,55 s por ítem (1 corrida)     ⇒ overhead ~1,30 s
+ *
+ * Acá había 330 ms, sacados de restarle 2,5 s a un promedio viejo de 2,83 s.
+ * Estaba mal por un factor de tres, y la consecuencia fue concreta: el tope
+ * calculado dio 134 ítems cuando en 250 s sólo entran ~100, así que la primera
+ * pasada con dos tickets terminó `cortadaPorTiempo` con 104 de 134. Una pasada
+ * que SIEMPRE se corta convierte `partial` en el estado normal y lo vacía de
+ * significado — justo lo que el presupuesto de reloj venía a evitar.
+ *
+ * Se toma 1100 ms, entre las dos mediciones. El overhead no es constante
+ * —crece un poco al pedir más seguido—, así que el techo por reloj queda
+ * ligeramente conservador en el régimen rápido, que es donde conviene errar.
+ */
+const OVERHEAD_POR_ITEM_MS = 1100;
+
+/** Fracción del presupuesto de reloj que se deja usar a la pasada normal. */
+const USO_OBJETIVO_DEL_PRESUPUESTO = 0.85;
+
+/**
+ * Ítems de la pasada, derivados del ritmo real en vez de fijos.
+ *
+ * Sin esto, duplicar la velocidad no serviría de nada: la pasada terminaría
+ * antes pero con los mismos 80 ítems, y como el workflow encadena un número
+ * FIJO de pasadas, el caudal diario no se movería. La ganancia de los dos
+ * tickets está en procesar más por pasada, no en terminar antes.
+ *
+ * El techo por reloj se recalcula con la espera vigente, así que con un solo
+ * ticket vivo el tope baja solo y la pasada sigue cerrando bajo presupuesto.
+ *
+ * CUÁNTO DA, con el overhead ya medido:
+ *
+ *   1 ticket  (2500 ms) → 59 ítems
+ *   2 tickets (1250 ms) → 90 ítems
+ *
+ * OJO — con un ticket da 59 y no 80. No es una regresión: las 123 corridas
+ * medidas con 80 de tope completaban 72 en promedio y duraban 238 s, o sea que
+ * el tope de 80 no se alcanzaba casi nunca y la pasada cerraba por reloj. 59 es
+ * lo que de verdad entra; la diferencia era un número que no describía nada.
+ *
+ * Y por eso la ganancia de los dos tickets es de ~25 % por pasada, no del 100 %:
+ * el overhead de ~1 s no se reduce al bajar la espera. Lo que sí desapareció
+ * por completo es el throttling (429), que era lo que cortaba las cadenas de
+ * pasadas — ahí puede estar el resto del caudal, pero hay que medirlo.
+ */
+function maxItemsPorPasada(): number {
+  const costoPorItem = delayPorTicketsMs() + OVERHEAD_POR_ITEM_MS;
+  const techoPorReloj = Math.floor(
+    (ENRICH_TIME_BUDGET_MS * USO_OBJETIVO_DEL_PRESUPUESTO) / costoPorItem,
+  );
+  const porTickets = env.ENRICH_OC_MAX_ITEMS * mercadoPublicoClient.ticketsDisponibles();
+  return Math.max(1, Math.min(porTickets, techoPorReloj));
+}
 
 /**
  * Techo de tiempo de una pasada, como red de seguridad bajo los 300 s de la
@@ -133,7 +215,14 @@ export async function runEnrichOrdenesJob(): Promise<EnrichStats & { skipped: bo
   const logId = await syncLogRepository.create({
     jobName: JOB_NAME,
     fechaConsultada: today,
-    metadata: { maxItems: env.ENRICH_OC_MAX_ITEMS },
+    // Se registran el tope y el ritmo REALES de la pasada, no el valor de env:
+    // con dos tickets no coinciden, y sin esto un diagnóstico posterior leería
+    // el número equivocado.
+    metadata: {
+      maxItems: maxItemsPorPasada(),
+      delayMs: delayPorTicketsMs(),
+      tickets: mercadoPublicoClient.ticketsDisponibles(),
+    },
   });
 
   const stats: EnrichStats = {
@@ -146,7 +235,8 @@ export async function runEnrichOrdenesJob(): Promise<EnrichStats & { skipped: bo
   };
 
   try {
-    const candidates = await purchaseOrderRepository.findPendingEnrichment(env.ENRICH_OC_MAX_ITEMS);
+    const maxItems = maxItemsPorPasada();
+    const candidates = await purchaseOrderRepository.findPendingEnrichment(maxItems);
     stats.candidates = candidates.length;
     logger.info({ candidates: candidates.length }, `[${JOB_NAME}] Starting enrichment pass`);
 
@@ -256,7 +346,7 @@ export async function runEnrichOrdenesJob(): Promise<EnrichStats & { skipped: bo
           // en la próxima corrida (el orden del query es determinista) y ocupa
           // el presupuesto para siempre.
           await purchaseOrderRepository.incrementEnrichmentAttempts(candidate.externalCode);
-          await sleep(ENRICH_DELAY_MS);
+          await sleep(delayPorTicketsMs());
           continue;
         }
       }
@@ -271,7 +361,7 @@ export async function runEnrichOrdenesJob(): Promise<EnrichStats & { skipped: bo
       }
 
       // Ritmo propio del endpoint de detalle, no el de los listados.
-      await sleep(ENRICH_DELAY_MS);
+      await sleep(delayPorTicketsMs());
     }
 
     // Estado por TASA de fallo (regla compartida en run-status.ts), no por

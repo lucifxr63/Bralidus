@@ -30,6 +30,26 @@ export function buildInsertPurchaseOrderItems(rowCount: number): string {
     ) VALUES ${rows.join(',')} RETURNING *`;
 }
 
+/**
+ * Ventana que separa "OC recién llegada" de "cola histórica".
+ *
+ * 48 h y no 24: `sync-ordenes` corre una vez al día, así que una OC ingresada
+ * justo después de la corrida de ayer todavía tiene que alcanzar a entrar en
+ * el carril fresco.
+ */
+const VENTANA_RECIENTE = '48 hours';
+
+/**
+ * Fracción de cada lote reservada a las OCs recién llegadas. El resto drena la
+ * cola histórica.
+ *
+ * Con la capacidad actual (~8.3k enriquecidas/día) y la entrada real (~8.8k/día)
+ * NO alcanza para las dos cosas: priorizar lo nuevo necesariamente frena lo
+ * viejo. 0,8 es la repartición que mantiene las OCs del día al día y aun así
+ * deja ~1.600 diarias mordiendo el backlog, en vez de congelarlo del todo.
+ */
+const PROPORCION_RECIENTES = 0.8;
+
 export class PurchaseOrderRepository {
   async upsertFromNormalized(
     data: NormalizedOrdenCompra,
@@ -167,23 +187,61 @@ export class PurchaseOrderRepository {
     return { ...order, items: items.map(mapRowToPurchaseOrderItem) };
   }
 
+
+
   /**
-   * OCs pendientes de enriquecer (sin proveedor y sin agotar reintentos),
-   * priorizando las de organismos con buyer_profile (mayor valor para el
-   * buyer intelligence) y luego las más antiguas.
+   * OCs pendientes de enriquecer (sin proveedor y sin agotar reintentos), en
+   * DOS CARRILES: primero las recién llegadas, después la cola histórica.
+   *
+   * POR QUÉ DOS CARRILES
+   * --------------------
+   * Acá había un solo `ORDER BY … po.created_at ASC` — las más viejas primero.
+   * Medido el 2026-08-12: la cola pendiente eran 7 días completos de llegadas
+   * (51.439 OCs), así que una orden emitida hoy quedaba detrás de ~42.000 y
+   * **tardaba ~6 días en tener proveedor, monto e ítems**. Justo el dato que
+   * alguien consulta el mismo día en que la orden aparece.
+   *
+   * FIFO parece justo pero acá es al revés: la OC de hoy es la que se está
+   * mirando, y la de la semana pasada ya nadie la espera.
+   *
+   * Dentro del carril fresco se sigue prefiriendo a los organismos con
+   * `buyer_profile` (el criterio original, que alimenta buyer intelligence).
    */
   async findPendingEnrichment(
     limit: number,
   ): Promise<Array<{ externalCode: string; buyerOrgCode: string | null }>> {
+    const cupoRecientes = Math.max(1, Math.floor(limit * PROPORCION_RECIENTES));
+
     const rows = await query<{ external_code: string; buyer_org_code: string | null }>(
-      `SELECT po.external_code, po.buyer_org_code
-         FROM purchase_orders po
-         LEFT JOIN buyer_profiles bp ON bp.org_code = po.buyer_org_code
-        WHERE po.supplier_code IS NULL
-          AND po.enrichment_attempts < 5
-        ORDER BY (bp.org_code IS NOT NULL) DESC, po.created_at ASC
-        LIMIT $1`,
-      [limit],
+      `WITH pendientes AS (
+         SELECT po.external_code, po.buyer_org_code, po.created_at,
+                (bp.org_code IS NOT NULL) AS con_perfil
+           FROM purchase_orders po
+           LEFT JOIN buyer_profiles bp ON bp.org_code = po.buyer_org_code
+          WHERE po.supplier_code IS NULL
+            AND po.enrichment_attempts < 5
+       ),
+       recientes AS (
+         SELECT external_code, buyer_org_code FROM pendientes
+          WHERE created_at > now() - interval '${VENTANA_RECIENTE}'
+          ORDER BY con_perfil DESC, created_at DESC
+          LIMIT $2
+       ),
+       historicas AS (
+         SELECT external_code, buyer_org_code FROM pendientes
+          WHERE created_at <= now() - interval '${VENTANA_RECIENTE}'
+            -- Dentro del backlog se mantiene FIFO: sin esto, las más viejas
+            -- nunca saldrían y la cola tendría una cola inmortal.
+          ORDER BY con_perfil DESC, created_at ASC
+          LIMIT $1
+       )
+       SELECT * FROM (
+         SELECT * FROM recientes
+         UNION ALL
+         SELECT * FROM historicas
+       ) lote
+       LIMIT $1`,
+      [limit, cupoRecientes],
     );
     return rows.map((r) => ({ externalCode: r.external_code, buyerOrgCode: r.buyer_org_code }));
   }
@@ -202,6 +260,34 @@ export class PurchaseOrderRepository {
    * de órdenes faltantes, es de órdenes sin enriquecer. Verlos juntos evita
    * repetir el diagnóstico equivocado de salir a re-descargar meses enteros.
    */
+  /**
+   * Flujo de OCs: lo que ENTRA contra lo que se alcanza a completar.
+   *
+   * El backlog por sí solo no dice si el problema se está arreglando o
+   * empeorando — para eso hace falta la resta. Y `completasDelDia` es el
+   * indicador de lo que realmente se pidió: que una orden emitida hoy traiga su
+   * detalle hoy, no dentro de seis días.
+   */
+  async getFlowStats(): Promise<{
+    entradas24h: number;
+    delDia: number;
+    completasDelDia: number;
+  }> {
+    const rows = await query<Record<string, string>>(
+      `SELECT count(*) FILTER (WHERE created_at > now() - interval '24 hours') AS entradas_24h,
+              count(*) FILTER (WHERE created_at::date = current_date)          AS del_dia,
+              count(*) FILTER (WHERE created_at::date = current_date
+                                 AND supplier_code IS NOT NULL)                AS completas_del_dia
+         FROM purchase_orders`,
+    );
+    const r = rows[0] ?? {};
+    return {
+      entradas24h: Number(r['entradas_24h'] ?? 0),
+      delDia: Number(r['del_dia'] ?? 0),
+      completasDelDia: Number(r['completas_del_dia'] ?? 0),
+    };
+  }
+
   async getEnrichmentBacklog(): Promise<{
     total: number;
     completas: number;
