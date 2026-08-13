@@ -158,7 +158,13 @@ export const SQL = {
             AND o.closing_at BETWEEN NOW() AND NOW() + INTERVAL '72 hours'
         ) b ORDER BY id, priority
       ) d ORDER BY priority ASC, orden ASC NULLS LAST
-      LIMIT GREATEST($1 - $3, 1)
+      -- Los ::int NO son decorativos. Sin ellos los dos parámetros llegan sin tipo
+      -- por el protocolo extendido y Postgres aborta la consulta ENTERA con
+      -- "operator is not unique: unknown - unknown": no existe un '-' preferido
+      -- entre dos unknown (a diferencia de '||', que sí se resuelve a text, por eso
+      -- el ($2 || ' days') de abajo funciona). Escribir los números a mano en psql
+      -- no lo detecta —ahí son literales tipados—; sólo falla vía driver.
+      LIMIT GREATEST($1::int - $3::int, 1)
     ),
     adjudicaciones AS (
       SELECT o.id, o.external_code, o.status_code, o.closing_at, 3 AS priority, o.updated_at AS orden
